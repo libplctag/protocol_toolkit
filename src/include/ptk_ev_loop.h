@@ -10,10 +10,8 @@
  * - Configuration-based object creation
  * - Event-driven design with minimal boilerplate
  *
+ * Buffer ownership: see the comments
  *
- * Buffer ownership: The callee owns the buffer.  When a pointer to a pointer
- * to a buffer is passed to a function, the function owns the buffer and needs
- * to release its resources.
  */
 
 #include <stdint.h>
@@ -76,14 +74,32 @@ typedef enum {
 typedef struct {
     ptk_event_type type;        // Type of event
     ptk_sock *sock;             // Socket that generated the event
-    buf **data;                // Data buffer, callee ownership (for read events, NULL otherwise)
-    const char *remote_host;   // Remote host (for accept/connect/UDP events)
-    int64_t event_time_ms;     // Event time in milliseconds since epoch
-    int remote_port;           // Remote port (for accept/connect/UDP events)
+    ptk_buf *data;              // Read/write,
+                                /*
+                                 * On read:
+
+                                 * the buffer contains the cursor set at the
+                                 * end of the data.  The callback/receiving function
+                                 * should change that to show the actual amount of data
+                                 * read/consumed.  The event handler caller will look
+                                 * at that value and retain any remaining data internally.
+                                 * When more data comes in it is appended to the end of the
+                                 * existing data.
+                                 *
+                                 * on write:
+                                 *
+                                 * The buffer returned will indicate the amount of data written
+                                 * by the cursor positions.  Note that this will not be the full
+                                 * amount of data only in the case of an error writing.
+                                 */
+    const char *remote_host;    // Remote host (for accept/connect/UDP events)
+    int64_t event_time_ms;      // Event time in milliseconds since epoch
+    int remote_port;            // Remote port (for accept/connect/UDP events)
     ptk_err error;              // Error code (for error events)
     ptk_sock_state sock_state;  // Current socket state
-    void *user_data;           // User data passed during socket creation
+    void *user_data;            // User data passed during socket creation
 } ptk_event;
+
 
 /**
  * Event callback function type
@@ -91,6 +107,8 @@ typedef struct {
  * @param event The event that occurred
  */
 typedef void (*ptk_callback)(const ptk_event *event);
+
+
 
 //=============================================================================
 // EVENT LOOP MANAGEMENT
@@ -192,7 +210,6 @@ typedef struct {
     // Optional settings
     uint32_t connect_timeout_ms; // Connection timeout (default: 30000 if 0)
     bool keep_alive;           // Enable TCP keep-alive (default: false)
-    size_t read_buffer_size;   // Read buffer size (default: 8192 if 0)
 } ptk_tcp_client_opts;
 
 /**
@@ -215,16 +232,13 @@ ptk_err ptk_tcp_connect(ptk_loop *loop, ptk_sock **client, const ptk_tcp_client_
  * event is delivered when the write completes. The library takes
  * ownership of the buffer and will free it after writing.
  *
- * The library owns the data buffer after this call.  The buffer is
- * passed as a pointer to a pointer.  The library nulls out the
- * caller's pointer to the buffer when this is called.  The library
- * takes owernship of the buffer data and frees it when done.
+ *
  *
  * @param sock The TCP client socket to write to
  * @param data Data to write (ownership transferred)
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_tcp_write(ptk_sock *sock, buf **data);
+ptk_err ptk_tcp_write(ptk_sock *sock, ptk_buf *data);
 
 //=============================================================================
 // TCP Server
@@ -313,7 +327,7 @@ ptk_err ptk_udp_create(ptk_loop *loop, ptk_sock **udp_sock, const ptk_udp_opts *
  * @param port Destination port
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_udp_send(ptk_sock *sock, buf **data, const char *host, int port);
+ptk_err ptk_udp_send(ptk_sock *sock, ptk_buf **data, const char *host, int port);
 
 //=============================================================================
 // TIMERS
@@ -542,7 +556,7 @@ static inline ptk_sock_state ptk_event_get_sock_state(const ptk_event *event) {
  * @param event The event
  * @return Pointer to the data buffer pointer (for read events, NULL otherwise)
  */
-static inline buf **ptk_event_get_data(const ptk_event *event) {
+static inline ptk_buf **ptk_event_get_data(const ptk_event *event) {
     return event ? event->data : NULL;
 }
 

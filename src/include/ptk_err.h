@@ -22,6 +22,18 @@ typedef enum {
     PTK_ERR_ADDRESS_IN_USE,     // Address already in use
     PTK_ERR_CONNECTION_REFUSED, // Connection refused by remote
     PTK_ERR_HOST_UNREACHABLE,   // Host unreachable
+    PTK_ERR_PROTOCOL_ERROR,     // Protocol-specific error
+    PTK_ERR_CHECKSUM_FAILED,    // Checksum/CRC verification failed
+    PTK_ERR_BUFFER_TOO_SMALL,   // Buffer too small for operation
+    PTK_ERR_PARSE_ERROR,        // Failed to parse data
+    PTK_ERR_UNSUPPORTED_VERSION, // Unsupported protocol version
+    PTK_ERR_SEQUENCE_ERROR,     // Sequence/ordering error
+    PTK_ERR_AUTHENTICATION_FAILED, // Authentication failed
+    PTK_ERR_AUTHORIZATION_FAILED,  // Authorization failed
+    PTK_ERR_RATE_LIMITED,       // Rate limit exceeded
+    PTK_ERR_DEVICE_BUSY,        // Device is busy
+    PTK_ERR_DEVICE_FAILURE,     // Device failure
+    PTK_ERR_CONFIGURATION_ERROR, // Configuration error
 } ptk_err;
 
 /**

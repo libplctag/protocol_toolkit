@@ -8,6 +8,10 @@
 
 #include "ptk_err.h"
 
+
+#define PTK_BUF_CHUNK_SIZE (1024)
+
+
 /**
  * @brief This provides the API for data buffer handling.
  *
@@ -107,7 +111,20 @@ typedef double ptk_f64_le_bs;
  * @param initial_size
  * @return ptk_err
  */
-extern ptk_err ptk_buf_alloc(ptk_buf *new_buf, size_t initial_size);
+extern ptk_err ptk_buf_alloc(ptk_buf **new_buf, size_t initial_size);
+
+/**
+ * @brief Create a new buffer containing data from an existing buffer.
+ *
+ * The destination buffer is now and the data is copied to it.
+ *
+ * @param dest
+ * @param data a pointer to the data to insert.
+ * @param size the number of bytes to insert into the buffer.
+ * @param expand_to_fit if true, will expand the buffer when the cursor would go out of bounds.
+ * @return ptk_err
+ */
+extern ptk_err ptk_buf_alloc_from_buf(ptk_buf **new_buf, ptk_buf *src, size_t start, size_t len);
 
 /**
  * @brief Release all resources used by the buffer.
@@ -115,6 +132,16 @@ extern ptk_err ptk_buf_alloc(ptk_buf *new_buf, size_t initial_size);
  * @param buf The buffer to release.
  */
 extern void ptk_buf_free(ptk_buf *buf);
+
+/**
+ * @brief Get the length of the data in the buffer.
+ *
+ * @param len
+ * @param buf
+ * @return ptk_err
+ */
+extern ptk_err ptk_buf_get_len(size_t *len, ptk_buf *buf);
+
 
 /**
  * @brief Get the current cursor position
@@ -138,25 +165,19 @@ extern ptk_err ptk_buf_get_cursor(size_t *cursor, ptk_buf *buf);
  */
 extern ptk_err ptk_buf_set_cursor(ptk_buf *buf, size_t offset, bool expand_to_fit);
 
-/**
- * @brief get a u8 value at the cursor position.
- *
- * @param out
- * @param buf
- * @param peek - if set, do not update the cursor position.
- * @return ptk_err
- */
-extern ptk_err ptk_buf_get_u8(ptk_u8 *out, ptk_buf *buf, bool peek);
 
 /**
- * @brief Set the passed u8 value at the cursor position.
+ * @brief Add raw data to the buffer.
  *
- * @param dest
- * @param value
- * @param expand_to_fit if true, will expand the buffer when the cursor would go out of bounds.
+ * This directly adds on to the end of the buffer's data.  It does not move
+ * the cursor.  It does change the length of the buffer.
+ *
+ * @param buf  the buffer in which to add the data
+ * @param data the data to add
+ * @param len the amount of data to add in bytes
  * @return ptk_err
  */
-extern ptk_err ptk_buf_set_u8(ptk_buf *dest, ptk_u8 value, bool expand_to_fit);
+extern ptk_err ptk_buf_add_raw_data(ptk_buf *buf, const void *data, size_t len);
 
 
 /*

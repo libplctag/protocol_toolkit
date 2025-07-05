@@ -16,9 +16,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "buf.h"
-#include "log.h"
-#include "ptk_loop.h"
+#include "ptk_buf.h"
+#include "ptk_log.h"
+#include "ptk_ev_loop.h"
+#include "ptk_thread.h"
+#include "ptk_atomic.h"
 
 //=============================================================================
 // MODBUS PROTOCOL CONSTANTS
@@ -68,21 +70,8 @@
 // MODBUS ERROR TYPES
 //=============================================================================
 
-typedef enum {
-    MODBUS_OK = 0,
-    MODBUS_ERR_NULL_PTR,
-    MODBUS_ERR_NO_RESOURCES,
-    MODBUS_ERR_INVALID_PARAM,
-    MODBUS_ERR_ILLEGAL_FUNCTION,
-    MODBUS_ERR_ILLEGAL_DATA_ADDRESS,
-    MODBUS_ERR_ILLEGAL_DATA_VALUE,
-    MODBUS_ERR_SERVER_DEVICE_FAILURE,
-    MODBUS_ERR_CRC_MISMATCH,
-    MODBUS_ERR_BUFFER_TOO_SMALL,
-    MODBUS_ERR_TIMEOUT,
-    MODBUS_ERR_CONNECTION_FAILED,
-    MODBUS_ERR_PARSE_ERROR,
-} modbus_err_t;
+// Use PTK error codes for consistency
+typedef ptk_err modbus_err_t;
 
 //=============================================================================
 // MODBUS TCP PROTOCOL STRUCTURES
@@ -93,166 +82,166 @@ typedef enum {
  * All multi-byte fields are big-endian as per Modbus TCP specification
  */
 typedef struct {
-    uint16_t transaction_id;       // Transaction identifier
-    uint16_t protocol_id;          // Protocol identifier (always 0)
-    uint16_t length;               // Length of following bytes
-    uint8_t unit_id;               // Unit identifier (slave address)
+    ptk_u16_be transaction_id;     // Transaction identifier
+    ptk_u16_be protocol_id;        // Protocol identifier (always 0)
+    ptk_u16_be length;             // Length of following bytes
+    ptk_u8 unit_id;                // Unit identifier (slave address)
 } modbus_mbap_header_t;
 
 /**
  * @brief Read Coils Request (Function Code 0x01)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x01
-    uint16_t starting_address;     // Starting coil address
-    uint16_t quantity_of_coils;    // Number of coils to read
+    ptk_u8 function_code;          // Always 0x01
+    ptk_u16_be starting_address;   // Starting coil address
+    ptk_u16_be quantity_of_coils;  // Number of coils to read
 } modbus_read_coils_req_t;
 
 /**
  * @brief Read Coils Response (Function Code 0x01)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x01
-    uint8_t byte_count;            // Number of data bytes to follow
-    uint8_t *coil_status;          // Coil status bytes (packed bits)
+    ptk_u8 function_code;          // Always 0x01
+    ptk_u8 byte_count;             // Number of data bytes to follow
+    ptk_u8 *coil_status;           // Coil status bytes (packed bits)
 } modbus_read_coils_resp_t;
 
 /**
  * @brief Read Discrete Inputs Request (Function Code 0x02)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x02
-    uint16_t starting_address;     // Starting input address
-    uint16_t quantity_of_inputs;   // Number of inputs to read
+    ptk_u8 function_code;          // Always 0x02
+    ptk_u16_be starting_address;   // Starting input address
+    ptk_u16_be quantity_of_inputs; // Number of inputs to read
 } modbus_read_discrete_inputs_req_t;
 
 /**
  * @brief Read Discrete Inputs Response (Function Code 0x02)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x02
-    uint8_t byte_count;            // Number of data bytes to follow
-    uint8_t *input_status;         // Input status bytes (packed bits)
+    ptk_u8 function_code;          // Always 0x02
+    ptk_u8 byte_count;             // Number of data bytes to follow
+    ptk_u8 *input_status;          // Input status bytes (packed bits)
 } modbus_read_discrete_inputs_resp_t;
 
 /**
  * @brief Read Holding Registers Request (Function Code 0x03)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x03
-    uint16_t starting_address;     // Starting register address
-    uint16_t quantity_of_registers; // Number of registers to read
+    ptk_u8 function_code;          // Always 0x03
+    ptk_u16_be starting_address;   // Starting register address
+    ptk_u16_be quantity_of_registers; // Number of registers to read
 } modbus_read_holding_registers_req_t;
 
 /**
  * @brief Read Holding Registers Response (Function Code 0x03)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x03
-    uint8_t byte_count;            // Number of data bytes to follow
-    uint16_t *register_values;     // Register values
+    ptk_u8 function_code;          // Always 0x03
+    ptk_u8 byte_count;             // Number of data bytes to follow
+    ptk_u16_be *register_values;   // Register values
 } modbus_read_holding_registers_resp_t;
 
 /**
  * @brief Read Input Registers Request (Function Code 0x04)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x04
-    uint16_t starting_address;     // Starting register address
-    uint16_t quantity_of_registers; // Number of registers to read
+    ptk_u8 function_code;          // Always 0x04
+    ptk_u16_be starting_address;   // Starting register address
+    ptk_u16_be quantity_of_registers; // Number of registers to read
 } modbus_read_input_registers_req_t;
 
 /**
  * @brief Read Input Registers Response (Function Code 0x04)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x04
-    uint8_t byte_count;            // Number of data bytes to follow
-    uint16_t *register_values;     // Register values
+    ptk_u8 function_code;          // Always 0x04
+    ptk_u8 byte_count;             // Number of data bytes to follow
+    ptk_u16_be *register_values;   // Register values
 } modbus_read_input_registers_resp_t;
 
 /**
  * @brief Write Single Coil Request (Function Code 0x05)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x05
-    uint16_t output_address;       // Coil address
-    uint16_t output_value;         // 0xFF00 (ON) or 0x0000 (OFF)
+    ptk_u8 function_code;          // Always 0x05
+    ptk_u16_be output_address;     // Coil address
+    ptk_u16_be output_value;       // 0xFF00 (ON) or 0x0000 (OFF)
 } modbus_write_single_coil_req_t;
 
 /**
  * @brief Write Single Coil Response (Function Code 0x05)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x05
-    uint16_t output_address;       // Echo of request
-    uint16_t output_value;         // Echo of request
+    ptk_u8 function_code;          // Always 0x05
+    ptk_u16_be output_address;     // Echo of request
+    ptk_u16_be output_value;       // Echo of request
 } modbus_write_single_coil_resp_t;
 
 /**
  * @brief Write Single Register Request (Function Code 0x06)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x06
-    uint16_t register_address;     // Register address
-    uint16_t register_value;       // Register value
+    ptk_u8 function_code;          // Always 0x06
+    ptk_u16_be register_address;   // Register address
+    ptk_u16_be register_value;     // Register value
 } modbus_write_single_register_req_t;
 
 /**
  * @brief Write Single Register Response (Function Code 0x06)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x06
-    uint16_t register_address;     // Echo of request
-    uint16_t register_value;       // Echo of request
+    ptk_u8 function_code;          // Always 0x06
+    ptk_u16_be register_address;   // Echo of request
+    ptk_u16_be register_value;     // Echo of request
 } modbus_write_single_register_resp_t;
 
 /**
  * @brief Write Multiple Coils Request (Function Code 0x0F)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x0F
-    uint16_t starting_address;     // Starting coil address
-    uint16_t quantity_of_outputs;  // Number of coils to write
-    uint8_t byte_count;            // Number of data bytes to follow
-    uint8_t *output_values;        // Coil values (packed bits)
+    ptk_u8 function_code;          // Always 0x0F
+    ptk_u16_be starting_address;   // Starting coil address
+    ptk_u16_be quantity_of_outputs; // Number of coils to write
+    ptk_u8 byte_count;             // Number of data bytes to follow
+    ptk_u8 *output_values;         // Coil values (packed bits)
 } modbus_write_multiple_coils_req_t;
 
 /**
  * @brief Write Multiple Coils Response (Function Code 0x0F)
  */
 typedef struct {
-    uint8_t function_code;         // Always 0x0F
-    uint16_t starting_address;     // Echo of request
-    uint16_t quantity_of_outputs;  // Echo of request
+    ptk_u8 function_code;          // Always 0x0F
+    ptk_u16_be starting_address;   // Echo of request
+    ptk_u16_be quantity_of_outputs; // Echo of request
 } modbus_write_multiple_coils_resp_t;
 
 /**
  * @brief Write Multiple Registers Request (Function Code 0x10)
  */
 typedef struct {
-    uint8_t function_code;          // Always 0x10
-    uint16_t starting_address;      // Starting register address
-    uint16_t quantity_of_registers; // Number of registers to write
-    uint8_t byte_count;             // Number of data bytes to follow
-    uint16_t *register_values;      // Register values
+    ptk_u8 function_code;           // Always 0x10
+    ptk_u16_be starting_address;    // Starting register address
+    ptk_u16_be quantity_of_registers; // Number of registers to write
+    ptk_u8 byte_count;              // Number of data bytes to follow
+    ptk_u16_be *register_values;    // Register values
 } modbus_write_multiple_registers_req_t;
 
 /**
  * @brief Write Multiple Registers Response (Function Code 0x10)
  */
 typedef struct {
-    uint8_t function_code;          // Always 0x10
-    uint16_t starting_address;      // Echo of request
-    uint16_t quantity_of_registers; // Echo of request
+    ptk_u8 function_code;           // Always 0x10
+    ptk_u16_be starting_address;    // Echo of request
+    ptk_u16_be quantity_of_registers; // Echo of request
 } modbus_write_multiple_registers_resp_t;
 
 /**
  * @brief Modbus Exception Response
  */
 typedef struct {
-    uint8_t function_code;          // Original function code + 0x80
-    uint8_t exception_code;         // Exception code
+    ptk_u8 function_code;           // Original function code + 0x80
+    ptk_u8 exception_code;          // Exception code
 } modbus_exception_resp_t;
 
 //=============================================================================
@@ -266,11 +255,11 @@ typedef struct modbus_data_store modbus_data_store_t;
  * @brief Configuration for Modbus data store
  */
 typedef struct {
-    uint16_t coil_count;           // Number of coils (default: 10000)
-    uint16_t discrete_input_count; // Number of discrete inputs (default: 10000)
-    uint16_t holding_register_count; // Number of holding registers (default: 10000)
-    uint16_t input_register_count; // Number of input registers (default: 10000)
-    bool read_only_coils;          // Make coils read-only (default: false)
+    ptk_u16_be coil_count;           // Number of coils (default: 10000)
+    ptk_u16_be discrete_input_count; // Number of discrete inputs (default: 10000)
+    ptk_u16_be holding_register_count; // Number of holding registers (default: 10000)
+    ptk_u16_be input_register_count; // Number of input registers (default: 10000)
+    bool read_only_coils;            // Make coils read-only (default: false)
     bool read_only_holding_registers; // Make holding registers read-only (default: false)
 } modbus_data_store_config_t;
 
@@ -301,8 +290,8 @@ void modbus_data_store_destroy(modbus_data_store_t *store);
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_data_store_read_coils(modbus_data_store_t *store,
-                                          uint16_t address, uint16_t count,
-                                          uint8_t *values);
+                                          ptk_u16_be address, ptk_u16_be count,
+                                          ptk_u8 *values);
 
 /**
  * @brief Write coils to the data store (thread-safe)
@@ -314,8 +303,8 @@ modbus_err_t modbus_data_store_read_coils(modbus_data_store_t *store,
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_data_store_write_coils(modbus_data_store_t *store,
-                                           uint16_t address, uint16_t count,
-                                           const uint8_t *values);
+                                           ptk_u16_be address, ptk_u16_be count,
+                                           const ptk_u8 *values);
 
 /**
  * @brief Read discrete inputs from the data store (thread-safe)
@@ -327,8 +316,8 @@ modbus_err_t modbus_data_store_write_coils(modbus_data_store_t *store,
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_data_store_read_discrete_inputs(modbus_data_store_t *store,
-                                                    uint16_t address, uint16_t count,
-                                                    uint8_t *values);
+                                                    ptk_u16_be address, ptk_u16_be count,
+                                                    ptk_u8 *values);
 
 /**
  * @brief Read holding registers from the data store (thread-safe)
@@ -340,8 +329,8 @@ modbus_err_t modbus_data_store_read_discrete_inputs(modbus_data_store_t *store,
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_data_store_read_holding_registers(modbus_data_store_t *store,
-                                                      uint16_t address, uint16_t count,
-                                                      uint16_t *values);
+                                                      ptk_u16_be address, ptk_u16_be count,
+                                                      ptk_u16_be *values);
 
 /**
  * @brief Write holding registers to the data store (thread-safe)
@@ -353,8 +342,8 @@ modbus_err_t modbus_data_store_read_holding_registers(modbus_data_store_t *store
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_data_store_write_holding_registers(modbus_data_store_t *store,
-                                                       uint16_t address, uint16_t count,
-                                                       const uint16_t *values);
+                                                       ptk_u16_be address, ptk_u16_be count,
+                                                       const ptk_u16_be *values);
 
 /**
  * @brief Read input registers from the data store (thread-safe)
@@ -366,8 +355,8 @@ modbus_err_t modbus_data_store_write_holding_registers(modbus_data_store_t *stor
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_data_store_read_input_registers(modbus_data_store_t *store,
-                                                    uint16_t address, uint16_t count,
-                                                    uint16_t *values);
+                                                    ptk_u16_be address, ptk_u16_be count,
+                                                    ptk_u16_be *values);
 
 //=============================================================================
 // MODBUS SERVER
@@ -383,7 +372,7 @@ typedef struct {
     const char *bind_host;         // Host to bind to (NULL for all interfaces)
     int bind_port;                 // Port to bind to (default: 502)
     modbus_data_store_t *data_store; // Data store to use
-    uint8_t unit_id;               // Unit identifier (slave address)
+    ptk_u8 unit_id;                // Unit identifier (slave address)
     size_t max_connections;        // Maximum concurrent connections
 } modbus_server_config_t;
 
@@ -395,7 +384,7 @@ typedef struct {
  * @param config Server configuration
  * @return MODBUS_OK on success, error code on failure
  */
-modbus_err_t modbus_server_create(ptk_loop *loop, modbus_server_t **server,
+modbus_err_t modbus_server_create(ptk_ev_loop *loop, modbus_server_t **server,
                                   const modbus_server_config_t *config);
 
 /**
@@ -418,7 +407,7 @@ typedef struct modbus_client modbus_client_t;
 typedef struct {
     const char *host;              // Server host
     int port;                      // Server port (default: 502)
-    uint8_t unit_id;               // Unit identifier (slave address)
+    ptk_u8 unit_id;                // Unit identifier (slave address)
     uint32_t timeout_ms;           // Request timeout in milliseconds
 } modbus_client_config_t;
 
@@ -430,7 +419,7 @@ typedef struct {
  * @param config Client configuration
  * @return MODBUS_OK on success, error code on failure
  */
-modbus_err_t modbus_client_create(ptk_loop *loop, modbus_client_t **client,
+modbus_err_t modbus_client_create(ptk_ev_loop *loop, modbus_client_t **client,
                                   const modbus_client_config_t *config);
 
 /**
@@ -450,8 +439,8 @@ void modbus_client_destroy(modbus_client_t *client);
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_client_read_coils(modbus_client_t *client,
-                                      uint16_t address, uint16_t count,
-                                      uint8_t *values);
+                                      ptk_u16_be address, ptk_u16_be count,
+                                      ptk_u8 *values);
 
 /**
  * @brief Read holding registers from a Modbus server (synchronous)
@@ -463,8 +452,8 @@ modbus_err_t modbus_client_read_coils(modbus_client_t *client,
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_client_read_holding_registers(modbus_client_t *client,
-                                                  uint16_t address, uint16_t count,
-                                                  uint16_t *values);
+                                                  ptk_u16_be address, ptk_u16_be count,
+                                                  ptk_u16_be *values);
 
 /**
  * @brief Write single coil to a Modbus server (synchronous)
@@ -475,7 +464,7 @@ modbus_err_t modbus_client_read_holding_registers(modbus_client_t *client,
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_client_write_single_coil(modbus_client_t *client,
-                                             uint16_t address, bool value);
+                                             ptk_u16_be address, bool value);
 
 /**
  * @brief Write single register to a Modbus server (synchronous)
@@ -486,7 +475,7 @@ modbus_err_t modbus_client_write_single_coil(modbus_client_t *client,
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_client_write_single_register(modbus_client_t *client,
-                                                 uint16_t address, uint16_t value);
+                                                 ptk_u16_be address, ptk_u16_be value);
 
 //=============================================================================
 // UTILITY FUNCTIONS
@@ -517,7 +506,7 @@ static inline size_t modbus_bits_to_bytes(size_t bit_count) {
  * @param bit_count Number of bits
  * @param bytes Output buffer for packed bytes
  */
-void modbus_pack_bits(const uint8_t *bits, size_t bit_count, uint8_t *bytes);
+void modbus_pack_bits(const ptk_u8 *bits, size_t bit_count, ptk_u8 *bytes);
 
 /**
  * @brief Unpack bit values from bytes
@@ -526,7 +515,7 @@ void modbus_pack_bits(const uint8_t *bits, size_t bit_count, uint8_t *bytes);
  * @param bit_count Number of bits to unpack
  * @param bits Output array for bit values (0 or 1)
  */
-void modbus_unpack_bits(const uint8_t *bytes, size_t bit_count, uint8_t *bits);
+void modbus_unpack_bits(const ptk_u8 *bytes, size_t bit_count, ptk_u8 *bits);
 
 //=============================================================================
 // PROTOCOL ENCODE/DECODE FUNCTIONS
@@ -535,29 +524,29 @@ void modbus_unpack_bits(const uint8_t *bytes, size_t bit_count, uint8_t *bits);
 /**
  * @brief Encode MBAP header
  */
-modbus_err_t modbus_mbap_header_encode(buf *dest, const modbus_mbap_header_t *header);
+modbus_err_t modbus_mbap_header_encode(ptk_buf *dest, const modbus_mbap_header_t *header);
 
 /**
  * @brief Decode MBAP header
  */
-modbus_err_t modbus_mbap_header_decode(modbus_mbap_header_t *header, buf *src);
+modbus_err_t modbus_mbap_header_decode(modbus_mbap_header_t *header, ptk_buf *src);
 
 /**
  * @brief Encode read holding registers request
  */
-modbus_err_t modbus_read_holding_registers_req_encode(buf *dest,
+modbus_err_t modbus_read_holding_registers_req_encode(ptk_buf *dest,
                                                      const modbus_read_holding_registers_req_t *req);
 
 /**
  * @brief Decode read holding registers request
  */
 modbus_err_t modbus_read_holding_registers_req_decode(modbus_read_holding_registers_req_t *req,
-                                                     buf *src);
+                                                     ptk_buf *src);
 
 /**
  * @brief Encode read holding registers response
  */
-modbus_err_t modbus_read_holding_registers_resp_encode(buf *dest,
+modbus_err_t modbus_read_holding_registers_resp_encode(ptk_buf *dest,
                                                       const modbus_read_holding_registers_resp_t *resp);
 
 /**
@@ -570,5 +559,5 @@ modbus_err_t modbus_read_holding_registers_resp_encode(buf *dest,
  * @return MODBUS_OK on success, error code on failure
  */
 modbus_err_t modbus_process_request(modbus_data_store_t *data_store,
-                                   buf *request_buf, buf **response_buf,
-                                   uint8_t unit_id);
+                                   ptk_buf *request_buf, ptk_buf **response_buf,
+                                   ptk_u8 unit_id);
