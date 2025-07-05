@@ -1,5 +1,5 @@
 /**
- * @file modbus.h  
+ * @file modbus.h
  * @brief Complete Modbus protocol implementation with threadsafe data store
  *
  * This implementation provides:
@@ -18,7 +18,7 @@
 
 #include "buf.h"
 #include "log.h"
-#include "ev_loop.h"
+#include "ptk_loop.h"
 
 //=============================================================================
 // MODBUS PROTOCOL CONSTANTS
@@ -281,7 +281,7 @@ typedef struct {
  * @param config Configuration (NULL for defaults)
  * @return MODBUS_OK on success, error code on failure
  */
-modbus_err_t modbus_data_store_create(modbus_data_store_t **store, 
+modbus_err_t modbus_data_store_create(modbus_data_store_t **store,
                                       const modbus_data_store_config_t *config);
 
 /**
@@ -395,7 +395,7 @@ typedef struct {
  * @param config Server configuration
  * @return MODBUS_OK on success, error code on failure
  */
-modbus_err_t modbus_server_create(ev_loop *loop, modbus_server_t **server,
+modbus_err_t modbus_server_create(ptk_loop *loop, modbus_server_t **server,
                                   const modbus_server_config_t *config);
 
 /**
@@ -430,7 +430,7 @@ typedef struct {
  * @param config Client configuration
  * @return MODBUS_OK on success, error code on failure
  */
-modbus_err_t modbus_client_create(ev_loop *loop, modbus_client_t **client,
+modbus_err_t modbus_client_create(ptk_loop *loop, modbus_client_t **client,
                                   const modbus_client_config_t *config);
 
 /**
@@ -545,19 +545,19 @@ modbus_err_t modbus_mbap_header_decode(modbus_mbap_header_t *header, buf *src);
 /**
  * @brief Encode read holding registers request
  */
-modbus_err_t modbus_read_holding_registers_req_encode(buf *dest, 
+modbus_err_t modbus_read_holding_registers_req_encode(buf *dest,
                                                      const modbus_read_holding_registers_req_t *req);
 
 /**
  * @brief Decode read holding registers request
  */
-modbus_err_t modbus_read_holding_registers_req_decode(modbus_read_holding_registers_req_t *req, 
+modbus_err_t modbus_read_holding_registers_req_decode(modbus_read_holding_registers_req_t *req,
                                                      buf *src);
 
 /**
  * @brief Encode read holding registers response
  */
-modbus_err_t modbus_read_holding_registers_resp_encode(buf *dest, 
+modbus_err_t modbus_read_holding_registers_resp_encode(buf *dest,
                                                       const modbus_read_holding_registers_resp_t *resp);
 
 /**

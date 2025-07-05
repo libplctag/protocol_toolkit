@@ -1,5 +1,5 @@
 #include "ethernetip_defs.h"
-#include "ev_loop.h"
+#include "ptk_loop.h"
 #include <arpa/inet.h>
 #include <signal.h>
 #include <string.h>
@@ -8,10 +8,10 @@
 // GLOBAL STATE
 //=============================================================================
 
-static ev_loop *g_loop = NULL;
+static ptk_loop *g_loop = NULL;
 static bool g_shutdown = false;
 static int g_responses_received = 0;
-static ev_network_info *g_networks = NULL;
+static ptk_network_info *g_networks = NULL;
 static size_t g_num_networks = 0;
 
 //=============================================================================
@@ -21,7 +21,7 @@ static size_t g_num_networks = 0;
 static void signal_handler(int sig) {
     info("Received signal %d, shutting down...", sig);
     g_shutdown = true;
-    if(g_loop) { ev_loop_stop(g_loop); }
+    if(g_loop) { ptk_loop_stop(g_loop); }
 }
 
 //=============================================================================
@@ -31,10 +31,10 @@ static void signal_handler(int sig) {
 /**
  * Timer callback to send periodic List Identity broadcasts
  */
-static void broadcast_timer_handler(const ev_event *event) {
-    trace("Broadcast timer handler called, event type: %s", ev_event_string(event->type));
+static void broadcast_timer_handler(const ptk_event *event) {
+    trace("Broadcast timer handler called, event type: %s", ptk_event_string(event->type));
 
-    if(event->type != EV_EVENT_TICK) { return; }
+    if(event->type != PTK_EVENT_TICK) { return; }
 
     if(g_shutdown) { return; }
 
@@ -66,13 +66,13 @@ static void broadcast_timer_handler(const ev_event *event) {
     eip_list_identity_request_log_info(request);
 
     // Send broadcast to all discovered networks (using the UDP socket from user_data)
-    ev_sock *udp_sock = (ev_sock *)event->user_data;
+    ptk_sock *udp_sock = (ptk_sock *)event->user_data;
     if(udp_sock) {
-        if (g_networks && g_num_networks > 0) {
+        if(g_networks && g_num_networks > 0) {
             // Send to all discovered broadcast addresses
-            for (size_t i = 0; i < g_num_networks; i++) {
-                info("About to call ev_udp_send to %s:44818", g_networks[i].broadcast);
-                
+            for(size_t i = 0; i < g_num_networks; i++) {
+                info("About to call ptk_udp_send to %s:44818", g_networks[i].broadcast);
+
                 // Need to create a new buffer for each send
                 buf *send_buf;
                 buf_err_t buf_result = buf_alloc(&send_buf, 64);
@@ -80,7 +80,7 @@ static void broadcast_timer_handler(const ev_event *event) {
                     error("Failed to allocate send buffer for network %zu", i);
                     continue;
                 }
-                
+
                 // Re-encode the request for this send
                 buf_result = eip_list_identity_request_encode(send_buf, request);
                 if(buf_result != BUF_OK) {
@@ -88,25 +88,25 @@ static void broadcast_timer_handler(const ev_event *event) {
                     buf_free(send_buf);
                     continue;
                 }
-                
-                ev_err send_result = ev_udp_send(udp_sock, &send_buf, g_networks[i].broadcast, 44818);
-                info("ev_udp_send to %s returned: %s", g_networks[i].broadcast, ev_err_string(send_result));
-                if(send_result != EV_OK) {
-                    error("Failed to send broadcast to %s: %s", g_networks[i].broadcast, ev_err_string(send_result));
+
+                ptk_err send_result = ptk_udp_send(udp_sock, &send_buf, g_networks[i].broadcast, 44818);
+                info("ptk_udp_send to %s returned: %s", g_networks[i].broadcast, ptk_err_string(send_result));
+                if(send_result != PTK_OK) {
+                    error("Failed to send broadcast to %s: %s", g_networks[i].broadcast, ptk_err_string(send_result));
                 } else {
                     info("Successfully sent List Identity broadcast to %s:44818", g_networks[i].broadcast);
                 }
             }
-            
+
             // Free the original buffer
             buf_free(request_buf);
         } else {
             // Fallback: send to default broadcast if no networks discovered
             warn("No networks discovered, using fallback broadcast to 255.255.255.255:44818");
-            ev_err send_result = ev_udp_send(udp_sock, &request_buf, "255.255.255.255", 44818);
-            info("ev_udp_send returned: %s", ev_err_string(send_result));
-            if(send_result != EV_OK) {
-                error("Failed to send fallback broadcast: %s", ev_err_string(send_result));
+            ptk_err send_result = ptk_udp_send(udp_sock, &request_buf, "255.255.255.255", 44818);
+            info("ptk_udp_send returned: %s", ptk_err_string(send_result));
+            if(send_result != PTK_OK) {
+                error("Failed to send fallback broadcast: %s", ptk_err_string(send_result));
                 buf_free(request_buf);
             } else {
                 info("Successfully sent fallback List Identity broadcast to 255.255.255.255:44818");
@@ -128,11 +128,11 @@ static void broadcast_timer_handler(const ev_event *event) {
 /**
  * Handle UDP responses from EtherNet/IP devices
  */
-static void udp_response_handler(const ev_event *event) {
-    info("UDP response handler called, event type: %s", ev_event_string(event->type));
+static void udp_response_handler(const ptk_event *event) {
+    info("UDP response handler called, event type: %s", ptk_event_string(event->type));
 
     switch(event->type) {
-        case EV_EVENT_READ: {
+        case PTK_EVENT_READ: {
             if(!event->data || !*event->data) {
                 warn("Received UDP read event with no data");
                 return;
@@ -205,13 +205,13 @@ static void udp_response_handler(const ev_event *event) {
             break;
         }
 
-        case EV_EVENT_WRITE_DONE: trace("UDP send completed"); break;
+        case PTK_EVENT_WRITE_DONE: trace("UDP send completed"); break;
 
-        case EV_EVENT_ERROR: error("UDP socket error: %s", ev_err_string(event->error)); break;
+        case PTK_EVENT_ERROR: error("UDP socket error: %s", ptk_err_string(event->error)); break;
 
-        case EV_EVENT_CLOSE: info("UDP socket closed"); break;
+        case PTK_EVENT_CLOSE: info("UDP socket closed"); break;
 
-        default: trace("Unhandled UDP event: %s", ev_event_string(event->type)); break;
+        default: trace("Unhandled UDP event: %s", ptk_event_string(event->type)); break;
     }
 }
 
@@ -246,83 +246,83 @@ int main(int argc, char *argv[]) {
 
     // Discover network interfaces
     info("Discovering network interfaces...");
-    ev_err net_result = ev_loop_find_networks(&g_networks, &g_num_networks, NULL);
-    if(net_result != EV_OK) {
-        warn("Failed to discover networks: %s", ev_err_string(net_result));
+    ptk_err net_result = ptk_loop_find_networks(&g_networks, &g_num_networks, NULL);
+    if(net_result != PTK_OK) {
+        warn("Failed to discover networks: %s", ptk_err_string(net_result));
         info("Will use fallback broadcast addressing");
     } else {
         info("Discovered %zu network interfaces:", g_num_networks);
         for(size_t i = 0; i < g_num_networks; i++) {
-            info("  Interface %zu: IP=%s, Netmask=%s, Broadcast=%s", 
-                 i+1, g_networks[i].network_ip, g_networks[i].netmask, g_networks[i].broadcast);
+            info("  Interface %zu: IP=%s, Netmask=%s, Broadcast=%s", i + 1, g_networks[i].network_ip, g_networks[i].netmask,
+                 g_networks[i].broadcast);
         }
     }
 
     // Create event loop
-    ev_loop_opts loop_opts = {.worker_threads = 1, .max_events = 32, .auto_start = true};
+    ptk_loop_opts loop_opts = {.worker_threads = 1, .max_events = 32, .auto_start = true};
 
-    ev_err result = ev_loop_create(&g_loop, &loop_opts);
-    if(result != EV_OK) {
-        error("Failed to create event loop: %s", ev_err_string(result));
+    ptk_err result = ptk_loop_create(&g_loop, &loop_opts);
+    if(result != PTK_OK) {
+        error("Failed to create event loop: %s", ptk_err_string(result));
         return 1;
     }
 
     // Create UDP socket for requests and responses (bind to local interface)
-    ev_udp_opts udp_opts = {.bind_host = "0.0.0.0",  // Bind to our local IP
-                            .bind_port = 0,          // Let system choose port
-                            .callback = udp_response_handler,
-                            .user_data = NULL,
-                            .broadcast = true,  // Back to broadcast mode
-                            .reuse_addr = true,
-                            .read_buffer_size = 1024};
+    ptk_udp_opts udp_opts = {.bind_host = "0.0.0.0",  // Bind to our local IP
+                             .bind_port = 0,          // Let system choose port
+                             .callback = udp_response_handler,
+                             .user_data = NULL,
+                             .broadcast = true,  // Back to broadcast mode
+                             .reuse_addr = true,
+                             .read_buffer_size = 1024};
 
-    ev_sock *udp_sock;
-    result = ev_udp_create(g_loop, &udp_sock, &udp_opts);
-    if(result != EV_OK) {
-        error("Failed to create UDP socket: %s", ev_err_string(result));
-        ev_loop_destroy(g_loop);
+    ptk_sock *udp_sock;
+    result = ptk_udp_create(g_loop, &udp_sock, &udp_opts);
+    if(result != PTK_OK) {
+        error("Failed to create UDP socket: %s", ptk_err_string(result));
+        ptk_loop_destroy(g_loop);
         return 1;
     }
 
     // Get and display the socket's local address
     char local_host[64];
     int local_port;
-    if(ev_sock_get_local_addr(udp_sock, local_host, sizeof(local_host), &local_port) == EV_OK) {
+    if(ptk_sock_get_local_addr(udp_sock, local_host, sizeof(local_host), &local_port) == PTK_OK) {
         info("UDP socket created and bound to %s:%d for EtherNet/IP discovery", local_host, local_port);
     } else {
         info("UDP socket created for EtherNet/IP discovery");
     }
 
     // Create timer for periodic broadcasts
-    ev_timer_opts broadcast_timer_opts = {
+    ptk_timer_opts broadcast_timer_opts = {
         .timeout_ms = broadcast_interval * 1000,
         .repeat = true,
         .callback = broadcast_timer_handler,
         .user_data = udp_sock  // Pass UDP socket to timer
     };
 
-    ev_sock *broadcast_timer;
-    result = ev_timer_start(g_loop, &broadcast_timer, &broadcast_timer_opts);
-    if(result != EV_OK) {
-        error("Failed to start broadcast timer: %s", ev_err_string(result));
-        ev_close(udp_sock);
-        ev_loop_destroy(g_loop);
+    ptk_sock *broadcast_timer;
+    result = ptk_timer_start(g_loop, &broadcast_timer, &broadcast_timer_opts);
+    if(result != PTK_OK) {
+        error("Failed to start broadcast timer: %s", ptk_err_string(result));
+        ptk_close(udp_sock);
+        ptk_loop_destroy(g_loop);
         return 1;
     }
 
     // Create timer to stop discovery after specified time
-    ev_timer_opts stop_timer_opts = {.timeout_ms = discovery_time * 1000,
-                                     .repeat = false,
-                                     .callback = NULL,  // We'll check in main loop
-                                     .user_data = NULL};
+    ptk_timer_opts stop_timer_opts = {.timeout_ms = discovery_time * 1000,
+                                      .repeat = false,
+                                      .callback = NULL,  // We'll check in main loop
+                                      .user_data = NULL};
 
-    ev_sock *stop_timer;
-    result = ev_timer_start(g_loop, &stop_timer, &stop_timer_opts);
-    if(result != EV_OK) {
-        error("Failed to start stop timer: %s", ev_err_string(result));
-        ev_timer_stop(broadcast_timer);
-        ev_close(udp_sock);
-        ev_loop_destroy(g_loop);
+    ptk_sock *stop_timer;
+    result = ptk_timer_start(g_loop, &stop_timer, &stop_timer_opts);
+    if(result != PTK_OK) {
+        error("Failed to start stop timer: %s", ptk_err_string(result));
+        ptk_timer_stop(broadcast_timer);
+        ptk_close(udp_sock);
+        ptk_loop_destroy(g_loop);
         return 1;
     }
 
@@ -332,29 +332,29 @@ int main(int argc, char *argv[]) {
     info("Press Ctrl+C to stop early...");
 
     // Trigger immediate broadcast
-    ev_event immediate_event = {.type = EV_EVENT_TICK, .sock = broadcast_timer, .user_data = udp_sock};
+    ptk_event immediate_event = {.type = PTK_EVENT_TICK, .sock = broadcast_timer, .user_data = udp_sock};
     broadcast_timer_handler(&immediate_event);
 
     // Wait for discovery time or manual stop
-    result = ev_loop_wait_timeout(g_loop, discovery_time * 1000);
-    if(result == EV_ERR_TIMEOUT) {
+    result = ptk_loop_wait_timeout(g_loop, discovery_time * 1000);
+    if(result == PTK_ERR_TIMEOUT) {
         info("Discovery time completed");
         g_shutdown = true;
-        ev_loop_stop(g_loop);
-    } else if(result != EV_OK) {
-        error("Event loop error: %s", ev_err_string(result));
+        ptk_loop_stop(g_loop);
+    } else if(result != PTK_OK) {
+        error("Event loop error: %s", ptk_err_string(result));
     }
 
     // Cleanup
     info("Shutting down EtherNet/IP Client");
-    ev_timer_stop(broadcast_timer);
-    ev_timer_stop(stop_timer);
-    ev_close(udp_sock);
-    ev_loop_destroy(g_loop);
+    ptk_timer_stop(broadcast_timer);
+    ptk_timer_stop(stop_timer);
+    ptk_close(udp_sock);
+    ptk_loop_destroy(g_loop);
 
     // Clean up network discovery data
     if(g_networks) {
-        ev_network_info_dispose(g_networks, g_num_networks);
+        ptk_network_info_dispose(g_networks, g_num_networks);
         g_networks = NULL;
         g_num_networks = 0;
     }

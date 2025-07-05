@@ -111,14 +111,14 @@ void simple_dispose(struct simple *value) {
     free(value);
 }
 
-void simple_log_impl(const char *func, int line_num, ev_log_level log_level, struct simple *value) {
+void simple_log_impl(const char *func, int line_num, ptk_log_level log_level, struct simple *value) {
     if(!value) {
-        ev_log_impl(func, line_num, log_level, "simple: NULL");
+        ptk_log_impl(func, line_num, log_level, "simple: NULL");
         return;
     }
 
-    ev_log_impl(func, line_num, log_level, "foo: 0x%08X", value->foo);
-    ev_log_impl(func, line_num, log_level, "bar: 0x%04X", value->bar);
+    ptk_log_impl(func, line_num, log_level, "foo: 0x%08X", value->foo);
+    ptk_log_impl(func, line_num, log_level, "bar: 0x%04X", value->bar);
 }
 
 codec_err_t embedding_simple_decode(struct embedding_simple **value, buf *remaining_input_buf, buf *input_buf) {
@@ -236,15 +236,15 @@ void embedding_simple_dispose(struct embedding_simple *value) {
     free(value);
 }
 
-void embedding_simple_log_impl(const char *func, int line_num, ev_log_level log_level, struct embedding_simple *value) {
+void embedding_simple_log_impl(const char *func, int line_num, ptk_log_level log_level, struct embedding_simple *value) {
     if(!value) {
-        ev_log_impl(func, line_num, log_level, "embedding_simple: NULL");
+        ptk_log_impl(func, line_num, log_level, "embedding_simple: NULL");
         return;
     }
 
-    ev_log_impl(func, line_num, log_level, "id: 0x%02X", value->id);
-    ev_log_impl(func, line_num, log_level, "simple: 0x%02X", value->simple);
-    ev_log_impl(func, line_num, log_level, "float_field: %.6f", value->float_field);
+    ptk_log_impl(func, line_num, log_level, "id: 0x%02X", value->id);
+    ptk_log_impl(func, line_num, log_level, "simple: 0x%02X", value->simple);
+    ptk_log_impl(func, line_num, log_level, "float_field: %.6f", value->float_field);
 }
 
 codec_err_t array_test_decode(struct array_test **value, buf *remaining_input_buf, buf *input_buf) {
@@ -341,9 +341,9 @@ void array_test_dispose(struct array_test *value) {
     free(value);
 }
 
-void array_test_log_impl(const char *func, int line_num, ev_log_level log_level, struct array_test *value) {
+void array_test_log_impl(const char *func, int line_num, ptk_log_level log_level, struct array_test *value) {
     if(!value) {
-        ev_log_impl(func, line_num, log_level, "array_test: NULL");
+        ptk_log_impl(func, line_num, log_level, "array_test: NULL");
         return;
     }
 
@@ -355,7 +355,7 @@ void array_test_log_impl(const char *func, int line_num, ev_log_level log_level,
         for(int j = i; j < end; j++) {
             pos += snprintf(buf + pos, sizeof(buf) - pos, "0x%02X ", (unsigned char)value->i64_be_array[j]);
         }
-        ev_log_impl(func, line_num, log_level, "%s", buf);
+        ptk_log_impl(func, line_num, log_level, "%s", buf);
     }
 }
 
@@ -453,13 +453,13 @@ void simple_pointer_test_dispose(struct simple_pointer_test *value) {
     free(value);
 }
 
-void simple_pointer_test_log_impl(const char *func, int line_num, ev_log_level log_level, struct simple_pointer_test *value) {
+void simple_pointer_test_log_impl(const char *func, int line_num, ptk_log_level log_level, struct simple_pointer_test *value) {
     if(!value) {
-        ev_log_impl(func, line_num, log_level, "simple_pointer_test: NULL");
+        ptk_log_impl(func, line_num, log_level, "simple_pointer_test: NULL");
         return;
     }
 
-    ev_log_impl(func, line_num, log_level, "len: 0x%08X", value->len);
+    ptk_log_impl(func, line_num, log_level, "len: 0x%08X", value->len);
     simple_pointer_test_data_log_impl(func, line_num, log_level, value);
 }
 
@@ -555,13 +555,14 @@ void array_of_strings_test_dispose(struct array_of_strings_test *value) {
     free(value);
 }
 
-void array_of_strings_test_log_impl(const char *func, int line_num, ev_log_level log_level, struct array_of_strings_test *value) {
+void array_of_strings_test_log_impl(const char *func, int line_num, ptk_log_level log_level,
+                                    struct array_of_strings_test *value) {
     if(!value) {
-        ev_log_impl(func, line_num, log_level, "array_of_strings_test: NULL");
+        ptk_log_impl(func, line_num, log_level, "array_of_strings_test: NULL");
         return;
     }
 
-    ev_log_impl(func, line_num, log_level, "num_strings: 0x%04X", value->num_strings);
+    ptk_log_impl(func, line_num, log_level, "num_strings: 0x%04X", value->num_strings);
     array_of_strings_test_array_of_c_strings_log_impl(func, line_num, log_level, value);
 }
 
@@ -1610,40 +1611,40 @@ void one_of_each_dispose(struct one_of_each *value) {
     free(value);
 }
 
-void one_of_each_log_impl(const char *func, int line_num, ev_log_level log_level, struct one_of_each *value) {
+void one_of_each_log_impl(const char *func, int line_num, ptk_log_level log_level, struct one_of_each *value) {
     if(!value) {
-        ev_log_impl(func, line_num, log_level, "one_of_each: NULL");
+        ptk_log_impl(func, line_num, log_level, "one_of_each: NULL");
         return;
     }
 
-    ev_log_impl(func, line_num, log_level, "field1: 0x%02X", value->field1);
-    ev_log_impl(func, line_num, log_level, "field2: 0x%02X", value->field2);
-    ev_log_impl(func, line_num, log_level, "field3: 0x%04X", value->field3);
-    ev_log_impl(func, line_num, log_level, "field4: 0x%04X", value->field4);
-    ev_log_impl(func, line_num, log_level, "field5: 0x%04X", value->field5);
-    ev_log_impl(func, line_num, log_level, "field6: 0x%04X", value->field6);
-    ev_log_impl(func, line_num, log_level, "field7: 0x%08X", value->field7);
-    ev_log_impl(func, line_num, log_level, "field8: 0x%08X", value->field8);
-    ev_log_impl(func, line_num, log_level, "field9: 0x%08X", value->field9);
-    ev_log_impl(func, line_num, log_level, "field10: 0x%08X", value->field10);
-    ev_log_impl(func, line_num, log_level, "field11: 0x%08X", value->field11);
-    ev_log_impl(func, line_num, log_level, "field12: 0x%08X", value->field12);
-    ev_log_impl(func, line_num, log_level, "field13: 0x%08X", value->field13);
-    ev_log_impl(func, line_num, log_level, "field15: 0x%08X", value->field15);
-    ev_log_impl(func, line_num, log_level, "field16: 0x%016llX", (unsigned long long)value->field16);
-    ev_log_impl(func, line_num, log_level, "field17: 0x%016llX", (unsigned long long)value->field17);
-    ev_log_impl(func, line_num, log_level, "field18: 0x%016llX", (unsigned long long)value->field18);
-    ev_log_impl(func, line_num, log_level, "field19: 0x%016llX", (unsigned long long)value->field19);
-    ev_log_impl(func, line_num, log_level, "field20: 0x%016llX", (unsigned long long)value->field20);
-    ev_log_impl(func, line_num, log_level, "field21: 0x%016llX", (unsigned long long)value->field21);
-    ev_log_impl(func, line_num, log_level, "field22: 0x%016llX", (unsigned long long)value->field22);
-    ev_log_impl(func, line_num, log_level, "field23: 0x%016llX", (unsigned long long)value->field23);
-    ev_log_impl(func, line_num, log_level, "field24: %.6f", value->field24);
-    ev_log_impl(func, line_num, log_level, "field25: %.6f", value->field25);
-    ev_log_impl(func, line_num, log_level, "field26: %.6f", value->field26);
-    ev_log_impl(func, line_num, log_level, "field27: %.6f", value->field27);
-    ev_log_impl(func, line_num, log_level, "field28: %.6f", value->field28);
-    ev_log_impl(func, line_num, log_level, "field29: %.6f", value->field29);
-    ev_log_impl(func, line_num, log_level, "field30: %.6f", value->field30);
-    ev_log_impl(func, line_num, log_level, "field31: %.6f", value->field31);
+    ptk_log_impl(func, line_num, log_level, "field1: 0x%02X", value->field1);
+    ptk_log_impl(func, line_num, log_level, "field2: 0x%02X", value->field2);
+    ptk_log_impl(func, line_num, log_level, "field3: 0x%04X", value->field3);
+    ptk_log_impl(func, line_num, log_level, "field4: 0x%04X", value->field4);
+    ptk_log_impl(func, line_num, log_level, "field5: 0x%04X", value->field5);
+    ptk_log_impl(func, line_num, log_level, "field6: 0x%04X", value->field6);
+    ptk_log_impl(func, line_num, log_level, "field7: 0x%08X", value->field7);
+    ptk_log_impl(func, line_num, log_level, "field8: 0x%08X", value->field8);
+    ptk_log_impl(func, line_num, log_level, "field9: 0x%08X", value->field9);
+    ptk_log_impl(func, line_num, log_level, "field10: 0x%08X", value->field10);
+    ptk_log_impl(func, line_num, log_level, "field11: 0x%08X", value->field11);
+    ptk_log_impl(func, line_num, log_level, "field12: 0x%08X", value->field12);
+    ptk_log_impl(func, line_num, log_level, "field13: 0x%08X", value->field13);
+    ptk_log_impl(func, line_num, log_level, "field15: 0x%08X", value->field15);
+    ptk_log_impl(func, line_num, log_level, "field16: 0x%016llX", (unsigned long long)value->field16);
+    ptk_log_impl(func, line_num, log_level, "field17: 0x%016llX", (unsigned long long)value->field17);
+    ptk_log_impl(func, line_num, log_level, "field18: 0x%016llX", (unsigned long long)value->field18);
+    ptk_log_impl(func, line_num, log_level, "field19: 0x%016llX", (unsigned long long)value->field19);
+    ptk_log_impl(func, line_num, log_level, "field20: 0x%016llX", (unsigned long long)value->field20);
+    ptk_log_impl(func, line_num, log_level, "field21: 0x%016llX", (unsigned long long)value->field21);
+    ptk_log_impl(func, line_num, log_level, "field22: 0x%016llX", (unsigned long long)value->field22);
+    ptk_log_impl(func, line_num, log_level, "field23: 0x%016llX", (unsigned long long)value->field23);
+    ptk_log_impl(func, line_num, log_level, "field24: %.6f", value->field24);
+    ptk_log_impl(func, line_num, log_level, "field25: %.6f", value->field25);
+    ptk_log_impl(func, line_num, log_level, "field26: %.6f", value->field26);
+    ptk_log_impl(func, line_num, log_level, "field27: %.6f", value->field27);
+    ptk_log_impl(func, line_num, log_level, "field28: %.6f", value->field28);
+    ptk_log_impl(func, line_num, log_level, "field29: %.6f", value->field29);
+    ptk_log_impl(func, line_num, log_level, "field30: %.6f", value->field30);
+    ptk_log_impl(func, line_num, log_level, "field31: %.6f", value->field31);
 }

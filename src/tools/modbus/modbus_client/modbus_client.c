@@ -21,15 +21,15 @@
  * @brief Modbus client structure
  */
 struct modbus_client {
-    ev_loop *loop;
-    ev_sock *socket;
+    ptk_loop *loop;
+    ptk_sock *socket;
     modbus_client_config_t config;
     uint16_t transaction_id;
     bool connected;
     bool request_pending;
     buf *pending_response;
-    ev_mutex *response_mutex;
-    ev_cond_var *response_cond;
+    ptk_mutex *response_mutex;
+    ptk_cond_var *response_cond;
     modbus_err_t last_error;
 };
 
@@ -48,65 +48,65 @@ static void signal_handler(void) {
 // CLIENT EVENT HANDLERS
 //=============================================================================
 
-static void client_event_handler(const ev_event *event) {
-    modbus_client_t *client = (modbus_client_t *)ev_event_get_user_data(event);
+static void client_event_handler(const ptk_event *event) {
+    modbus_client_t *client = (modbus_client_t *)ptk_event_get_user_data(event);
     if(!client) {
         error("Client event handler called with null client data");
         return;
     }
 
-    ev_event_type event_type = ev_event_get_type(event);
+    ptk_event_type event_type = ptk_event_get_type(event);
 
     switch(event_type) {
-        case EV_EVENT_CONNECT:
+        case PTK_EVENT_CONNECT:
             info("Connected to Modbus server");
             client->connected = true;
             break;
 
-        case EV_EVENT_READ: {
+        case PTK_EVENT_READ: {
             trace("Received response from server");
 
-            buf **data = ev_event_get_data(event);
+            buf **data = ptk_event_get_data(event);
             if(!data || !*data) {
                 error("Received read event with no data");
                 break;
             }
 
             // Store response for synchronous processing
-            ev_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
+            ptk_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
 
             if(client->pending_response) { buf_dispose(&client->pending_response); }
             client->pending_response = *data;
             *data = NULL;  // Take ownership
             client->request_pending = false;
 
-            ev_cond_var_signal(client->response_cond);
-            ev_mutex_unlock(client->response_mutex);
+            ptk_cond_var_signal(client->response_cond);
+            ptk_mutex_unlock(client->response_mutex);
             break;
         }
 
-        case EV_EVENT_WRITE_DONE: trace("Request sent to server"); break;
+        case PTK_EVENT_WRITE_DONE: trace("Request sent to server"); break;
 
-        case EV_EVENT_CLOSE:
+        case PTK_EVENT_CLOSE:
             info("Disconnected from server");
             client->connected = false;
             client->request_pending = false;
 
-            ev_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
-            ev_cond_var_signal(client->response_cond);
-            ev_mutex_unlock(client->response_mutex);
+            ptk_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
+            ptk_cond_var_signal(client->response_cond);
+            ptk_mutex_unlock(client->response_mutex);
             break;
 
-        case EV_EVENT_ERROR: {
-            ev_err error_code = ev_event_get_error(event);
-            error("Client error: %s", ev_err_string(error_code));
+        case PTK_EVENT_ERROR: {
+            ptk_err error_code = ptk_event_get_error(event);
+            error("Client error: %s", ptk_err_string(error_code));
             client->connected = false;
             client->request_pending = false;
             client->last_error = MODBUS_ERR_CONNECTION_FAILED;
 
-            ev_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
-            ev_cond_var_signal(client->response_cond);
-            ev_mutex_unlock(client->response_mutex);
+            ptk_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
+            ptk_cond_var_signal(client->response_cond);
+            ptk_mutex_unlock(client->response_mutex);
             break;
         }
 
@@ -118,7 +118,7 @@ static void client_event_handler(const ev_event *event) {
 // CLIENT IMPLEMENTATION
 //=============================================================================
 
-modbus_err_t modbus_client_create(ev_loop *loop, modbus_client_t **client, const modbus_client_config_t *config) {
+modbus_err_t modbus_client_create(ptk_loop *loop, modbus_client_t **client, const modbus_client_config_t *config) {
     if(!loop || !client || !config) { return MODBUS_ERR_NULL_PTR; }
 
     *client = calloc(1, sizeof(modbus_client_t));
@@ -133,7 +133,7 @@ modbus_err_t modbus_client_create(ev_loop *loop, modbus_client_t **client, const
     c->transaction_id = 1;
 
     // Create synchronization primitives
-    if(ev_mutex_create(&c->response_mutex) != EV_OK || ev_cond_var_create(&c->response_cond) != EV_OK) {
+    if(ptk_mutex_create(&c->response_mutex) != PTK_OK || ptk_cond_var_create(&c->response_cond) != PTK_OK) {
         error("Failed to create synchronization primitives");
         modbus_client_destroy(c);
         *client = NULL;
@@ -141,17 +141,17 @@ modbus_err_t modbus_client_create(ev_loop *loop, modbus_client_t **client, const
     }
 
     // Connect to server
-    ev_tcp_client_opts tcp_opts = {.host = config->host,
-                                   .port = config->port ? config->port : MODBUS_TCP_PORT,
-                                   .callback = client_event_handler,
-                                   .user_data = c,
-                                   .connect_timeout_ms = config->timeout_ms ? config->timeout_ms : 5000,
-                                   .keep_alive = true,
-                                   .read_buffer_size = 8192};
+    ptk_tcp_client_opts tcp_opts = {.host = config->host,
+                                    .port = config->port ? config->port : MODBUS_TCP_PORT,
+                                    .callback = client_event_handler,
+                                    .user_data = c,
+                                    .connect_timeout_ms = config->timeout_ms ? config->timeout_ms : 5000,
+                                    .keep_alive = true,
+                                    .read_buffer_size = 8192};
 
-    ev_err result = ev_tcp_connect(loop, &c->socket, &tcp_opts);
-    if(result != EV_OK) {
-        error("Failed to connect to %s:%d: %s", config->host, tcp_opts.port, ev_err_string(result));
+    ptk_err result = ptk_tcp_connect(loop, &c->socket, &tcp_opts);
+    if(result != PTK_OK) {
+        error("Failed to connect to %s:%d: %s", config->host, tcp_opts.port, ptk_err_string(result));
         modbus_client_destroy(c);
         *client = NULL;
         return MODBUS_ERR_CONNECTION_FAILED;
@@ -163,13 +163,13 @@ modbus_err_t modbus_client_create(ev_loop *loop, modbus_client_t **client, const
 void modbus_client_destroy(modbus_client_t *client) {
     if(!client) { return; }
 
-    if(client->socket) { ev_close(client->socket); }
+    if(client->socket) { ptk_close(client->socket); }
 
     if(client->pending_response) { buf_dispose(&client->pending_response); }
 
-    if(client->response_mutex) { ev_mutex_destroy(client->response_mutex); }
+    if(client->response_mutex) { ptk_mutex_destroy(client->response_mutex); }
 
-    if(client->response_cond) { ev_cond_var_destroy(client->response_cond); }
+    if(client->response_cond) { ptk_cond_var_destroy(client->response_cond); }
 
     free(client);
 }
@@ -181,7 +181,7 @@ static modbus_err_t send_request_and_wait_response(modbus_client_t *client, buf 
 
     if(!client->connected) { return MODBUS_ERR_CONNECTION_FAILED; }
 
-    ev_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
+    ptk_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
 
     // Clear any pending response
     if(client->pending_response) {
@@ -192,44 +192,44 @@ static modbus_err_t send_request_and_wait_response(modbus_client_t *client, buf 
     client->request_pending = true;
     client->last_error = MODBUS_OK;
 
-    ev_mutex_unlock(client->response_mutex);
+    ptk_mutex_unlock(client->response_mutex);
 
     // Send request
-    ev_err send_result = ev_tcp_write(client->socket, &request_buf);
-    if(send_result != EV_OK) {
-        error("Failed to send request: %s", ev_err_string(send_result));
+    ptk_err send_result = ptk_tcp_write(client->socket, &request_buf);
+    if(send_result != PTK_OK) {
+        error("Failed to send request: %s", ptk_err_string(send_result));
         client->request_pending = false;
         return MODBUS_ERR_CONNECTION_FAILED;
     }
 
     // Wait for response
-    ev_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
+    ptk_mutex_wait_lock(client->response_mutex, THREAD_WAIT_FOREVER);
 
     while(client->request_pending && client->connected) {
-        ev_err wait_result = ev_cond_var_wait(client->response_cond, client->response_mutex,
-                                              client->config.timeout_ms ? client->config.timeout_ms : 5000);
-        if(wait_result != EV_OK) {
+        ptk_err wait_result = ptk_cond_var_wait(client->response_cond, client->response_mutex,
+                                                client->config.timeout_ms ? client->config.timeout_ms : 5000);
+        if(wait_result != PTK_OK) {
             error("Timeout waiting for response");
             client->request_pending = false;
-            ev_mutex_unlock(client->response_mutex);
+            ptk_mutex_unlock(client->response_mutex);
             return MODBUS_ERR_TIMEOUT;
         }
     }
 
     if(!client->connected) {
-        ev_mutex_unlock(client->response_mutex);
+        ptk_mutex_unlock(client->response_mutex);
         return MODBUS_ERR_CONNECTION_FAILED;
     }
 
     if(client->last_error != MODBUS_OK) {
-        ev_mutex_unlock(client->response_mutex);
+        ptk_mutex_unlock(client->response_mutex);
         return client->last_error;
     }
 
     *response_buf = client->pending_response;
     client->pending_response = NULL;
 
-    ev_mutex_unlock(client->response_mutex);
+    ptk_mutex_unlock(client->response_mutex);
 
     return MODBUS_OK;
 }
@@ -491,7 +491,7 @@ static void print_usage(const char *program_name) {
 
 int main(int argc, char *argv[]) {
     // Set default log level
-    ev_log_level_set(EV_LOG_LEVEL_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
 
     // Parse command line arguments
     const char *host = "127.0.0.1";
@@ -540,7 +540,7 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
         } else if(strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
-            ev_log_level_set(EV_LOG_LEVEL_TRACE);
+            ptk_log_level_set(PTK_LOG_LEVEL_TRACE);
         } else {
             error("Unknown option: %s", argv[i]);
             print_usage(argv[0]);
@@ -554,12 +554,12 @@ int main(int argc, char *argv[]) {
     info("  Timeout: %u ms", timeout_ms);
 
     // Create event loop
-    ev_loop *loop = NULL;
-    ev_loop_opts loop_opts = {.worker_threads = 2, .max_events = 64, .auto_start = true};
+    ptk_loop *loop = NULL;
+    ptk_loop_opts loop_opts = {.worker_threads = 2, .max_events = 64, .auto_start = true};
 
-    ev_err loop_result = ev_loop_create(&loop, &loop_opts);
-    if(loop_result != EV_OK) {
-        error("Failed to create event loop: %s", ev_err_string(loop_result));
+    ptk_err loop_result = ptk_loop_create(&loop, &loop_opts);
+    if(loop_result != PTK_OK) {
+        error("Failed to create event loop: %s", ptk_err_string(loop_result));
         return 1;
     }
 
@@ -570,12 +570,12 @@ int main(int argc, char *argv[]) {
     modbus_err_t client_result = modbus_client_create(loop, &client, &client_config);
     if(client_result != MODBUS_OK) {
         error("Failed to create client: %s", modbus_err_string(client_result));
-        ev_loop_destroy(loop);
+        ptk_loop_destroy(loop);
         return 1;
     }
 
     // Set up signal handling
-    ev_set_interrupt_handler(signal_handler);
+    ptk_set_interrupt_handler(signal_handler);
 
     info("Client created. Waiting for connection...");
 
@@ -602,7 +602,7 @@ int main(int argc, char *argv[]) {
     // Cleanup
     info("Shutting down client...");
     modbus_client_destroy(client);
-    ev_loop_destroy(loop);
+    ptk_loop_destroy(loop);
 
     info("Client shutdown complete");
     return 0;

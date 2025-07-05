@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.10)
-project(serdesgen)
+cmake_minimum_required(VERSION 3.18)
+project(protocol_toolkit)
 
 # Set C standard
-set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Set build type if not specified
@@ -41,7 +41,7 @@ elseif(APPLE)
 elseif(UNIX)
     # Linux/BSD-specific settings
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
-    
+
     # Find required libraries
     find_library(RT_LIBRARY rt)
     if(RT_LIBRARY)
@@ -54,8 +54,7 @@ endif()
 #=============================================================================
 
 # Include directories for all projects
-include_directories(src/protocol_toolkit/utils)
-include_directories(src/protocol_toolkit/ev_loop)
+include_directories(src/protocol_toolkit/include)
 
 # Add protocol toolkit subdirectory
 add_subdirectory(src/protocol_toolkit)
@@ -64,12 +63,11 @@ add_subdirectory(src/protocol_toolkit)
 # PROTOCOL LIBRARIES
 #=============================================================================
 
-# Add protocol subdirectories
-add_subdirectory(src/protocols/ethernetip)
-add_subdirectory(src/protocols/modbus)
+# Add example subdirectories
+add_subdirectory(src/examples/modbus)
 
 #=============================================================================
-# TEST APPLICATIONS  
+# TEST APPLICATIONS
 #=============================================================================
 
 # Timer test executable
@@ -80,7 +78,7 @@ add_executable(test_timer
 target_link_libraries(test_timer
     buf
     log
-    ev_loop
+    ptk_loop
 )
 
 if(WIN32)
@@ -100,7 +98,7 @@ add_executable(test_udp_timer
 target_link_libraries(test_udp_timer
     buf
     log
-    ev_loop
+    ptk_loop
 )
 
 if(WIN32)
@@ -120,7 +118,7 @@ add_executable(test_ethernetip_unicast
 target_link_libraries(test_ethernetip_unicast
     buf
     log
-    ev_loop
+    ptk_loop
     ethernetip
 )
 
@@ -146,9 +144,9 @@ install(TARGETS ethernetip_server ethernetip_client modbus_server modbus_client
 install(FILES
     src/protocol_toolkit/utils/buf.h
     src/protocol_toolkit/utils/log.h
-    src/protocol_toolkit/ev_loop/ev_loop.h
-    src/protocol_toolkit/ev_loop/ev_loop_platform.h
-    src/protocol_toolkit/ev_loop/ev_loop_common.h
+    src/protocol_toolkit/ptk_loop/ptk_loop.h
+    src/protocol_toolkit/ptk_loop/ptk_loop_platform.h
+    src/protocol_toolkit/ptk_loop/ptk_loop_common.h
     src/protocols/ethernetip/protocol/ethernetip_defs.h
     src/protocols/modbus/protocol/modbus.h
     DESTINATION include
@@ -193,7 +191,7 @@ message(STATUS "")
 message(STATUS "Libraries built:")
 message(STATUS "  - buf: Buffer utilities with endian-aware typedefs")
 message(STATUS "  - log: Logging utilities")
-message(STATUS "  - ev_loop: Cross-platform event loop (kqueue/epoll/IOCP)")
+message(STATUS "  - ptk_loop: Cross-platform event loop (kqueue/epoll/IOCP)")
 message(STATUS "  - ethernetip: EtherNet/IP protocol implementation")
 message(STATUS "  - modbus: Modbus protocol implementation")
 message(STATUS "")

@@ -1,6 +1,6 @@
 # Event Loop Library Requirements Specification
 
-This specification describes the requirements for the Event Loop Library (`ev_loop.h`) - a simplified, background-threaded event loop API for network programming that replaces libuv with more streamlined usage.
+This specification describes the requirements for the Event Loop Library (`ptk_loop.h`) - a simplified, background-threaded event loop API for network programming that replaces libuv with more streamlined usage.
 
 ## Core Design Principles
 
@@ -16,8 +16,8 @@ The Event Loop Library provides:
 
 ### Background Thread Operation
 - Event loops operate in background threads automatically
-- No blocking `ev_loop_run()` function - threads start immediately on creation
-- Main thread uses `ev_loop_wait()` to wait for completion
+- No blocking `ptk_loop_run()` function - threads start immediately on creation
+- Main thread uses `ptk_loop_wait()` to wait for completion
 - All callbacks execute on background threads
 - Thread-safe operations for cross-thread communication
 
@@ -27,7 +27,7 @@ typedef struct {
     size_t worker_threads;     // Number of background threads (default: CPU count if 0)
     size_t max_events;         // Max events per loop iteration (default: 1024 if 0)
     bool auto_start;           // Start background threads immediately (default: true)
-} ev_loop_opts;
+} ptk_loop_opts;
 ```
 
 ## Error Handling
@@ -35,23 +35,23 @@ typedef struct {
 ### Error Code Definitions
 ```c
 typedef enum {
-    EV_OK = 0,                  // Success
-    EV_ERR_OUT_OF_MEMORY,      // Memory allocation failed
-    EV_ERR_INVALID_PARAM,      // Invalid parameter passed
-    EV_ERR_NETWORK_ERROR,      // Network operation failed
-    EV_ERR_CLOSED,             // Socket is closed
-    EV_ERR_TIMEOUT,            // Operation timed out
-    EV_ERR_WOULD_BLOCK,        // Operation would block
-    EV_ERR_ADDRESS_IN_USE,     // Address already in use
-    EV_ERR_CONNECTION_REFUSED, // Connection refused by remote
-    EV_ERR_HOST_UNREACHABLE,   // Host unreachable
-} ev_err;
+    PTK_OK = 0,                  // Success
+    PTK_ERR_OUT_OF_MEMORY,      // Memory allocation failed
+    PTK_ERR_INVALID_PARAM,      // Invalid parameter passed
+    PTK_ERR_NETWORK_ERROR,      // Network operation failed
+    PTK_ERR_CLOSED,             // Socket is closed
+    PTK_ERR_TIMEOUT,            // Operation timed out
+    PTK_ERR_WOULD_BLOCK,        // Operation would block
+    PTK_ERR_ADDRESS_IN_USE,     // Address already in use
+    PTK_ERR_CONNECTION_REFUSED, // Connection refused by remote
+    PTK_ERR_HOST_UNREACHABLE,   // Host unreachable
+} ptk_err;
 ```
 
 ### Error Reporting
-- All functions return `ev_err` codes
-- Error events delivered via callback with `EV_EVENT_ERROR` type
-- Utility function `ev_err_string()` provides human-readable error descriptions
+- All functions return `ptk_err` codes
+- Error events delivered via callback with `PTK_EVENT_ERROR` type
+- Utility function `ptk_err_string()` provides human-readable error descriptions
 - Network errors automatically mapped to appropriate error codes
 
 ## Event System
@@ -59,33 +59,33 @@ typedef enum {
 ### Event Types
 ```c
 typedef enum {
-    EV_EVENT_ACCEPT,           // New client connected (server sockets)
-    EV_EVENT_CONNECT,          // Connection established (client sockets)
-    EV_EVENT_READ,         // Data received
-    EV_EVENT_WRITE_DONE,   // Write operation completed
-    EV_EVENT_CLOSE,            // Connection closed
-    EV_EVENT_ERROR,            // Error occurred
-    EV_EVENT_TICK,             // Timer tick
-} ev_event_type;
+    PTK_EVENT_ACCEPT,           // New client connected (server sockets)
+    PTK_EVENT_CONNECT,          // Connection established (client sockets)
+    PTK_EVENT_READ,         // Data received
+    PTK_EVENT_WRITE_DONE,   // Write operation completed
+    PTK_EVENT_CLOSE,            // Connection closed
+    PTK_EVENT_ERROR,            // Error occurred
+    PTK_EVENT_TICK,             // Timer tick
+} ptk_event_type;
 ```
 
 ### Event Structure
 ```c
 typedef struct {
-    ev_event_type type;        // Type of event
-    ev_sock *sock;             // Socket that generated the event
+    ptk_event_type type;        // Type of event
+    ptk_sock *sock;             // Socket that generated the event
     buf *data;                 // Data buffer (for read events, NULL otherwise)
-    ev_buf_ownership ownership;// Who owns the data buffer
+    ptk_buf_ownership ownership;// Who owns the data buffer
     const char *remote_host;   // Remote host (for accept/connect/UDP events)
     int remote_port;           // Remote port (for accept/connect/UDP events)
-    ev_err error;              // Error code (for error events)
+    ptk_err error;              // Error code (for error events)
     void *user_data;           // User data passed during socket creation
-} ev_event;
+} ptk_event;
 ```
 
 ### Callback Function
 ```c
-typedef void (*ev_callback)(const ev_event *event);
+typedef void (*ptk_callback)(const ptk_event *event);
 ```
 
 ## Buffer Management
@@ -93,9 +93,9 @@ typedef void (*ev_callback)(const ev_event *event);
 ### Buffer Ownership Model
 ```c
 typedef enum {
-    EV_BUF_BORROWED,           // Don't free - library retains ownership
-    EV_BUF_TRANSFER,           // Take ownership - you must call buf_free()
-} ev_buf_ownership;
+    PTK_BUF_BORROWED,           // Don't free - library retains ownership
+    PTK_BUF_TRANSFER,           // Take ownership - you must call buf_free()
+} ptk_buf_ownership;
 ```
 
 ### Buffer Integration
@@ -109,40 +109,40 @@ typedef enum {
 ### Socket Types
 ```c
 typedef enum {
-    EV_SOCK_TCP_SERVER,        // TCP listening socket
-    EV_SOCK_TCP_CLIENT,        // TCP client socket
-    EV_SOCK_UDP,               // UDP socket
-    EV_SOCK_TIMER,             // Timer object
-} ev_sock_type;
+    PTK_SOCK_TCP_SERVER,        // TCP listening socket
+    PTK_SOCK_TCP_CLIENT,        // TCP client socket
+    PTK_SOCK_UDP,               // UDP socket
+    PTK_SOCK_TIMER,             // Timer object
+} ptk_sock_type;
 ```
 
 ### Socket Operations
-- `ev_write()` - Asynchronous write with ownership transfer
-- `ev_close()` - Close socket (generates EV_EVENT_CLOSE)
-- `ev_sock_get_type()` - Get socket type
-- `ev_sock_get_local_addr()` - Get local address
-- `ev_sock_get_remote_addr()` - Get remote address
+- `ptk_write()` - Asynchronous write with ownership transfer
+- `ptk_close()` - Close socket (generates PTK_EVENT_CLOSE)
+- `ptk_sock_get_type()` - Get socket type
+- `ptk_sock_get_local_addr()` - Get local address
+- `ptk_sock_get_remote_addr()` - Get remote address
 
 ## Event Loop Management
 
 ### Loop Creation and Destruction
 ```c
-ev_err ev_loop_create(ev_loop **loop, const ev_loop_opts *opts);
-void ev_loop_destroy(ev_loop *loop);
+ptk_err ptk_loop_create(ptk_loop **loop, const ptk_loop_opts *opts);
+void ptk_loop_destroy(ptk_loop *loop);
 ```
 
 ### Loop Control
 ```c
-ev_err ev_loop_wait(ev_loop *loop);
-ev_err ev_loop_wait_timeout(ev_loop *loop, uint64_t timeout_ms);
-void ev_loop_stop(ev_loop *loop);
-bool ev_loop_is_running(ev_loop *loop);
+ptk_err ptk_loop_wait(ptk_loop *loop);
+ptk_err ptk_loop_wait_timeout(ptk_loop *loop, uint64_t timeout_ms);
+void ptk_loop_stop(ptk_loop *loop);
+bool ptk_loop_is_running(ptk_loop *loop);
 ```
 
 ### Loop Requirements
-- `ev_loop_create()` starts background threads if `auto_start` is true
-- `ev_loop_wait()` blocks until `ev_loop_stop()` is called
-- `ev_loop_destroy()` automatically stops threads and cleans up resources
+- `ptk_loop_create()` starts background threads if `auto_start` is true
+- `ptk_loop_wait()` blocks until `ptk_loop_stop()` is called
+- `ptk_loop_destroy()` automatically stops threads and cleans up resources
 - Loop supports multiple worker threads for scalability
 
 ## TCP Server Operations
@@ -153,24 +153,24 @@ typedef struct {
     const char *bind_host;     // Host to bind to ("0.0.0.0" for all interfaces)
     int port;                  // Port to listen on
     int backlog;               // Listen backlog (default: 128 if 0)
-    ev_callback callback;      // Event callback function
+    ptk_callback callback;      // Event callback function
     void *user_data;           // User data passed to callbacks
 
     // Optional settings
     bool reuse_addr;           // Enable SO_REUSEADDR (default: true)
     bool keep_alive;           // Enable TCP keep-alive (default: false)
     size_t read_buffer_size;   // Read buffer size (default: 8192 if 0)
-} ev_tcp_server_opts;
+} ptk_tcp_server_opts;
 ```
 
 ### Server Operations
 ```c
-ev_err ev_tcp_server_start(ev_loop *loop, ev_sock **server, const ev_tcp_server_opts *opts);
+ptk_err ptk_tcp_server_start(ptk_loop *loop, ptk_sock **server, const ptk_tcp_server_opts *opts);
 ```
 
 ### Server Requirements
 - Immediately starts listening on successful creation
-- Generates `EV_EVENT_ACCEPT` for new connections
+- Generates `PTK_EVENT_ACCEPT` for new connections
 - Supports multiple simultaneous connections
 - Configurable backlog and buffer sizes
 
@@ -181,24 +181,24 @@ ev_err ev_tcp_server_start(ev_loop *loop, ev_sock **server, const ev_tcp_server_
 typedef struct {
     const char *host;          // Remote host to connect to
     int port;                  // Remote port to connect to
-    ev_callback callback;      // Event callback function
+    ptk_callback callback;      // Event callback function
     void *user_data;           // User data passed to callbacks
 
     // Optional settings
     uint32_t connect_timeout_ms; // Connection timeout (default: 30000 if 0)
     bool keep_alive;           // Enable TCP keep-alive (default: false)
     size_t read_buffer_size;   // Read buffer size (default: 8192 if 0)
-} ev_tcp_client_opts;
+} ptk_tcp_client_opts;
 ```
 
 ### Client Operations
 ```c
-ev_err ev_tcp_connect(ev_loop *loop, ev_sock **client, const ev_tcp_client_opts *opts);
+ptk_err ptk_tcp_connect(ptk_loop *loop, ptk_sock **client, const ptk_tcp_client_opts *opts);
 ```
 
 ### Client Requirements
 - Asynchronous connection establishment
-- Generates `EV_EVENT_CONNECT` on success/failure
+- Generates `PTK_EVENT_CONNECT` on success/failure
 - Configurable connection timeout
 - Support for keep-alive and custom buffer sizes
 
@@ -209,26 +209,26 @@ ev_err ev_tcp_connect(ev_loop *loop, ev_sock **client, const ev_tcp_client_opts 
 typedef struct {
     const char *bind_host;     // Host to bind to (NULL for client-only)
     int bind_port;             // Port to bind to (0 for client-only)
-    ev_callback callback;      // Event callback function
+    ptk_callback callback;      // Event callback function
     void *user_data;           // User data passed to callbacks
 
     // Optional settings
     bool broadcast;            // Enable broadcast (default: false)
     bool reuse_addr;           // Enable SO_REUSEADDR (default: true)
     size_t read_buffer_size;   // Read buffer size (default: 8192 if 0)
-} ev_udp_opts;
+} ptk_udp_opts;
 ```
 
 ### UDP Operations
 ```c
-ev_err ev_udp_create(ev_loop *loop, ev_sock **udp_sock, const ev_udp_opts *opts);
-ev_err ev_udp_send(ev_sock *sock, buf *data, const char *host, int port);
+ptk_err ptk_udp_create(ptk_loop *loop, ptk_sock **udp_sock, const ptk_udp_opts *opts);
+ptk_err ptk_udp_send(ptk_sock *sock, buf *data, const char *host, int port);
 ```
 
 ### UDP Requirements
 - Support both client and server (bound) operation
-- Generates `EV_EVENT_UDP_READ` for received packets
-- Generates `EV_EVENT_UDP_WRITE_DONE` for completed sends
+- Generates `PTK_EVENT_UDP_READ` for received packets
+- Generates `PTK_EVENT_UDP_WRITE_DONE` for completed sends
 - Support for broadcast and unicast
 - Destination address specified per send operation
 
@@ -239,19 +239,19 @@ ev_err ev_udp_send(ev_sock *sock, buf *data, const char *host, int port);
 typedef struct {
     uint64_t timeout_ms;       // Timeout in milliseconds
     bool repeat;               // Whether to repeat the timer
-    ev_callback callback;      // Event callback function
+    ptk_callback callback;      // Event callback function
     void *user_data;           // User data passed to callbacks
-} ev_timer_opts;
+} ptk_timer_opts;
 ```
 
 ### Timer Operations
 ```c
-ev_err ev_timer_start(ev_loop *loop, ev_sock **timer, const ev_timer_opts *opts);
-ev_err ev_timer_stop(ev_sock *timer);
+ptk_err ptk_timer_start(ptk_loop *loop, ptk_sock **timer, const ptk_timer_opts *opts);
+ptk_err ptk_timer_stop(ptk_sock *timer);
 ```
 
 ### Timer Requirements
-- Generates `EV_EVENT_TICK` when timer expires
+- Generates `PTK_EVENT_TICK` when timer expires
 - Support for one-shot and repeating timers
 - Millisecond precision timing
 - Timer can be stopped before expiration
@@ -261,34 +261,34 @@ ev_err ev_timer_stop(ev_sock *timer);
 ### Socket Options
 ```c
 typedef enum {
-    EV_SOCKOPT_KEEP_ALIVE,     // TCP keep-alive (bool)
-    EV_SOCKOPT_NO_DELAY,       // TCP_NODELAY (bool)
-    EV_SOCKOPT_REUSE_ADDR,     // SO_REUSEADDR (bool)
-    EV_SOCKOPT_RECV_BUFFER,    // SO_RCVBUF (int)
-    EV_SOCKOPT_SEND_BUFFER,    // SO_SNDBUF (int)
-} ev_sockopt;
+    PTK_SOCKOPT_KEEP_ALIVE,     // TCP keep-alive (bool)
+    PTK_SOCKOPT_NO_DELAY,       // TCP_NODELAY (bool)
+    PTK_SOCKOPT_REUSE_ADDR,     // SO_REUSEADDR (bool)
+    PTK_SOCKOPT_RECV_BUFFER,    // SO_RCVBUF (int)
+    PTK_SOCKOPT_SEND_BUFFER,    // SO_SNDBUF (int)
+} ptk_sockopt;
 ```
 
 ### Advanced Operations
 ```c
-ev_err ev_sock_set_option(ev_sock *sock, ev_sockopt opt, const void *value, size_t value_len);
-ev_err ev_sock_get_option(ev_sock *sock, ev_sockopt opt, void *value, size_t *value_len);
-ev_err ev_sock_wake(ev_sock *sock, void *user_data);
-ev_err ev_loop_post(ev_loop *loop, void (*callback)(void *user_data), void *user_data);
+ptk_err ptk_sock_set_option(ptk_sock *sock, ptk_sockopt opt, const void *value, size_t value_len);
+ptk_err ptk_sock_get_option(ptk_sock *sock, ptk_sockopt opt, void *value, size_t *value_len);
+ptk_err ptk_sock_wake(ptk_sock *sock, void *user_data);
+ptk_err ptk_loop_post(ptk_loop *loop, void (*callback)(void *user_data), void *user_data);
 ```
 
 ### Advanced Requirements
 - Socket options can be set/get at runtime
 - Cross-thread wake capability for inter-thread communication
-- Deferred callback execution via `ev_loop_post()`
+- Deferred callback execution via `ptk_loop_post()`
 
 ## Utility Functions
 
 ### Utility Operations
 ```c
-const char* ev_err_string(ev_err err);
-const char* ev_event_string(ev_event_type type);
-uint64_t ev_now_ms(void);
+const char* ptk_err_string(ptk_err err);
+const char* ptk_event_string(ptk_event_type type);
+uint64_t ptk_now_ms(void);
 ```
 
 ### Utility Requirements
@@ -331,41 +331,41 @@ uint64_t ev_now_ms(void);
 ## Example Usage Pattern
 
 ```c
-void server_callback(const ev_event *event) {
+void server_callback(const ptk_event *event) {
     switch (event->type) {
-        case EV_EVENT_ACCEPT:
+        case PTK_EVENT_ACCEPT:
             // Handle new client connection
             break;
-        case EV_EVENT_READ:
+        case PTK_EVENT_READ:
             // Process received data using buf API
             // Handle buffer ownership correctly
             break;
-        case EV_EVENT_WRITE_DONE:
+        case PTK_EVENT_WRITE_DONE:
             // Handle completion of write operation
             break;
-        case EV_EVENT_ERROR:
+        case PTK_EVENT_ERROR:
             // Handle error conditions
             break;
     }
 }
 
 int main() {
-    ev_loop *loop;
-    ev_loop_create(&loop, NULL);  // Use defaults, auto-start threads
+    ptk_loop *loop;
+    ptk_loop_create(&loop, NULL);  // Use defaults, auto-start threads
 
-    ev_sock *server;
-    ev_tcp_server_opts opts = {
+    ptk_sock *server;
+    ptk_tcp_server_opts opts = {
         .bind_host = "0.0.0.0",
         .port = 8080,
         .callback = server_callback,
         .user_data = NULL
     };
 
-    if (ev_tcp_server_start(loop, &server, &opts) == EV_OK) {
-        ev_loop_wait(loop);  // Wait for background threads
+    if (ptk_tcp_server_start(loop, &server, &opts) == PTK_OK) {
+        ptk_loop_wait(loop);  // Wait for background threads
     }
 
-    ev_loop_destroy(loop);
+    ptk_loop_destroy(loop);
     return 0;
 }
 ```

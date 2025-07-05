@@ -62,16 +62,16 @@ Contains all the structs in the input file as well as declarations of functions 
 codec_err_t <struct_name>_decode(struct <struct_name> **value, buf *input_buf);
 codec_err_t <struct_name>_encode(buf *output_buf, const struct <struct_name> *value);
 void <struct_name>_dispose(struct <struct_name> *value);
-void <struct_name>_log_impl(const char *func, int line_num, ev_log_level log_level, struct <struct_name> *value);
+void <struct_name>_log_impl(const char *func, int line_num, ptk_log_level log_level, struct <struct_name> *value);
 ```
 
 #### Per struct macros:
 ```c
-#define <struct_name>_log_error(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_ERROR) <struct_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_ERROR, value); } while(0)
-#define <struct_name>_log_warn(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_WARN) <struct_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_WARN, value); } while(0)
-#define <struct_name>_log_info(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_INFO) <struct_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_INFO, value); } while(0)
-#define <struct_name>_log_debug(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_DEBUG) <struct_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_DEBUG, value); } while(0)
-#define <struct_name>_log_trace(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_TRACE) <struct_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_TRACE, value); } while(0)
+#define <struct_name>_log_error(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) <struct_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, value); } while(0)
+#define <struct_name>_log_warn(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) <struct_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, value); } while(0)
+#define <struct_name>_log_info(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) <struct_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, value); } while(0)
+#define <struct_name>_log_debug(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) <struct_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, value); } while(0)
+#define <struct_name>_log_trace(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) <struct_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, value); } while(0)
 ```
 
 ### `<filename>.c`
@@ -81,7 +81,7 @@ Contains per struct function implementations:
 codec_err_t <struct_name>_decode(struct <struct_name> **value, buf *input_buf) { ... code ...}
 codec_err_t <struct_name>_encode(buf *output_buf, const struct <struct_name> *value) { ... code ...}
 void <struct_name>_dispose(struct <struct_name> *value) { ... code ...}
-void <struct_name>_log_impl(const char *func, int line_num, ev_log_level log_level, struct <struct_name> *value) { ... code ...}
+void <struct_name>_log_impl(const char *func, int line_num, ptk_log_level log_level, struct <struct_name> *value) { ... code ...}
 ```
 
 ## General Requirements
@@ -186,15 +186,15 @@ Pointer fields are a signal to the generator to declare other functions and macr
 codec_err_t <struct_name>_<field_name>_decode(struct <struct_name> *value, buf *input_buf);
 codec_err_t <struct_name>_<field_name>_encode(buf *output_buf, const struct <struct_name> *value);
 void <struct_name>_<field_name>_dispose(struct <struct_name> *value);
-void <struct_name>_<field_name>_log_impl(const char *func, int line_num, ev_log_level log_level, struct <struct_name> *value);
+void <struct_name>_<field_name>_log_impl(const char *func, int line_num, ptk_log_level log_level, struct <struct_name> *value);
 ```
 
 ```c
-#define <struct_name>_<field_name>_log_error(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_ERROR) <struct_name>_<field_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_ERROR, value); } while(0)
-#define <struct_name>_<field_name>_log_warn(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_WARN) <struct_name>_<field_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_WARN, value); } while(0)
-#define <struct_name>_<field_name>_log_info(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_INFO) <struct_name>_<field_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_INFO, value); } while(0)
-#define <struct_name>_<field_name>_log_debug(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_DEBUG) <struct_name>_<field_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_DEBUG, value); } while(0)
-#define <struct_name>_<field_name>_log_trace(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_TRACE) <struct_name>_<field_name>_log_impl(__func__, __LINE__, EV_LOG_LEVEL_TRACE, value); } while(0)
+#define <struct_name>_<field_name>_log_error(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) <struct_name>_<field_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, value); } while(0)
+#define <struct_name>_<field_name>_log_warn(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) <struct_name>_<field_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, value); } while(0)
+#define <struct_name>_<field_name>_log_info(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) <struct_name>_<field_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, value); } while(0)
+#define <struct_name>_<field_name>_log_debug(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) <struct_name>_<field_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, value); } while(0)
+#define <struct_name>_<field_name>_log_trace(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) <struct_name>_<field_name>_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, value); } while(0)
 ```
 
 The functions are **NOT** defined in the `.c` file. It is the responsibility of the user to create those functions. This is how any variable length data is handled. Note that the arguments differ slightly from the functions generated by the generator. The parent struct pointer is passed instead of a pointer to pointer. All fields in the parent struct in lexical order before the pointer field will have been filled in. The decoder must create/allocate any data it needs and set the pointer field in the parent struct. All fields not filled in will be set to zero bytes.
@@ -236,7 +236,7 @@ The decoder function allocates the struct and places it in the passed pointer to
 
 The generator will generate code to call any functions required to decode each field using appropriate format strings.
 
-The decoder function logs the data that was used for decoding and the resulting struct data at log level `EV_LOG_LEVEL_INFO`.
+The decoder function logs the data that was used for decoding and the resulting struct data at log level `PTK_LOG_LEVEL_INFO`.
 
 If decode fails partway through a struct with multiple fields, any previously allocated nested structs are cleaned up by calling their dispose functions. The buffer cursor position reflects how much data was successfully processed.
 
@@ -268,7 +268,7 @@ The encoder functions use the unified format string API for buffer operations. T
 
 The generator will generate code to call any functions required to encode each field using appropriate format strings.
 
-The encoder function logs the struct data and the resulting output data bytes at log level `EV_LOG_LEVEL_INFO`.
+The encoder function logs the struct data and the resulting output data bytes at log level `PTK_LOG_LEVEL_INFO`.
 
 After successful encoding, `buf_get_cursor()` indicates the total number of bytes written to the buffer.
 
@@ -276,11 +276,11 @@ After successful encoding, `buf_get_cursor()` indicates the total number of byte
 
 The generator disposal functions call disposal functions for each field (if any) and then dispose of the memory of the struct. The dispose functions handle NULL pointers gracefully but log a warning at WARN level when called with NULL.
 
-The disposal code logs the disposal at log level `EV_LOG_LEVEL_INFO`.
+The disposal code logs the disposal at log level `PTK_LOG_LEVEL_INFO`.
 
 ### Log Functions
 
-The generator creates log functions following the signature above to log out the field values of the passed structure. The logging is done one field per line using the `ev_log_impl()` function from `log.h`. Each log entry has the field name in the log message.
+The generator creates log functions following the signature above to log out the field values of the passed structure. The logging is done one field per line using the `ptk_log_impl()` function from `log.h`. Each log entry has the field name in the log message.
 
 The user-defined log functions are called to log the field contents.
 
@@ -400,53 +400,53 @@ struct read_holding_registers_resp {
 codec_err_t mbap_decode(struct mbap **value, buf *input_buf);
 codec_err_t mbap_encode(buf *output_buf, const struct mbap *value);
 void mbap_dispose(struct mbap *value);
-void mbap_log_impl(const char *func, int line_num, ev_log_level log_level, struct mbap *value);
+void mbap_log_impl(const char *func, int line_num, ptk_log_level log_level, struct mbap *value);
 
 /* functions for struct read_holding_registers_req */
 codec_err_t read_holding_registers_req_decode(struct read_holding_registers_req **value, buf *input_buf);
 codec_err_t read_holding_registers_req_encode(buf *output_buf, const struct read_holding_registers_req *value);
 void read_holding_registers_req_dispose(struct read_holding_registers_req *value);
-void read_holding_registers_req_log_impl(const char *func, int line_num, ev_log_level log_level, struct read_holding_registers_req *value);
+void read_holding_registers_req_log_impl(const char *func, int line_num, ptk_log_level log_level, struct read_holding_registers_req *value);
 
 /* functions for struct read_holding_registers_resp */
 codec_err_t read_holding_registers_resp_decode(struct read_holding_registers_resp **value, buf *input_buf);
 codec_err_t read_holding_registers_resp_encode(buf *output_buf, const struct read_holding_registers_resp *value);
 void read_holding_registers_resp_dispose(struct read_holding_registers_resp *value);
-void read_holding_registers_resp_log_impl(const char *func, int line_num, ev_log_level log_level, struct read_holding_registers_resp *value);
+void read_holding_registers_resp_log_impl(const char *func, int line_num, ptk_log_level log_level, struct read_holding_registers_resp *value);
 
 /* generated declarations for user-supplied decoder/encoder/dispose of the pointer field */
 codec_err_t read_holding_registers_resp_reg_values_decode(struct read_holding_registers_resp *value, buf *input_buf);
 codec_err_t read_holding_registers_resp_reg_values_encode(buf *output_buf, const struct read_holding_registers_resp *value);
 void read_holding_registers_resp_reg_values_dispose(struct read_holding_registers_resp *value);
-void read_holding_registers_resp_reg_values_log_impl(const char *func, int line_num, ev_log_level log_level, struct read_holding_registers_resp *value);
+void read_holding_registers_resp_reg_values_log_impl(const char *func, int line_num, ptk_log_level log_level, struct read_holding_registers_resp *value);
 
 /* logging macros for struct mbap */
-#define mbap_log_error(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_ERROR) mbap_log_impl(__func__, __LINE__, EV_LOG_LEVEL_ERROR, value); } while(0)
-#define mbap_log_warn(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_WARN) mbap_log_impl(__func__, __LINE__, EV_LOG_LEVEL_WARN, value); } while(0)
-#define mbap_log_info(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_INFO) mbap_log_impl(__func__, __LINE__, EV_LOG_LEVEL_INFO, value); } while(0)
-#define mbap_log_debug(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_DEBUG) mbap_log_impl(__func__, __LINE__, EV_LOG_LEVEL_DEBUG, value); } while(0)
-#define mbap_log_trace(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_TRACE) mbap_log_impl(__func__, __LINE__, EV_LOG_LEVEL_TRACE, value); } while(0)
+#define mbap_log_error(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) mbap_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, value); } while(0)
+#define mbap_log_warn(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) mbap_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, value); } while(0)
+#define mbap_log_info(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) mbap_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, value); } while(0)
+#define mbap_log_debug(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) mbap_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, value); } while(0)
+#define mbap_log_trace(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) mbap_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, value); } while(0)
 
 /* logging macros for struct read_holding_registers_req */
-#define read_holding_registers_req_log_error(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_ERROR) read_holding_registers_req_log_impl(__func__, __LINE__, EV_LOG_LEVEL_ERROR, value); } while(0)
-#define read_holding_registers_req_log_warn(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_WARN) read_holding_registers_req_log_impl(__func__, __LINE__, EV_LOG_LEVEL_WARN, value); } while(0)
-#define read_holding_registers_req_log_info(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_INFO) read_holding_registers_req_log_impl(__func__, __LINE__, EV_LOG_LEVEL_INFO, value); } while(0)
-#define read_holding_registers_req_log_debug(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_DEBUG) read_holding_registers_req_log_impl(__func__, __LINE__, EV_LOG_LEVEL_DEBUG, value); } while(0)
-#define read_holding_registers_req_log_trace(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_TRACE) read_holding_registers_req_log_impl(__func__, __LINE__, EV_LOG_LEVEL_TRACE, value); } while(0)
+#define read_holding_registers_req_log_error(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) read_holding_registers_req_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, value); } while(0)
+#define read_holding_registers_req_log_warn(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) read_holding_registers_req_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, value); } while(0)
+#define read_holding_registers_req_log_info(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) read_holding_registers_req_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, value); } while(0)
+#define read_holding_registers_req_log_debug(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) read_holding_registers_req_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, value); } while(0)
+#define read_holding_registers_req_log_trace(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) read_holding_registers_req_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, value); } while(0)
 
 /* logging macros for struct read_holding_registers_resp */
-#define read_holding_registers_resp_log_error(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_ERROR) read_holding_registers_resp_log_impl(__func__, __LINE__, EV_LOG_LEVEL_ERROR, value); } while(0)
-#define read_holding_registers_resp_log_warn(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_WARN) read_holding_registers_resp_log_impl(__func__, __LINE__, EV_LOG_LEVEL_WARN, value); } while(0)
-#define read_holding_registers_resp_log_info(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_INFO) read_holding_registers_resp_log_impl(__func__, __LINE__, EV_LOG_LEVEL_INFO, value); } while(0)
-#define read_holding_registers_resp_log_debug(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_DEBUG) read_holding_registers_resp_log_impl(__func__, __LINE__, EV_LOG_LEVEL_DEBUG, value); } while(0)
-#define read_holding_registers_resp_log_trace(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_TRACE) read_holding_registers_resp_log_impl(__func__, __LINE__, EV_LOG_LEVEL_TRACE, value); } while(0)
+#define read_holding_registers_resp_log_error(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) read_holding_registers_resp_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, value); } while(0)
+#define read_holding_registers_resp_log_warn(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) read_holding_registers_resp_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, value); } while(0)
+#define read_holding_registers_resp_log_info(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) read_holding_registers_resp_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, value); } while(0)
+#define read_holding_registers_resp_log_debug(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) read_holding_registers_resp_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, value); } while(0)
+#define read_holding_registers_resp_log_trace(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) read_holding_registers_resp_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, value); } while(0)
 
 /* logging macros for pointer field reg_values */
-#define read_holding_registers_resp_reg_values_log_error(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_ERROR) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, EV_LOG_LEVEL_ERROR, value); } while(0)
-#define read_holding_registers_resp_reg_values_log_warn(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_WARN) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, EV_LOG_LEVEL_WARN, value); } while(0)
-#define read_holding_registers_resp_reg_values_log_info(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_INFO) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, EV_LOG_LEVEL_INFO, value); } while(0)
-#define read_holding_registers_resp_reg_values_log_debug(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_DEBUG) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, EV_LOG_LEVEL_DEBUG, value); } while(0)
-#define read_holding_registers_resp_reg_values_log_trace(value) do { if(ev_log_level_get() <= EV_LOG_LEVEL_TRACE) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, EV_LOG_LEVEL_TRACE, value); } while(0)
+#define read_holding_registers_resp_reg_values_log_error(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, value); } while(0)
+#define read_holding_registers_resp_reg_values_log_warn(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, value); } while(0)
+#define read_holding_registers_resp_reg_values_log_info(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, value); } while(0)
+#define read_holding_registers_resp_reg_values_log_debug(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, value); } while(0)
+#define read_holding_registers_resp_reg_values_log_trace(value) do { if(ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) read_holding_registers_resp_reg_values_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, value); } while(0)
 ```
 
 ### Generated Implementation (`modbus.c`)
@@ -476,7 +476,7 @@ void mbap_dispose(struct mbap *value) {
     /* ... implementation code ... */
 }
 
-void mbap_log_impl(const char *func, int line_num, ev_log_level log_level, struct mbap *value) {
+void mbap_log_impl(const char *func, int line_num, ptk_log_level log_level, struct mbap *value) {
     /* ... implementation code ... */
 }
 
@@ -493,7 +493,7 @@ void read_holding_registers_req_dispose(struct read_holding_registers_req *value
     /* ... implementation code ... */
 }
 
-void read_holding_registers_req_log_impl(const char *func, int line_num, ev_log_level log_level, struct read_holding_registers_req *value) {
+void read_holding_registers_req_log_impl(const char *func, int line_num, ptk_log_level log_level, struct read_holding_registers_req *value) {
     /* ... implementation code ... */
 }
 
@@ -516,7 +516,7 @@ void read_holding_registers_resp_dispose(struct read_holding_registers_resp *val
     /* ... implementation code ... */
 }
 
-void read_holding_registers_resp_log_impl(const char *func, int line_num, ev_log_level log_level, struct read_holding_registers_resp *value) {
+void read_holding_registers_resp_log_impl(const char *func, int line_num, ptk_log_level log_level, struct read_holding_registers_resp *value) {
     /* ... implementation code ... */
 }
 ```

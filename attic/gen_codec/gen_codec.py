@@ -184,7 +184,7 @@ class CodeGenerator:
             header.append(f"codec_err_t {struct.name}_decode(struct {struct.name} **value, buf *remaining_input_buf, buf *input_buf);")
             header.append(f"codec_err_t {struct.name}_encode(buf *remaining_output_buf, buf *output_buf, const struct {struct.name} *value);")
             header.append(f"void {struct.name}_dispose(struct {struct.name} *value);")
-            header.append(f"void {struct.name}_log_impl(const char *func, int line_num, ev_log_level log_level, struct {struct.name} *value);")
+            header.append(f"void {struct.name}_log_impl(const char *func, int line_num, ptk_log_level log_level, struct {struct.name} *value);")
             header.append("")
 
             # User-defined functions for pointer fields
@@ -194,7 +194,7 @@ class CodeGenerator:
                     header.append(f"codec_err_t {struct.name}_{field.name}_decode(struct {struct.name} *value, buf *remaining_input_buf, buf *input_buf);")
                     header.append(f"codec_err_t {struct.name}_{field.name}_encode(buf *remaining_output_buf, buf *output_buf, const struct {struct.name} *value);")
                     header.append(f"void {struct.name}_{field.name}_dispose(struct {struct.name} *value);")
-                    header.append(f"void {struct.name}_{field.name}_log_impl(const char *func, int line_num, ev_log_level log_level, struct {struct.name} *value);")
+                    header.append(f"void {struct.name}_{field.name}_log_impl(const char *func, int line_num, ptk_log_level log_level, struct {struct.name} *value);")
                     header.append("")
 
         # Logging macros
@@ -202,7 +202,7 @@ class CodeGenerator:
         for struct in self.structs:
             header.append(f"/* logging macros for struct {struct.name} */")
             for level in ['error', 'warn', 'info', 'debug', 'trace']:
-                header.append(f"#define {struct.name}_log_{level}(value) do {{ if(ev_log_level_get() <= EV_LOG_LEVEL_{level.upper()}) {struct.name}_log_impl(__func__, __LINE__, EV_LOG_LEVEL_{level.upper()}, value); }} while(0)")
+                header.append(f"#define {struct.name}_log_{level}(value) do {{ if(ptk_log_level_get() <= PTK_LOG_LEVEL_{level.upper()}) {struct.name}_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_{level.upper()}, value); }} while(0)")
             header.append("")
 
             # Macros for pointer fields
@@ -210,7 +210,7 @@ class CodeGenerator:
                 if field.is_pointer:
                     header.append(f"/* logging macros for pointer field {field.name} */")
                     for level in ['error', 'warn', 'info', 'debug', 'trace']:
-                        header.append(f"#define {struct.name}_{field.name}_log_{level}(value) do {{ if(ev_log_level_get() <= EV_LOG_LEVEL_{level.upper()}) {struct.name}_{field.name}_log_impl(__func__, __LINE__, EV_LOG_LEVEL_{level.upper()}, value); }} while(0)")
+                        header.append(f"#define {struct.name}_{field.name}_log_{level}(value) do {{ if(ptk_log_level_get() <= PTK_LOG_LEVEL_{level.upper()}) {struct.name}_{field.name}_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_{level.upper()}, value); }} while(0)")
                     header.append("")
 
         header.append(f"#endif /* {guard} */")
@@ -557,9 +557,9 @@ class CodeGenerator:
             impl.append("")
 
             # Log function
-            impl.append(f"void {struct.name}_log_impl(const char *func, int line_num, ev_log_level log_level, struct {struct.name} *value) {{")
+            impl.append(f"void {struct.name}_log_impl(const char *func, int line_num, ptk_log_level log_level, struct {struct.name} *value) {{")
             impl.append(f"    if (!value) {{")
-            impl.append(f"        ev_log_impl(func, line_num, log_level, \"{struct.name}: NULL\");")
+            impl.append(f"        ptk_log_impl(func, line_num, log_level, \"{struct.name}: NULL\");")
             impl.append(f"        return;")
             impl.append(f"    }}")
             impl.append("")
@@ -586,24 +586,24 @@ class CodeGenerator:
                         else:
                             impl.append(f"            pos += snprintf(buf + pos, sizeof(buf) - pos, \"0x%02X \", (unsigned char)value->{field.name}[j]);")
                         impl.append(f"        }}")
-                        impl.append(f"        ev_log_impl(func, line_num, log_level, \"%s\", buf);")
+                        impl.append(f"        ptk_log_impl(func, line_num, log_level, \"%s\", buf);")
                         impl.append(f"    }}")
                 elif field.field_type.startswith('struct '):
                     struct_type = field.field_type.replace('struct ', '')
                     impl.append(f"    {struct_type}_log_impl(func, line_num, log_level, &value->{field.name});")
                 else:
                     if 'f32' in field.field_type or 'f64' in field.field_type:
-                        impl.append(f"    ev_log_impl(func, line_num, log_level, \"{field.name}: %.6f\", value->{field.name});")
+                        impl.append(f"    ptk_log_impl(func, line_num, log_level, \"{field.name}: %.6f\", value->{field.name});")
                     else:
                         size = self.type_sizes.get(field.field_type, 1)
                         if size == 1:
-                            impl.append(f"    ev_log_impl(func, line_num, log_level, \"{field.name}: 0x%02X\", value->{field.name});")
+                            impl.append(f"    ptk_log_impl(func, line_num, log_level, \"{field.name}: 0x%02X\", value->{field.name});")
                         elif size == 2:
-                            impl.append(f"    ev_log_impl(func, line_num, log_level, \"{field.name}: 0x%04X\", value->{field.name});")
+                            impl.append(f"    ptk_log_impl(func, line_num, log_level, \"{field.name}: 0x%04X\", value->{field.name});")
                         elif size == 4:
-                            impl.append(f"    ev_log_impl(func, line_num, log_level, \"{field.name}: 0x%08X\", value->{field.name});")
+                            impl.append(f"    ptk_log_impl(func, line_num, log_level, \"{field.name}: 0x%08X\", value->{field.name});")
                         elif size == 8:
-                            impl.append(f"    ev_log_impl(func, line_num, log_level, \"{field.name}: 0x%016llX\", (unsigned long long)value->{field.name});")
+                            impl.append(f"    ptk_log_impl(func, line_num, log_level, \"{field.name}: 0x%016llX\", (unsigned long long)value->{field.name});")
 
             impl.append(f"}}")
             impl.append("")

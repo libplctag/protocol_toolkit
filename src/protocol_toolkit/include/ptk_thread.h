@@ -4,29 +4,35 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "ev_err.h"
-#include "ev_utils.h"
+#include "ptk_err.h"
+#include "ptk_utils.h"
 
 /**
- * @file ev_threading.h
+ * @file ptk_threading.h
  * @brief Threading and synchronization primitives including threads, mutexes, and condition variables.
  */
+
+ #if defined(_WIN32) && defined(_MSC_VER)
+#define ptk_thread_local __declspec(thread)
+#else
+#define ptk_thread_local __thread
+#endif
 
 
 /**
  * @brief Forward declaration of a mutex type.
  */
-typedef struct ev_mutex ev_mutex;
+typedef struct ptk_mutex ptk_mutex;
 
 /**
  * @brief Forward declaration of a condition variable type.
  */
-typedef struct ev_cond_var ev_cond_var;
+typedef struct ptk_cond_var ptk_cond_var;
 
 /**
  * @brief Forward declaration of a thread type.
  */
-typedef struct ev_thread ev_thread;
+typedef struct ptk_thread ptk_thread;
 
 //============================
 // Mutex Functions
@@ -38,7 +44,7 @@ typedef struct ev_thread ev_thread;
  * @param[out] mutex Pointer to the newly created mutex.
  * @return Error code indicating success or failure.
  */
-extern ev_err ev_mutex_create(ev_mutex **mutex);
+extern ptk_err ptk_mutex_create(ptk_mutex **mutex);
 
 /**
  * @brief Destroys a mutex.
@@ -46,16 +52,16 @@ extern ev_err ev_mutex_create(ev_mutex **mutex);
  * @param mutex Pointer to the mutex to destroy.
  * @return Error code.
  */
-extern ev_err ev_mutex_destroy(ev_mutex *mutex);
+extern ptk_err ptk_mutex_destroy(ptk_mutex *mutex);
 
 /**
  * @brief Attempts to lock the mutex, optionally waiting for a timeout.
  *
  * @param mutex Pointer to the mutex.
- * @param timeout_ms Timeout in milliseconds. Use EV_TIME_NO_WAIT or EV_TIME_WAIT_FOREVER for special cases.
+ * @param timeout_ms Timeout in milliseconds. Use PTK_TIME_NO_WAIT or PTK_TIME_WAIT_FOREVER for special cases.
  * @return Error code.
  */
-extern ev_err ev_mutex_wait_lock(ev_mutex *mutex, ev_time_ms timeout_ms);
+extern ptk_err ptk_mutex_wait_lock(ptk_mutex *mutex, ptk_time_ms timeout_ms);
 
 /**
  * @brief Unlocks the previously locked mutex.
@@ -63,7 +69,7 @@ extern ev_err ev_mutex_wait_lock(ev_mutex *mutex, ev_time_ms timeout_ms);
  * @param mutex Pointer to the mutex.
  * @return Error code.
  */
-extern ev_err ev_mutex_unlock(ev_mutex *mutex);
+extern ptk_err ptk_mutex_unlock(ptk_mutex *mutex);
 
 //============================
 // Condition Variable Functions
@@ -75,7 +81,7 @@ extern ev_err ev_mutex_unlock(ev_mutex *mutex);
  * @param[out] cond_var Pointer to the created condition variable.
  * @return Error code.
  */
-extern ev_err ev_cond_var_create(ev_cond_var **cond_var);
+extern ptk_err ptk_cond_var_create(ptk_cond_var **cond_var);
 
 /**
  * @brief Destroys a condition variable.
@@ -83,7 +89,7 @@ extern ev_err ev_cond_var_create(ev_cond_var **cond_var);
  * @param cond_var Pointer to the condition variable.
  * @return Error code.
  */
-extern ev_err ev_cond_var_destroy(ev_cond_var *cond_var);
+extern ptk_err ptk_cond_var_destroy(ptk_cond_var *cond_var);
 
 /**
  * @brief Signals the condition variable, waking one waiting thread.
@@ -91,7 +97,7 @@ extern ev_err ev_cond_var_destroy(ev_cond_var *cond_var);
  * @param cond_var Pointer to the condition variable.
  * @return Error code.
  */
-extern ev_err ev_cond_var_signal(ev_cond_var *cond_var);
+extern ptk_err ptk_cond_var_signal(ptk_cond_var *cond_var);
 
 /**
  * @brief Waits for the condition variable to be signaled.
@@ -101,7 +107,7 @@ extern ev_err ev_cond_var_signal(ev_cond_var *cond_var);
  * @param timeout_ms Timeout in milliseconds. Use THREAD_NO_WAIT or THREAD_WAIT_FOREVER for special cases.
  * @return Error code.
  */
-extern ev_err ev_cond_var_wait(ev_cond_var *cond_var, ev_mutex *mutex, ev_time_ms timeout_ms);
+extern ptk_err ptk_cond_var_wait(ptk_cond_var *cond_var, ptk_mutex *mutex, ptk_time_ms timeout_ms);
 
 //============================
 // Thread Functions
@@ -112,7 +118,7 @@ extern ev_err ev_cond_var_wait(ev_cond_var *cond_var, ev_mutex *mutex, ev_time_m
  *
  * @param data Pointer to user data passed to the thread.
  */
-typedef void (*ev_thread_func)(void *data);
+typedef void (*ptk_thread_func)(void *data);
 
 /**
  * @brief Creates and starts a new thread.
@@ -122,7 +128,7 @@ typedef void (*ev_thread_func)(void *data);
  * @param data User data to pass to the thread function.
  * @return Error code.
  */
-extern ev_err ev_thread_create(ev_thread **thread, ev_thread_func func, void *data);
+extern ptk_err ptk_thread_create(ptk_thread **thread, ptk_thread_func func, void *data);
 
 /**
  * @brief Waits for the specified thread to complete.
@@ -130,7 +136,7 @@ extern ev_err ev_thread_create(ev_thread **thread, ev_thread_func func, void *da
  * @param thread Thread to join.
  * @return Error code.
  */
-extern ev_err ev_thread_join(ev_thread *thread);
+extern ptk_err ptk_thread_join(ptk_thread *thread);
 
 /**
  * @brief Destroys a thread object.
@@ -138,4 +144,4 @@ extern ev_err ev_thread_join(ev_thread *thread);
  * @param thread Thread to destroy.
  * @return Error code.
  */
-extern ev_err ev_thread_destroy(ev_thread *thread);
+extern ptk_err ptk_thread_destroy(ptk_thread *thread);

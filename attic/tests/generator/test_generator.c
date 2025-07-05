@@ -28,9 +28,9 @@ void warn(const char *msg) { printf("WARN: %s\n", msg); }
 
 void info_buf(const uint8_t *data, size_t len) { printf("BUFFER: %zu bytes\n", len); }
 
-void ev_log_impl(const char *func, int line_num, ev_log_level level, const char *fmt, ...) { printf("LOG: %s\n", fmt); }
+void ptk_log_impl(const char *func, int line_num, ptk_log_level level, const char *fmt, ...) { printf("LOG: %s\n", fmt); }
 
-ev_log_level ev_log_level_get() { return EV_LOG_LEVEL_INFO; }
+ptk_log_level ptk_log_level_get() { return PTK_LOG_LEVEL_INFO; }
 
 // Stub user-defined functions
 codec_err_t read_holding_registers_resp_reg_values_decode(struct read_holding_registers_resp *value, buf *input_buf) {
@@ -47,7 +47,7 @@ void read_holding_registers_resp_reg_values_dispose(struct read_holding_register
     printf("User-defined dispose for reg_values called\n");
 }
 
-void read_holding_registers_resp_reg_values_log_impl(const char *func, int line_num, ev_log_level log_level,
+void read_holding_registers_resp_reg_values_log_impl(const char *func, int line_num, ptk_log_level log_level,
                                                      struct read_holding_registers_resp *value) {
     printf("User-defined log for reg_values called\n");
 }
