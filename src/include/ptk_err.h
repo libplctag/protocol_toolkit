@@ -33,7 +33,10 @@ typedef enum {
     PTK_ERR_RATE_LIMITED,       // Rate limit exceeded
     PTK_ERR_DEVICE_BUSY,        // Device is busy
     PTK_ERR_DEVICE_FAILURE,     // Device failure
-    PTK_ERR_CONFIGURATION_ERROR, // Configuration error
+    PTK_ERR_CONFIGURATION_ERROR,// Configuration error
+    PTK_ERR_INTERRUPT,          // The current operation was interrupted.
+    PTK_ERR_ABORT,              // The current operation was aborted.
+    PTK_ERR_UNSUPPORTED         // Operation not supported
 } ptk_err;
 
 /**

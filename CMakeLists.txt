@@ -50,105 +50,47 @@ elseif(UNIX)
 endif()
 
 #=============================================================================
-# PROTOCOL TOOLKIT (Shared utilities)
+# PROTOCOL TOOLKIT LIBRARY
 #=============================================================================
 
-# Include directories for all projects
-include_directories(src/protocol_toolkit/include)
-
-# Add protocol toolkit subdirectory
-add_subdirectory(src/protocol_toolkit)
+# Add protocol toolkit library
+add_subdirectory(src/lib)
 
 #=============================================================================
-# PROTOCOL LIBRARIES
+# EXAMPLES
 #=============================================================================
 
-# Add example subdirectories
-add_subdirectory(src/examples/modbus)
+# Add examples
+add_subdirectory(src/examples)
 
-#=============================================================================
-# TEST APPLICATIONS
-#=============================================================================
-
-# Timer test executable
-add_executable(test_timer
-    test_timer.c
-)
-
-target_link_libraries(test_timer
-    buf
-    log
-    ptk_loop
-)
-
-if(WIN32)
-    target_link_libraries(test_timer ws2_32)
-elseif(UNIX)
-    target_link_libraries(test_timer pthread)
-    if(PLATFORM_LIBS)
-        target_link_libraries(test_timer ${PLATFORM_LIBS})
-    endif()
-endif()
-
-# UDP + Timer test executable
-add_executable(test_udp_timer
-    test_udp_timer.c
-)
-
-target_link_libraries(test_udp_timer
-    buf
-    log
-    ptk_loop
-)
-
-if(WIN32)
-    target_link_libraries(test_udp_timer ws2_32)
-elseif(UNIX)
-    target_link_libraries(test_udp_timer pthread)
-    if(PLATFORM_LIBS)
-        target_link_libraries(test_udp_timer ${PLATFORM_LIBS})
-    endif()
-endif()
-
-# EtherNet/IP unicast test executable
-add_executable(test_ethernetip_unicast
-    test_ethernetip_unicast.c
-)
-
-target_link_libraries(test_ethernetip_unicast
-    buf
-    log
-    ptk_loop
-    ethernetip
-)
-
-if(WIN32)
-    target_link_libraries(test_ethernetip_unicast ws2_32)
-elseif(UNIX)
-    target_link_libraries(test_ethernetip_unicast pthread)
-    if(PLATFORM_LIBS)
-        target_link_libraries(test_ethernetip_unicast ${PLATFORM_LIBS})
-    endif()
-endif()
-
-# Modbus examples are built in src/protocols/modbus/examples
+# Add tests
+add_subdirectory(src/tests)
 
 #=============================================================================
 # INSTALLATION
 #=============================================================================
 
-install(TARGETS ethernetip_server ethernetip_client modbus_server modbus_client
-    RUNTIME DESTINATION bin
-)
+# Install any targets that exist
+# Note: modbus_server and modbus_client removed
+if(TARGET ethernetip_find_devices)
+    install(TARGETS ethernetip_find_devices
+        RUNTIME DESTINATION bin
+    )
+endif()
+
+if(TARGET ethernetip_tag_server)
+    install(TARGETS ethernetip_tag_server
+        RUNTIME DESTINATION bin
+    )
+endif()
 
 install(FILES
-    src/protocol_toolkit/utils/buf.h
-    src/protocol_toolkit/utils/log.h
-    src/protocol_toolkit/ptk_loop/ptk_loop.h
-    src/protocol_toolkit/ptk_loop/ptk_loop_platform.h
-    src/protocol_toolkit/ptk_loop/ptk_loop_common.h
-    src/protocols/ethernetip/protocol/ethernetip_defs.h
-    src/protocols/modbus/protocol/modbus.h
+    src/include/ptk_buf.h
+    src/include/ptk_err.h
+    src/include/ptk_log.h
+    src/include/ptk_socket.h
+    src/include/ptk_thread.h
+    src/include/ptk_utils.h
     DESTINATION include
 )
 
@@ -157,14 +99,9 @@ install(FILES
 #=============================================================================
 
 # Add test targets
-add_custom_target(test_ethernetip
-    COMMENT "Testing EtherNet/IP implementation"
-    DEPENDS ethernetip_server ethernetip_client
-)
-
-add_custom_target(test_modbus
-    COMMENT "Testing Modbus implementation"
-    DEPENDS modbus_server modbus_client
+add_custom_target(test_sockets
+    COMMENT "Testing socket implementation"
+    DEPENDS test_tcp_echo_abort test_udp_echo_abort
 )
 
 #=============================================================================
@@ -172,7 +109,7 @@ add_custom_target(test_modbus
 #=============================================================================
 
 # Print build information
-message(STATUS "Building serdesgen project with new modular structure")
+message(STATUS "Building Protocol Toolkit")
 message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C Compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
 message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME}")
@@ -184,14 +121,14 @@ message(STATUS "  mkdir build && cd build")
 message(STATUS "  cmake ..")
 message(STATUS "  make")
 message(STATUS "")
-message(STATUS "Run EtherNet/IP examples:")
-message(STATUS "  ./bin/ethernetip_server")
-message(STATUS "  ./bin/ethernetip_client [broadcast_interval] [discovery_time]")
-message(STATUS "")
 message(STATUS "Libraries built:")
-message(STATUS "  - buf: Buffer utilities with endian-aware typedefs")
-message(STATUS "  - log: Logging utilities")
-message(STATUS "  - ptk_loop: Cross-platform event loop (kqueue/epoll/IOCP)")
-message(STATUS "  - ethernetip: EtherNet/IP protocol implementation")
-message(STATUS "  - modbus: Modbus protocol implementation")
+message(STATUS "  - protocol_toolkit: Core utilities (buf, err, log, socket, thread, utils)")
+message(STATUS "")
+message(STATUS "Examples:")
+message(STATUS "  - ethernetip: EtherNet/IP device discovery tool")
+message(STATUS "  - modbus: Implementation guide and documentation")
+message(STATUS "")
+message(STATUS "Tests available:")
+message(STATUS "  - test_tcp_echo_abort: TCP socket abort functionality")
+message(STATUS "  - test_udp_echo_abort: UDP socket abort functionality")
 message(STATUS "")

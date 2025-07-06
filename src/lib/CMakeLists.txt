@@ -4,8 +4,12 @@
 # Create protocol toolkit library
 add_library(protocol_toolkit
     ptk_atomic.c
+    ptk_buf.c
+    ptk_err.c
     ptk_log.c
-    ptk_shared_mem.c
+    ptk_socket.c
+    ptk_thread.c
+    ptk_utils.c
 )
 
 # Set target properties

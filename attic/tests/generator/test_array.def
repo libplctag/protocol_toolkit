@@ -1,7 +1,0 @@
-#define ARRAY_SIZE 8
-
-struct test_arrays {
-    codec_u8 header;
-    codec_u16_be data[ARRAY_SIZE];
-    codec_u32_le checksum;
-};

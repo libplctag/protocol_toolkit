@@ -30,7 +30,7 @@ ptk_err ptk_atomic_fetch_or_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value
 ptk_err ptk_atomic_or_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);
 ptk_err ptk_atomic_fetch_xor_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);
 ptk_err ptk_atomic_xor_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);
-ptk_err ptk_atomic_compare_and_swap(ptk_atomic uint8_t *dest_value, uint8_t old_value, uint8_t new_value);
+ptk_err ptk_atomic_compare_and_swap_u8(ptk_atomic uint8_t *dest_value, uint8_t old_value, uint8_t new_value);
 
 ptk_err ptk_atomic_load_u16(uint16_t *dest_value, ptk_atomic uint16_t *src_value);
 ptk_err ptk_atomic_store_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);
