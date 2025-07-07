@@ -36,6 +36,7 @@ typedef enum {
     PTK_ERR_CONFIGURATION_ERROR,// Configuration error
     PTK_ERR_INTERRUPT,          // The current operation was interrupted.
     PTK_ERR_ABORT,              // The current operation was aborted.
+    PTK_ERR_VALIDATION,         // Validation error
     PTK_ERR_UNSUPPORTED         // Operation not supported
 } ptk_err;
 

@@ -56,7 +56,7 @@ static void client_handler_thread(void *arg) {
     printf("[CLIENT_HANDLER_%d] Started\n", client_id);
 
     uint8_t buffer_data[1024];
-    ptk_buf recv_buf, send_buf;
+    ptk_buf_t recv_buf, send_buf;
 
     while(g_test_running) {
         // Setup receive buffer
@@ -209,7 +209,7 @@ static void client_thread(void *arg) {
     // Send message to server
     const char *message = "Hello from client!";
     uint8_t buffer_data[1024];
-    ptk_buf send_buf;
+    ptk_buf_t send_buf;
 
     ptk_buf_make(&send_buf, buffer_data, sizeof(buffer_data));
     memcpy(buffer_data, message, strlen(message));
@@ -224,7 +224,7 @@ static void client_thread(void *arg) {
     }
 
     // Read response
-    ptk_buf recv_buf;
+    ptk_buf_t recv_buf;
     ptk_buf_make(&recv_buf, buffer_data, sizeof(buffer_data));
 
     printf("[CLIENT] Reading response\n");

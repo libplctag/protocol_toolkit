@@ -109,7 +109,7 @@ extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level
  * @param log_level Log severity.
  * @param data      Buffer containing the data to log.
  */
-extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data);
+extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf_t *data);
 
 /** @def error_buf
  *  @brief Logs a binary buffer at ERROR level.

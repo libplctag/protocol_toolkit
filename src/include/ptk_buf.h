@@ -1,11 +1,11 @@
 #pragma once
 
 /**
- * @file minimal_buf_api.h
- * @brief Minimal buffer API for embedded systems
+ * @file ptk_buf.h
+ * @brief Safe buffer API using type-safe arrays
  *
- * Ultra-simple buffer management with only essential operations.
- * No pools, no complex chaining - just basic buffer operations.
+ * Buffer management using safe byte arrays with start/end pointers
+ * for stream processing operations.
  */
 
 #include <stdint.h>
@@ -13,44 +13,47 @@
 #include <stdbool.h>
 
 #include "ptk_err.h"
-
-typedef enum {
-    PTK_BUF_BIG_ENDIAN,
-    PTK_BUF_BIG_ENDIAN_BYTE_SWAP,
-    PTK_BUF_LITTLE_ENDIAN,
-    PTK_BUF_LITTLE_ENDIAN_BYTE_SWAP,
-} ptk_buf_endianness;
-
+#include "ptk_array.h"
 
 //=============================================================================
 // BUFFER STRUCTURE
 //=============================================================================
 
 /**
- * @brief Simple buffer structure
+ * @brief Buffer structure using safe byte array
  */
-typedef struct ptk_buf {
-    uint8_t *data;              // Buffer data
-    size_t capacity;            // Total buffer capacity
-    size_t start;
-    size_t end;
-} ptk_buf;
+typedef struct ptk_buf_t {
+    u8_array_t *data;           // Safe byte array (owns capacity info)
+    size_t start;               // Start position for reading
+    size_t end;                 // End position (exclusive)
+} ptk_buf_t;
 
 //=============================================================================
 // BUFFER OPERATIONS
 //=============================================================================
 
 /**
- * @brief Make a new buffer from existing data.
+ * @brief Initialize buffer from existing byte array.
  *
- * Sets start and end to zero.  Sets the capacity to the passed size.
+ * Sets start and end to zero. The buffer references the provided array.
  *
- * @param buf Pointer to buffer to update
- * @param data pointer to the raw memory buffer
- * @param size Initial buffer size
+ * @param buf Pointer to buffer to initialize
+ * @param data Pointer to existing u8_array_t
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_buf_make(ptk_buf *buf, uint8_t *data, size_t size);
+ptk_err ptk_buf_make(ptk_buf_t *buf, u8_array_t *data);
+
+/**
+ * @brief Create buffer with new byte array of specified size.
+ *
+ * Allocates a new u8_array_t and initializes buffer to reference it.
+ *
+ * @param alloc Allocator to use for buffer creation
+ * @param buf Pointer to store allocated buffer pointer
+ * @param size Initial array size
+ * @return PTK_OK on success, error code on failure
+ */
+ptk_err ptk_buf_create(ptk_allocator_t *alloc, ptk_buf_t **buf, size_t size);
 
 /**
  * @brief Gets the amount of data between start and end.
@@ -61,16 +64,18 @@ ptk_err ptk_buf_make(ptk_buf *buf, uint8_t *data, size_t size);
  * @param buf
  * @return ptk_err
  */
-ptk_err ptk_buf_len(size_t *len, ptk_buf *buf);
+ptk_err ptk_buf_len(size_t *len, ptk_buf_t *buf);
 
 /**
  * @brief Get the capacity of the buffer.
  *
- * @param cap
- * @param buf
+ * Returns the capacity of the underlying byte array.
+ *
+ * @param cap Pointer to store capacity
+ * @param buf Buffer to query
  * @return ptk_err
  */
-ptk_err ptk_buf_cap(size_t *cap, ptk_buf *buf);
+ptk_err ptk_buf_cap(size_t *cap, ptk_buf_t *buf);
 
 /**
  * @brief Get the current start position
@@ -79,7 +84,7 @@ ptk_err ptk_buf_cap(size_t *cap, ptk_buf *buf);
  * @param buf
  * @return ptk_err
  */
-ptk_err ptk_buf_get_start(size_t *start, ptk_buf *buf);
+ptk_err ptk_buf_get_start(size_t *start, ptk_buf_t *buf);
 
 /**
  * @brief Get a data pointer to the start index
@@ -88,7 +93,7 @@ ptk_err ptk_buf_get_start(size_t *start, ptk_buf *buf);
  * @param buf
  * @return ptk_err
  */
-ptk_err ptk_buf_get_start_ptr(uint8_t **ptr, ptk_buf *buf);
+ptk_err ptk_buf_get_start_ptr(uint8_t **ptr, ptk_buf_t *buf);
 
 /**
  * @brief Set the start positions
@@ -99,7 +104,7 @@ ptk_err ptk_buf_get_start_ptr(uint8_t **ptr, ptk_buf *buf);
  * @param buf
  * @return ptk_err
  */
-ptk_err ptk_buf_set_start(ptk_buf *buf, size_t start);
+ptk_err ptk_buf_set_start(ptk_buf_t *buf, size_t start);
 
 /**
  * @brief Get the current end position
@@ -109,7 +114,7 @@ ptk_err ptk_buf_set_start(ptk_buf *buf, size_t start);
  * @param buf
  * @return ptk_err
  */
-ptk_err ptk_buf_get_end(size_t *end, ptk_buf *buf);
+ptk_err ptk_buf_get_end(size_t *end, ptk_buf_t *buf);
 
 /**
  * @brief Get a data pointer to the end index.
@@ -118,7 +123,7 @@ ptk_err ptk_buf_get_end(size_t *end, ptk_buf *buf);
  * @param buf
  * @return ptk_err
  */
-ptk_err ptk_buf_get_end_ptr(uint8_t **ptr, ptk_buf *buf);
+ptk_err ptk_buf_get_end_ptr(uint8_t **ptr, ptk_buf_t *buf);
 
 /**
  * @brief Set the end position
@@ -129,7 +134,7 @@ ptk_err ptk_buf_get_end_ptr(uint8_t **ptr, ptk_buf *buf);
  * @param end
  * @return ptk_err
  */
-ptk_err ptk_buf_set_end(ptk_buf *buf, size_t end);
+ptk_err ptk_buf_set_end(ptk_buf_t *buf, size_t end);
 
 /**
  * @brief Get the remaining space from the end index to the capacity of the buffer.
@@ -138,7 +143,7 @@ ptk_err ptk_buf_set_end(ptk_buf *buf, size_t end);
  * @param buf
  * @return ptk_err
  */
-ptk_err ptk_buf_get_remaining(size_t *remaining, ptk_buf *buf);
+ptk_err ptk_buf_get_remaining(size_t *remaining, ptk_buf_t *buf);
 
 /**
  * @brief Moves the data between start and end to the new start position
@@ -151,78 +156,40 @@ ptk_err ptk_buf_get_remaining(size_t *remaining, ptk_buf *buf);
  * @param new_start
  * @return ptk_err OK on success, OUT_OF_BOUNDs if the move would truncate data.
  */
-ptk_err ptk_buf_move_to(ptk_buf *buf, size_t new_start);
+ptk_err ptk_buf_move_to(ptk_buf_t *buf, size_t new_start);
 
 
 //=============================================================================
-// ENDIAN-SPECIFIC HELPERS
+// BUFFER UTILITIES
 //=============================================================================
 
 /**
- * Consumers use the data at the start index and change it after consuming
- * the data, unless peek is set to true.
- *
- * Producers set the new data at the end and change the index after.
+ * @brief Get pointer to data at current start position
+ * @param buf Buffer to query
+ * @param ptr Pointer to store data pointer
+ * @return PTK_OK on success, error code on failure
  */
+ptk_err ptk_buf_get_data_ptr(ptk_buf_t *buf, uint8_t **ptr);
 
 /**
- * @brief Write 8-bit value
+ * @brief Advance start position by specified bytes
+ * @param buf Buffer to modify
+ * @param bytes Number of bytes to advance
+ * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_buf_produce_u8(ptk_buf *buf, uint8_t value);
+ptk_err ptk_buf_advance_start(ptk_buf_t *buf, size_t bytes);
 
 /**
- * @brief Write 16-bit value
+ * @brief Advance end position by specified bytes
+ * @param buf Buffer to modify  
+ * @param bytes Number of bytes to advance
+ * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_buf_produce_u16(ptk_buf *buf, uint16_t value, ptk_buf_endianness endianness);
+ptk_err ptk_buf_advance_end(ptk_buf_t *buf, size_t bytes);
 
 /**
- * @brief Write 32-bit value
+ * @brief Reset buffer to empty state (start = end = 0)
+ * @param buf Buffer to reset
+ * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_buf_produce_u32(ptk_buf *buf, uint32_t value, ptk_buf_endianness endianness);
-
-/**
- * @brief Write 64-bit value
- */
-ptk_err ptk_buf_produce_u64(ptk_buf *buf, uint64_t value, ptk_buf_endianness endianness);
-
-
-
-/**
- * @brief Read 8-bit value
- *
- * If peek is set, then do not change the start index.
- */
-ptk_err ptk_buf_consume_u8(ptk_buf *buf, uint8_t *value, bool peek);
-
-/**
- * @brief Read 16-bit value
- */
-ptk_err ptk_buf_consume_u16(ptk_buf *buf, uint16_t *value, ptk_buf_endianness endianness, bool peek);
-
-/**
- * @brief Read 32-bit value
- */
-ptk_err ptk_buf_consume_u32(ptk_buf *buf, uint32_t *value, ptk_buf_endianness endianness, bool peek);
-
-/**
- * @brief Read 64-bit value
- */
-ptk_err ptk_buf_consume_u64(ptk_buf *buf, uint64_t *value, ptk_buf_endianness endianness, bool peek);
-
-
-/* wrappers for signed integers and floating point */
-static inline ptk_err ptk_buf_produce_i8(ptk_buf *buf, int8_t value) { return ptk_buf_produce_u8(buf, (uint8_t)value); }
-static inline ptk_err ptk_buf_produce_i16(ptk_buf *buf, int16_t value, ptk_buf_endianness endianness) { return ptk_buf_produce_u16(buf, (uint16_t)value, endianness); }
-static inline ptk_err ptk_buf_produce_i32(ptk_buf *buf, int32_t value, ptk_buf_endianness endianness) { return ptk_buf_produce_u32(buf, (uint32_t)value, endianness); }
-static inline ptk_err ptk_buf_produce_i64(ptk_buf *buf, int64_t value, ptk_buf_endianness endianness) { return ptk_buf_produce_u64(buf, (uint64_t)value, endianness); }
-
-static inline ptk_err ptk_buf_consume_i8(ptk_buf *buf, int8_t *value, bool peek) { return ptk_buf_consume_u8(buf, (uint8_t *)value, peek); }
-static inline ptk_err ptk_buf_consume_i16(ptk_buf *buf, int16_t *value, ptk_buf_endianness endianness, bool peek) { return ptk_buf_consume_u16(buf, (uint16_t *)value, endianness, peek); }
-static inline ptk_err ptk_buf_consume_i32(ptk_buf *buf, int32_t *value, ptk_buf_endianness endianness, bool peek) { return ptk_buf_consume_u32(buf, (uint32_t *)value, endianness, peek); }
-static inline ptk_err ptk_buf_consume_i64(ptk_buf *buf, int64_t *value, ptk_buf_endianness endianness, bool peek) { return ptk_buf_consume_u64(buf, (uint64_t *)value, endianness, peek); }
-
-static inline ptk_err ptk_buf_produce_f32(ptk_buf *buf, float value, ptk_buf_endianness endianness) { return ptk_buf_produce_u32(buf, *(uint32_t *)&value, endianness); }
-static inline ptk_err ptk_buf_produce_f64(ptk_buf *buf, double value, ptk_buf_endianness endianness) { return ptk_buf_produce_u64(buf, *(uint64_t *)&value, endianness); }
-
-static inline ptk_err ptk_buf_consume_f32(ptk_buf *buf, float *value, ptk_buf_endianness endianness, bool peek) { return ptk_buf_consume_u32(buf, (uint32_t *)value, endianness, peek); }
-static inline ptk_err ptk_buf_consume_f64(ptk_buf *buf, double *value, ptk_buf_endianness endianness, bool peek) { return ptk_buf_consume_u64(buf, (uint64_t *)value, endianness, peek); }
+ptk_err ptk_buf_reset(ptk_buf_t *buf);

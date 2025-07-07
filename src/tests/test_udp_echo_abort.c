@@ -52,7 +52,7 @@ static void server_thread(void *arg) {
     int client_port;
 
     while(g_test_running) {
-        ptk_buf recv_buf;
+        ptk_buf_t recv_buf;
         ptk_buf_make(&recv_buf, buffer_data, sizeof(buffer_data));
 
         // Receive packet
@@ -77,7 +77,7 @@ static void server_thread(void *arg) {
         printf("[SERVER] Received %zu bytes from %s:%d\n", data_len, client_host, client_port);
 
         // Echo the data back
-        ptk_buf send_buf;
+        ptk_buf_t send_buf;
         ptk_buf_make(&send_buf, buffer_data, sizeof(buffer_data));
         ptk_buf_set_end(&send_buf, data_len);
 
@@ -140,7 +140,7 @@ static void client_thread(void *arg) {
     // Send message to server
     const char *message = "Hello UDP from client!";
     uint8_t buffer_data[1024];
-    ptk_buf send_buf;
+    ptk_buf_t send_buf;
 
     ptk_buf_make(&send_buf, buffer_data, sizeof(buffer_data));
     memcpy(buffer_data, message, strlen(message));
@@ -155,7 +155,7 @@ static void client_thread(void *arg) {
     }
 
     // Read response
-    ptk_buf recv_buf;
+    ptk_buf_t recv_buf;
     ptk_buf_make(&recv_buf, buffer_data, sizeof(buffer_data));
 
     char response_host[256];

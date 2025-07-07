@@ -1,0 +1,44 @@
+// Examples of bit array definitions for different industrial protocols
+
+// Modbus - byte-oriented bit packing
+def u8_standard = { type: u8, byte_order: [0] }
+def modbus_bit_array = { type: bit[], container_type: u8_standard }
+
+// Rockwell/Allen-Bradley - 32-bit little endian containers
+def u32_le = { type: u32, byte_order: [0, 1, 2, 3] }
+def rockwell_bit_array = { type: bit[], container_type: u32_le }
+
+// Omron - 16-bit little endian containers  
+def u16_le = { type: u16, byte_order: [0, 1] }
+def omron_bit_array = { type: bit[], container_type: u16_le }
+
+// Siemens - 16-bit big endian containers (some older systems)
+def u16_be = { type: u16, byte_order: [1, 0] }
+def siemens_bit_array = { type: bit[], container_type: u16_be }
+
+// Example Modbus coil message
+def modbus_coil_response = {
+    type: message,
+    fields: [
+        byte_count: u8_standard,                    // Number of u8 containers
+        coils: modbus_bit_array[byte_count]         // Bit array sized by byte count
+    ]
+}
+
+// Example Rockwell tag message
+def rockwell_tag_response = {
+    type: message,  
+    fields: [
+        dword_count: u16_le,                        // Number of u32 containers
+        tag_bits: rockwell_bit_array[dword_count]   // Bit array sized by dword count
+    ]
+}
+
+// Example Omron data area
+def omron_data_area = {
+    type: message,
+    fields: [
+        word_count: u16_le,                         // Number of u16 containers
+        data_bits: omron_bit_array[word_count]      // Bit array sized by word count
+    ]
+}

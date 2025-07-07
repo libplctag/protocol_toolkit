@@ -1,0 +1,126 @@
+// modbus_tcp.cue
+package modbus
+
+aliases: {
+  u16_be: { type: uint16, byte_order_map: [1, 0] }
+  u32_be: { type: uint32, byte_order_map: [3, 2, 1, 0] }
+}
+
+ModbusTCPRequest: {
+  header: MBAPHeader
+  pdu: {
+    type: oneof {
+      ReadBitsRequest      | pdu.function_code == 0x01 || pdu.function_code == 0x02
+      ReadRegistersRequest | pdu.function_code == 0x03 || pdu.function_code == 0x04
+      WriteCoilRequest     | pdu.function_code == 0x05
+      WriteRegRequest      | pdu.function_code == 0x06
+      WriteCoilsRequest    | pdu.function_code == 0x0F
+      WriteRegsRequest     | pdu.function_code == 0x10
+    }
+  }
+}
+
+ModbusTCPResponse: {
+  header: MBAPHeader
+  pdu: {
+    type: oneof {
+      ReadBitsResponse     | pdu.function_code == 0x01 || pdu.function_code == 0x02
+      ReadRegistersResponse| pdu.function_code == 0x03 || pdu.function_code == 0x04
+      WriteCoilResponse    | pdu.function_code == 0x05
+      WriteRegResponse     | pdu.function_code == 0x06
+      WriteCoilsResponse   | pdu.function_code == 0x0F
+      WriteRegsResponse    | pdu.function_code == 0x10
+      ExceptionResponse    | pdu.function_code >= 0x81 && pdu.function_code <= 0x90
+    }
+  }
+}
+
+MBAPHeader: {
+  transaction_id: u16_be
+  protocol_id:    u16_be & const: 0
+  length:         u16_be & auto_size: "pdu"
+  unit_id:        uint8
+}
+
+ReadBitsRequest: {
+  function_code: uint8 & (== 0x01 || == 0x02)
+  address:       u16_be
+  quantity:      u16_be & quantity >= 1 && quantity <= 2000
+}
+
+ReadRegistersRequest: {
+  function_code: uint8 & (== 0x03 || == 0x04)
+  address:       u16_be
+  quantity:      u16_be & quantity >= 1 && quantity <= 125
+}
+
+WriteCoilRequest: {
+  function_code: uint8 & == 0x05
+  address:       u16_be
+  value:         u16_be
+}
+
+WriteRegRequest: {
+  function_code: uint8 & == 0x06
+  address:       u16_be
+  value:         u16_be
+}
+
+WriteCoilsRequest: {
+  function_code: uint8 & == 0x0F
+  address:       u16_be
+  quantity:      u16_be & quantity >= 1 && quantity <= 1968
+  byte_count:    uint8 & auto_size: "data"
+  data:          [...uint8] & len(data) == byte_count
+}
+
+WriteRegsRequest: {
+  function_code: uint8 & == 0x10
+  address:       u16_be
+  quantity:      u16_be & quantity >= 1 && quantity <= 123
+  byte_count:    uint8 & auto_size: "data"
+  data:          [...uint8] & len(data) == byte_count && len(data) == quantity * 2
+}
+
+// Response Definitions
+
+ReadBitsResponse: {
+  function_code: uint8 & (== 0x01 || == 0x02)
+  byte_count:    uint8 & auto_size: "data"
+  data:          [...uint8] & len(data) == byte_count
+}
+
+ReadRegistersResponse: {
+  function_code: uint8 & (== 0x03 || == 0x04)
+  byte_count:    uint8 & auto_size: "data"
+  data:          [...uint8] & len(data) == byte_count && byte_count % 2 == 0
+}
+
+WriteCoilResponse: {
+  function_code: uint8 & == 0x05
+  address:       u16_be
+  value:         u16_be & (value == 0x0000 || value == 0xFF00)
+}
+
+WriteRegResponse: {
+  function_code: uint8 & == 0x06
+  address:       u16_be
+  value:         u16_be
+}
+
+WriteCoilsResponse: {
+  function_code: uint8 & == 0x0F
+  address:       u16_be
+  quantity:      u16_be
+}
+
+WriteRegsResponse: {
+  function_code: uint8 & == 0x10
+  address:       u16_be
+  quantity:      u16_be
+}
+
+ExceptionResponse: {
+  function_code:   uint8 & function_code >= 0x81 && function_code <= 0x90
+  exception_code:  uint8 & exception_code >= 0x01 && exception_code <= 0x0B
+}

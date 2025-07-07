@@ -161,7 +161,7 @@ ptk_err ptk_tcp_socket_connect(ptk_sock **client, const char *remote_ip, int rem
  * @param data Data to write (ownership transferred)
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data);
+ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data);
 
 /**
  * @brief Read data from the socket.
@@ -175,7 +175,7 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data);
  * @param data
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf *data);
+ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data);
 
 
 
@@ -245,7 +245,7 @@ ptk_err ptk_udp_socket_create(ptk_sock **udp_sock, const char *local_host, int l
  * @param broadcast If true, send the data as a broadcast.
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf *data, const char *host, int port, bool broadcast);
+ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf_t *data, const char *host, int port, bool broadcast);
 
 /**
  * @brief Get a UDT packet from the socket
@@ -256,7 +256,7 @@ ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf *data, const char *host, int
  * @param port remote port on the host that sent the packet
  * @return ptk_err
  */
-ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf *data, char *host, int *port);
+ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf_t *data, char *host, int *port);
 
 
 //=============================================================================

@@ -500,7 +500,7 @@ cleanup:
     return err;
 }
 
-ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data) {
+ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }
@@ -542,7 +542,7 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data) {
     return PTK_OK;
 }
 
-ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf *data) {
+ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }
@@ -822,7 +822,7 @@ cleanup:
     return err;
 }
 
-ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf *data, const char *host, int port, bool broadcast) {
+ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf_t *data, const char *host, int port, bool broadcast) {
     if(!ptk_socket_is_valid(sock) || !data || !host) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_UDP) { return PTK_ERR_INVALID_PARAM; }
@@ -875,7 +875,7 @@ ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf *data, const char *host, int
     }
 }
 
-ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf *data, char *host, int *port) {
+ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf_t *data, char *host, int *port) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_UDP) { return PTK_ERR_INVALID_PARAM; }

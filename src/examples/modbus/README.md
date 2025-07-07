@@ -46,7 +46,7 @@ make modbus_client modbus_server
 #### Client Commands
 
 - `read-coils <start> <count>` - Read coils (0x addresses)
-- `read-discrete <start> <count>` - Read discrete inputs (1x addresses) 
+- `read-discrete <start> <count>` - Read discrete inputs (1x addresses)
 - `read-holding <start> <count>` - Read holding registers (4x addresses)
 - `read-input <start> <count>` - Read input registers (3x addresses)
 - `write-coil <addr> <0|1>` - Write single coil
@@ -57,7 +57,7 @@ make modbus_client modbus_server
 #### Client Options
 
 - `-p <port>` - TCP port (default: 502)
-- `-u <unit_id>` - Unit ID (default: 1)  
+- `-u <unit_id>` - Unit ID (default: 1)
 - `-t <timeout>` - Timeout in ms (default: 5000)
 
 ### Modbus Server
