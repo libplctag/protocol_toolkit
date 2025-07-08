@@ -40,7 +40,7 @@ field_list: "[" (field_def ("," field_def)*)? "]"
 
 field_def: CNAME ":" field_type
 
-field_type: CNAME 
+field_type: CNAME
           | array_type
           | bit_field_def
 
@@ -86,30 +86,30 @@ class GeneratedMessage:
 
 class PDLTransformer(Transformer):
     """Transform parse tree to Definition objects"""
-    
+
     @v_args(inline=True)
     def start(self, *items):
         return list(items)
-    
+
     @v_args(inline=True)
     def item(self, definition):
         return definition
-    
+
     @v_args(inline=True)
     def definition(self, name, type_def):
         return Definition(str(name), type_def['type'], type_def)
-    
+
     @v_args(inline=True)
     def primitive_def(self, base_type, *attrs):
         result = {'type': 'primitive', 'base_type': str(base_type)}
         for attr in attrs:
             result.update(attr)
         return result
-    
+
     @v_args(inline=True)
     def primitive_attr(self, *numbers):
         return {'byte_order': [int(str(n)) for n in numbers]}
-    
+
     @v_args(inline=True)
     def message_def(self, *args):
         result = {'type': 'message', 'fields': []}
@@ -117,7 +117,7 @@ class PDLTransformer(Transformer):
             if isinstance(arg, list):  # field list
                 result['fields'] = arg
         return result
-    
+
     @v_args(inline=True)
     def constant_def(self, type_name, value):
         return {
@@ -125,21 +125,21 @@ class PDLTransformer(Transformer):
             'type_ref': str(type_name),
             'value': self._convert_value(value)
         }
-    
+
     @v_args(inline=True)
     def field_list(self, *fields):
         return list(fields) if fields else []
-    
+
     @v_args(inline=True)
     def field_def(self, name, field_type):
         return {'name': str(name), **field_type}
-    
+
     @v_args(inline=True)
     def field_type(self, type_ref):
         if isinstance(type_ref, dict):
             return type_ref
         return {'field_type': 'type_ref', 'ref': str(type_ref)}
-    
+
     @v_args(inline=True)
     def array_type(self, element_type, size):
         return {
@@ -147,11 +147,11 @@ class PDLTransformer(Transformer):
             'element_type': str(element_type),
             'size': str(size)
         }
-    
+
     @v_args(inline=True)
     def bit_field_def(self, source):
         return {'field_type': 'bit_field', 'source': source}
-    
+
     @v_args(inline=True)
     def bit_source(self, container, start_bit, length):
         return {
@@ -159,11 +159,11 @@ class PDLTransformer(Transformer):
             'start_bit': int(str(start_bit)),
             'length': int(str(length))
         }
-    
+
     @v_args(inline=True)
     def value(self, val):
         return self._convert_value(val)
-    
+
     def _convert_value(self, val):
         val_str = str(val)
         if val_str.startswith('0x'):
@@ -172,16 +172,16 @@ class PDLTransformer(Transformer):
 
 class CodeGenerator:
     """Generate C code from definitions"""
-    
+
     def __init__(self, namespace: str = "ptk"):
         self.namespace = namespace
         self.message_type_counter = 1
-    
+
     def get_c_type(self, pdl_type: str) -> str:
         """Map PDL types to C types"""
         type_map = {
             'u8': 'uint8_t',
-            'u16': 'uint16_t', 
+            'u16': 'uint16_t',
             'u32': 'uint32_t',
             'u64': 'uint64_t',
             'i8': 'int8_t',
@@ -192,7 +192,7 @@ class CodeGenerator:
             'f64': 'double'
         }
         return type_map.get(pdl_type, pdl_type + '_t')
-    
+
     def get_bit_field_type(self, bit_length: int) -> str:
         """Get appropriate C type for bit field based on length"""
         if bit_length <= 8:
@@ -203,13 +203,13 @@ class CodeGenerator:
             return 'uint32_t'
         else:
             return 'uint64_t'
-    
+
     def process(self, definitions: List[Definition]) -> Dict:
         """Process definitions and generate code data"""
-        
+
         messages = []
         constants = []
-        
+
         for defn in definitions:
             if defn.def_type == 'message':
                 msg = self.generate_message(defn)
@@ -218,35 +218,35 @@ class CodeGenerator:
             elif defn.def_type == 'constant':
                 const = self.generate_constant(defn)
                 constants.append(const)
-        
+
         return {
             'messages': messages,
             'constants': constants,
             'namespace': self.namespace
         }
-    
+
     def generate_message(self, defn: Definition) -> GeneratedMessage:
         """Generate message structure"""
-        
+
         fields = []
-        
+
         for field_def in defn.attributes.get('fields', []):
             field = self.generate_field(field_def)
             if field:
                 fields.append(field)
-        
+
         return GeneratedMessage(
             name=defn.name,
             fields=fields,
             message_type_id=self.message_type_counter
         )
-    
+
     def generate_field(self, field_def: Dict) -> Optional[GeneratedField]:
         """Generate field structure"""
-        
+
         name = field_def['name']
         field_type = field_def.get('field_type', 'type_ref')
-        
+
         if field_type == 'bit_field':
             source = field_def.get('source', {})
             length = source.get('length', 1)
@@ -256,7 +256,7 @@ class CodeGenerator:
                 is_bit_field=True,
                 bit_field_info=source
             )
-        
+
         elif field_type == 'array':
             element_type = field_def.get('element_type', 'u8')
             element_c_type = self.get_c_type(element_type)
@@ -265,7 +265,7 @@ class CodeGenerator:
                 c_type=f"{element_c_type}_array_t *",
                 is_array=True
             )
-        
+
         elif field_type == 'type_ref':
             ref = field_def.get('ref', 'u8')
             c_type = self.get_c_type(ref)
@@ -273,9 +273,9 @@ class CodeGenerator:
                 name=name,
                 c_type=c_type
             )
-        
+
         return None
-    
+
     def generate_constant(self, defn: Definition) -> Dict:
         """Generate constant definition"""
         return {
@@ -283,10 +283,10 @@ class CodeGenerator:
             'type': self.get_c_type(defn.attributes.get('type_ref', 'u32')),
             'value': defn.attributes.get('value', 0)
         }
-    
+
     def generate_header(self, data: Dict, filename: str = "generated") -> str:
         """Generate C header file"""
-        
+
         lines = [
             f"#ifndef {self.namespace.upper()}_{filename.upper()}_H",
             f"#define {self.namespace.upper()}_{filename.upper()}_H",
@@ -308,19 +308,19 @@ class CodeGenerator:
             "/* Message Type Enumeration */",
             "typedef enum {"
         ]
-        
+
         for message in data['messages']:
             lines.append(f"    {message.name.upper()}_MESSAGE_TYPE = {message.message_type_id},")
-        
+
         lines.extend([
             "} message_type_t;",
             "",
             "/* Constants */"
         ])
-        
+
         for const in data['constants']:
             lines.append(f"#define {const['name']} (({const['type']}){const['value']})")
-        
+
         for message in data['messages']:
             lines.extend([
                 "",
@@ -328,10 +328,10 @@ class CodeGenerator:
                 f"typedef struct {message.name}_t {{",
                 "    const int message_type;"
             ])
-            
+
             for field in message.fields:
                 lines.append(f"    {field.c_type} {field.name};")
-            
+
             lines.extend([
                 f"}} {message.name}_t;",
                 "",
@@ -340,10 +340,10 @@ class CodeGenerator:
                 f"void {message.name}_dispose(ptk_allocator_t *alloc, {message.name}_t *instance);",
                 "",
                 "/* Encode/Decode */",
-                f"ptk_err {message.name}_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const {message.name}_t *instance);",
-                f"ptk_err {message.name}_decode(ptk_allocator_t *alloc, {message.name}_t **instance, ptk_buf_t *buf);"
+                f"ptk_err {message.name}_encode(ptk_allocator_t *alloc, ptk_buf *buf, const {message.name}_t *instance);",
+                f"ptk_err {message.name}_decode(ptk_allocator_t *alloc, {message.name}_t **instance, ptk_buf *buf);"
             ])
-            
+
             # Array accessors
             array_fields = [f for f in message.fields if f.is_array]
             if array_fields:
@@ -356,7 +356,7 @@ class CodeGenerator:
                         f"ptk_err {message.name}_set_{field.name}_element({message.name}_t *msg, size_t index, {element_type} value);",
                         f"size_t {message.name}_get_{field.name}_length(const {message.name}_t *msg);"
                     ])
-            
+
             # Bit field accessors
             bit_fields = [f for f in message.fields if f.is_bit_field]
             if bit_fields:
@@ -375,7 +375,7 @@ class CodeGenerator:
                         f"    msg->{field.name} = value;",
                         "}"
                     ])
-        
+
         lines.extend([
             "",
             "#ifdef __cplusplus",
@@ -384,7 +384,7 @@ class CodeGenerator:
             "",
             f"#endif /* {self.namespace.upper()}_{filename.upper()}_H */"
         ])
-        
+
         return "\n".join(lines)
 
 def parse_args():
@@ -398,77 +398,77 @@ Examples:
   %(prog)s -o ./protocols -n eip protocols/ethernet_ip.pdl
         """
     )
-    
+
     parser.add_argument('input_files', nargs='+', metavar='FILE',
                        help='PDL files to process')
     parser.add_argument('-o', '--output-dir', default='./generated',
                        help='Output directory for generated files (default: ./generated)')
-    parser.add_argument('-n', '--namespace', 
+    parser.add_argument('-n', '--namespace',
                        help='C namespace prefix for generated code (default: derived from filename)')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='Enable verbose output')
     parser.add_argument('--version', action='version', version='%(prog)s 1.0.0')
-    
+
     return parser.parse_args()
 
 def main():
     """Main entry point"""
     args = parse_args()
-    
+
     # Create output directory
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Initialize parser
     parser = Lark(PDL_GRAMMAR, parser='lalr', transformer=PDLTransformer())
-    
+
     # Process each input file
     for input_file in args.input_files:
         input_path = Path(input_file)
-        
+
         if not input_path.exists():
             print(f"Error: File not found: {input_file}", file=sys.stderr)
             continue
-        
+
         if args.verbose:
             print(f"Processing {input_file}...")
-        
+
         try:
             # Read and parse PDL file
             with open(input_path, 'r') as f:
                 content = f.read()
-            
+
             definitions = parser.parse(content)
-            
+
             if args.verbose:
                 print(f"Parsed {len(definitions)} definitions")
-            
+
             # Generate namespace from filename if not provided
             namespace = args.namespace or input_path.stem
-            
+
             # Generate code
             codegen = CodeGenerator(namespace)
             generated_data = codegen.process(definitions)
-            
+
             # Write header file
             header_content = codegen.generate_header(generated_data, input_path.stem)
             header_file = output_dir / f"{input_path.stem}.h"
-            
+
             with open(header_file, 'w') as f:
                 f.write(header_content)
-            
+
             if args.verbose:
                 print(f"Generated {header_file}")
                 print(f"  - {len(generated_data['messages'])} messages")
                 print(f"  - {len(generated_data['constants'])} constants")
-            
+
         except Exception as e:
             print(f"Error processing {input_file}: {e}", file=sys.stderr)
             if args.verbose:
                 import traceback
                 traceback.print_exc()
             continue
-    
+
     if args.verbose:
         print("Code generation complete!")
 

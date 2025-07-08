@@ -59,7 +59,7 @@ static void server_thread(void *arg) {
     uint8_t buffer_data[1024];
 
     while(g_test_running) {
-        ptk_buf_t *recv_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
+        ptk_buf *recv_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
 
         // Receive packet
         ptk_address_t client_addr;
@@ -87,7 +87,7 @@ static void server_thread(void *arg) {
         if(client_ip) { ptk_free(g_allocator, client_ip); }
 
         // Echo the data back
-        ptk_buf_t *send_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
+        ptk_buf *send_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
         if(!send_buf) {
             printf("[SERVER] Failed to create send buffer\n");
             continue;
@@ -154,7 +154,7 @@ static void client_thread(void *arg) {
     const char *message = "Hello UDP from client!";
     uint8_t buffer_data[1024];
 
-    ptk_buf_t *send_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
+    ptk_buf *send_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
     if(!send_buf) {
         printf("[CLIENT] Failed to create send buffer\n");
         ptk_socket_close(client_socket);
@@ -180,7 +180,7 @@ static void client_thread(void *arg) {
     }
 
     // Read response
-    ptk_buf_t *recv_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
+    ptk_buf *recv_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
 
     printf("[CLIENT] Reading UDP response\n");
     ptk_address_t response_addr;

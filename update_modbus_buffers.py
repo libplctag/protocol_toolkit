@@ -14,7 +14,7 @@ def update_buffer_usage(file_path):
     # This handles most cases where we create a buffer, use it, and dispose it
     pattern1 = re.compile(
         r'(\s+)// Create buffer with capacity for.*?\n'
-        r'\s+ptk_buf_t \*pdu_buf = ptk_buf_create\(conn->allocator, [^)]+\);\n'
+        r'\s+ptk_buf \*pdu_buf = ptk_buf_create\(conn->allocator, [^)]+\);\n'
         r'\s+if \(!pdu_buf\) \{\s*\n'
         r'\s+return PTK_ERR_NO_RESOURCES;\s*\n'
         r'\s+\}',
@@ -50,7 +50,7 @@ def update_buffer_usage(file_path):
     # Handle recv functions that might have different patterns
     pattern4 = re.compile(
         r'(\s+)// Create buffer.*?\n'
-        r'\s+ptk_buf_t \*pdu_buf = ptk_buf_create\([^)]+\);\n'
+        r'\s+ptk_buf \*pdu_buf = ptk_buf_create\([^)]+\);\n'
         r'\s+if \(!pdu_buf\) \{\s*\n'
         r'\s+return PTK_ERR_NO_RESOURCES;\s*\n'
         r'\s+\}',

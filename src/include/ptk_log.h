@@ -18,7 +18,7 @@
 #include "ptk_err.h"
 
 // Forward declaration to avoid circular dependency
-typedef struct ptk_buf_t ptk_buf_t;
+typedef struct ptk_buf ptk_buf;
 
 #if defined(_WIN32) && defined(_MSC_VER)
 /**
@@ -111,7 +111,7 @@ extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level
  * @param log_level Log severity.
  * @param data      Buffer containing the data to log.
  */
-extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf_t *data);
+extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data);
 
 /** @def error_buf
  *  @brief Logs a binary buffer at ERROR level.

@@ -38,26 +38,26 @@ typedef double f64;
 // BUFFER STRUCTURE
 //=============================================================================
 
-typedef struct ptk_buf_t {
+typedef struct ptk_buf {
     ptk_allocator_t *allocator;
     u8 *data;
     size_t capacity;
     size_t start;  // Start position for reading
     size_t end;    // End position (exclusive)
     ptk_err last_err;
-} ptk_buf_t;
+} ptk_buf;
 
 
 //=============================================================================
 // BUFFER OPERATIONS
 //=============================================================================
 
-static inline ptk_buf_t *ptk_buf_create(ptk_allocator_t *alloc, size_t size) {
-    ptk_buf_t *buf = NULL;
+static inline ptk_buf *ptk_buf_create(ptk_allocator_t *alloc, size_t size) {
+    ptk_buf *buf = NULL;
 
     if(!alloc) { return NULL; }
 
-    buf = ptk_alloc(alloc, sizeof(ptk_buf_t));
+    buf = ptk_alloc(alloc, sizeof(ptk_buf));
     if(!buf) { return NULL; }
 
     buf->data = ptk_alloc(alloc, size);
@@ -76,7 +76,7 @@ static inline ptk_buf_t *ptk_buf_create(ptk_allocator_t *alloc, size_t size) {
     return buf;
 }
 
-static inline ptk_err ptk_buf_dispose(ptk_buf_t *buf) {
+static inline ptk_err ptk_buf_dispose(ptk_buf *buf) {
     if(!buf) { return PTK_ERR_NULL_PTR; }
 
     if(buf->allocator) {
@@ -93,41 +93,41 @@ static inline ptk_err ptk_buf_dispose(ptk_buf_t *buf) {
     return PTK_OK;
 }
 
-static inline size_t ptk_buf_len(ptk_buf_t *buf) {
+static inline size_t ptk_buf_len(ptk_buf *buf) {
     if(!buf) { return SIZE_MAX; }
 
     return buf->end - buf->start;
 }
 
-static inline size_t ptk_buf_cap(ptk_buf_t *buf) {
+static inline size_t ptk_buf_cap(ptk_buf *buf) {
     if(!buf) { return SIZE_MAX; }
 
     return buf->capacity;
 }
 
-static inline size_t ptk_buf_get_start(ptk_buf_t *buf) {
+static inline size_t ptk_buf_get_start(ptk_buf *buf) {
     if(!buf) { return SIZE_MAX; }
 
     return buf->start;
 }
 
-extern u8 *ptk_buf_get_start_ptr(ptk_buf_t *buf);
+extern u8 *ptk_buf_get_start_ptr(ptk_buf *buf);
 
-extern ptk_err ptk_buf_set_start(ptk_buf_t *buf, size_t start);
+extern ptk_err ptk_buf_set_start(ptk_buf *buf, size_t start);
 
-static inline size_t ptk_buf_get_end(ptk_buf_t *buf) {
+static inline size_t ptk_buf_get_end(ptk_buf *buf) {
     if(!buf) { return SIZE_MAX; }
 
     return buf->end;
 }
 
-static inline u8 *ptk_buf_get_end_ptr(ptk_buf_t *buf) {
+static inline u8 *ptk_buf_get_end_ptr(ptk_buf *buf) {
     if(!buf) { return NULL; }
 
     return buf->data + buf->end;
 }
 
-static inline ptk_err ptk_buf_set_end(ptk_buf_t *buf, size_t end) {
+static inline ptk_err ptk_buf_set_end(ptk_buf *buf, size_t end) {
     if(!buf) { return PTK_ERR_NULL_PTR; }
 
     if(end < buf->start || end > buf->capacity) { return PTK_ERR_OUT_OF_BOUNDS; }
@@ -136,7 +136,7 @@ static inline ptk_err ptk_buf_set_end(ptk_buf_t *buf, size_t end) {
     return PTK_OK;
 }
 
-static inline size_t ptk_buf_get_remaining(ptk_buf_t *buf) {
+static inline size_t ptk_buf_get_remaining(ptk_buf *buf) {
     if(!buf) { return SIZE_MAX; }
 
     return buf->capacity - buf->end;
@@ -149,7 +149,7 @@ static inline size_t ptk_buf_get_remaining(ptk_buf_t *buf) {
  * @param new_start
  * @return ptk_err
  */
-static inline ptk_err ptk_buf_move_to(ptk_buf_t *buf, size_t new_start) {
+static inline ptk_err ptk_buf_move_to(ptk_buf *buf, size_t new_start) {
     if(!buf) { return PTK_ERR_NULL_PTR; }
 
     size_t data_len = buf->end - buf->start;
@@ -200,9 +200,9 @@ Special Format Characters
 
  */
 
-extern ptk_err ptk_buf_produce(ptk_buf_t *dest, const char *fmt, ...);
+extern ptk_err ptk_buf_produce(ptk_buf *dest, const char *fmt, ...);
 
-extern ptk_err ptk_buf_consume(ptk_buf_t *src, bool peek, const char *fmt, ...);
+extern ptk_err ptk_buf_consume(ptk_buf *src, bool peek, const char *fmt, ...);
 
 /* byte swap helpers */
 

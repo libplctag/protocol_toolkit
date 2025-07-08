@@ -76,12 +76,12 @@ typedef struct {
 
 ### EIP Commands
 
-| Command | Code | Description |
-|---------|------|-------------|
-| Register Session | 0x0065 | Establish a new session |
+| Command            | Code   | Description                   |
+| ------------------ | ------ | ----------------------------- |
+| Register Session   | 0x0065 | Establish a new session       |
 | Unregister Session | 0x0066 | Terminate an existing session |
-| Unconnected Send | 0x006F | Send unconnected data |
-| Connected Send | 0x0070 | Send connected data |
+| Unconnected Send   | 0x006F | Send unconnected data         |
+| Connected Send     | 0x0070 | Send connected data           |
 
 ### Session Management
 
@@ -153,12 +153,12 @@ typedef struct {
 
 ### CPF Item Types
 
-| Type | Code | Description |
-|------|------|-------------|
-| NULL Address Item | 0x0000 | No address data |
+| Type                   | Code   | Description               |
+| ---------------------- | ------ | ------------------------- |
+| NULL Address Item      | 0x0000 | No address data           |
 | Connected Address Item | 0x00A1 | Connected message address |
-| Connected Data Item | 0x00B1 | Connected message data |
-| Unconnected Data Item | 0x00B2 | Unconnected message data |
+| Connected Data Item    | 0x00B1 | Connected message data    |
+| Unconnected Data Item  | 0x00B2 | Unconnected message data  |
 
 ## Common Industrial Protocol (CIP) Layer
 
@@ -166,17 +166,17 @@ The CIP layer provides the actual industrial protocol services for tag access an
 
 ### CIP Service Codes
 
-| Service | Code | Description |
-|---------|------|-------------|
-| Multiple Service Packet | 0x0A | Multiple services in one packet |
-| PCCC Execute | 0x4B | Execute PCCC command |
-| Read Named Tag | 0x4C | Read tag data |
-| Write Named Tag | 0x4D | Write tag data |
-| Forward Close | 0x4E | Close connection |
-| Read Named Tag Fragment | 0x52 | Read large tag data |
-| Write Named Tag Fragment | 0x53 | Write large tag data |
-| Forward Open | 0x54 | Open connection (16-bit params) |
-| Forward Open Extended | 0x5B | Open connection (32-bit params) |
+| Service                  | Code | Description                     |
+| ------------------------ | ---- | ------------------------------- |
+| Multiple Service Packet  | 0x0A | Multiple services in one packet |
+| PCCC Execute             | 0x4B | Execute PCCC command            |
+| Read Named Tag           | 0x4C | Read tag data                   |
+| Write Named Tag          | 0x4D | Write tag data                  |
+| Forward Close            | 0x4E | Close connection                |
+| Read Named Tag Fragment  | 0x52 | Read large tag data             |
+| Write Named Tag Fragment | 0x53 | Write large tag data            |
+| Forward Open             | 0x54 | Open connection (16-bit params) |
+| Forward Open Extended    | 0x5B | Open connection (32-bit params) |
 
 ### CIP Request Structure
 
@@ -204,17 +204,17 @@ typedef struct {
 
 ### CIP Status Codes
 
-| Status | Code | Description |
-|--------|------|-------------|
-| Success | 0x00 | Service succeeded |
-| Extended Error | 0x01 | Extended error information |
-| Invalid Parameter | 0x03 | Invalid parameter in request |
-| Path Segment Error | 0x04 | Error in path segment |
-| Path Destination Unknown | 0x05 | Path destination not found |
-| Fragmentation Required | 0x06 | Data too large, use fragmentation |
-| Unsupported Service | 0x08 | Service not supported |
-| Insufficient Data | 0x13 | Not enough data provided |
-| Too Much Data | 0x15 | Too much data provided |
+| Status                   | Code | Description                       |
+| ------------------------ | ---- | --------------------------------- |
+| Success                  | 0x00 | Service succeeded                 |
+| Extended Error           | 0x01 | Extended error information        |
+| Invalid Parameter        | 0x03 | Invalid parameter in request      |
+| Path Segment Error       | 0x04 | Error in path segment             |
+| Path Destination Unknown | 0x05 | Path destination not found        |
+| Fragmentation Required   | 0x06 | Data too large, use fragmentation |
+| Unsupported Service      | 0x08 | Service not supported             |
+| Insufficient Data        | 0x13 | Not enough data provided          |
+| Too Much Data            | 0x15 | Too much data provided            |
 
 ### Forward Open Connection Process
 
@@ -262,25 +262,25 @@ Same structure as above but with 32-bit connection parameter fields:
 
 ### CIP Data Types
 
-| Type | Code | Size | Description |
-|------|------|------|-------------|
-| BOOL | 0x00C1 | 1 byte | Boolean value |
-| SINT | 0x00C2 | 1 byte | Signed 8-bit integer |
-| INT | 0x00C3 | 2 bytes | Signed 16-bit integer |
-| DINT | 0x00C4 | 4 bytes | Signed 32-bit integer |
-| LINT | 0x00C5 | 8 bytes | Signed 64-bit integer |
-| REAL | 0x00CA | 4 bytes | IEEE 754 single precision |
-| LREAL | 0x00CB | 8 bytes | IEEE 754 double precision |
-| STRING | 0x00D0 | 88 bytes | String structure |
+| Type   | Code   | Size     | Description               |
+| ------ | ------ | -------- | ------------------------- |
+| BOOL   | 0x00C1 | 1 byte   | Boolean value             |
+| SINT   | 0x00C2 | 1 byte   | Signed 8-bit integer      |
+| INT    | 0x00C3 | 2 bytes  | Signed 16-bit integer     |
+| DINT   | 0x00C4 | 4 bytes  | Signed 32-bit integer     |
+| LINT   | 0x00C5 | 8 bytes  | Signed 64-bit integer     |
+| REAL   | 0x00CA | 4 bytes  | IEEE 754 single precision |
+| LREAL  | 0x00CB | 8 bytes  | IEEE 754 double precision |
+| STRING | 0x00D0 | 88 bytes | String structure          |
 
 ### PCCC Data Types (Legacy Support)
 
-| Type | Code | Size | Description |
-|------|------|------|-------------|
-| INT | 0x89 | 2 bytes | 16-bit signed integer |
-| DINT | 0x91 | 4 bytes | 32-bit signed integer |
-| REAL | 0x8A | 4 bytes | IEEE 754 single precision |
-| STRING | 0x8D | 82 bytes | String with count |
+| Type   | Code | Size     | Description               |
+| ------ | ---- | -------- | ------------------------- |
+| INT    | 0x89 | 2 bytes  | 16-bit signed integer     |
+| DINT   | 0x91 | 4 bytes  | 32-bit signed integer     |
+| REAL   | 0x8A | 4 bytes  | IEEE 754 single precision |
+| STRING | 0x8D | 82 bytes | String with count         |
 
 ### Tag Definition Structure
 
@@ -412,7 +412,7 @@ typedef struct {
 
 ### API Integration Questions
 
-6. **Buffer Management**: The protocol toolkit uses `ptk_buf_t` structures. How should the protocol layers interface with this buffer system for:
+6. **Buffer Management**: The protocol toolkit uses `ptk_buf` structures. How should the protocol layers interface with this buffer system for:
    - Building response packets
    - Parsing request packets
    - Managing fragmented data

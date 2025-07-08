@@ -15,7 +15,7 @@ static int test_buffer_basic() {
         return 0;
     }
 
-    ptk_buf_t *buf = ptk_buf_create(alloc, 1024);
+    ptk_buf *buf = ptk_buf_create(alloc, 1024);
     if(!buf) {
         printf("FAIL: Buffer creation failed\n");
         ptk_allocator_destroy(alloc);
@@ -90,7 +90,7 @@ static int test_buffer_positioning() {
         return 0;
     }
 
-    ptk_buf_t *buf = ptk_buf_create(alloc, 100);
+    ptk_buf *buf = ptk_buf_create(alloc, 100);
     if(!buf) {
         printf("FAIL: Buffer creation failed\n");
         ptk_allocator_destroy(alloc);

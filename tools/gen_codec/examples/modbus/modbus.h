@@ -73,8 +73,8 @@ ptk_err modbus_tcp_header_create(ptk_allocator_t *alloc, modbus_tcp_header_t **i
 void modbus_tcp_header_dispose(ptk_allocator_t *alloc, modbus_tcp_header_t *instance);
 
 /* Encode/Decode */
-ptk_err modbus_tcp_header_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const modbus_tcp_header_t *instance);
-ptk_err modbus_tcp_header_decode(ptk_allocator_t *alloc, modbus_tcp_header_t **instance, ptk_buf_t *buf);
+ptk_err modbus_tcp_header_encode(ptk_allocator_t *alloc, ptk_buf *buf, const modbus_tcp_header_t *instance);
+ptk_err modbus_tcp_header_decode(ptk_allocator_t *alloc, modbus_tcp_header_t **instance, ptk_buf *buf);
 
 /* read_coils_request message definition */
 typedef struct read_coils_request_t {
@@ -89,8 +89,8 @@ ptk_err read_coils_request_create(ptk_allocator_t *alloc, read_coils_request_t *
 void read_coils_request_dispose(ptk_allocator_t *alloc, read_coils_request_t *instance);
 
 /* Encode/Decode */
-ptk_err read_coils_request_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_coils_request_t *instance);
-ptk_err read_coils_request_decode(ptk_allocator_t *alloc, read_coils_request_t **instance, ptk_buf_t *buf);
+ptk_err read_coils_request_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_coils_request_t *instance);
+ptk_err read_coils_request_decode(ptk_allocator_t *alloc, read_coils_request_t **instance, ptk_buf *buf);
 
 /* read_coils_response message definition */
 typedef struct read_coils_response_t {
@@ -105,8 +105,8 @@ ptk_err read_coils_response_create(ptk_allocator_t *alloc, read_coils_response_t
 void read_coils_response_dispose(ptk_allocator_t *alloc, read_coils_response_t *instance);
 
 /* Encode/Decode */
-ptk_err read_coils_response_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_coils_response_t *instance);
-ptk_err read_coils_response_decode(ptk_allocator_t *alloc, read_coils_response_t **instance, ptk_buf_t *buf);
+ptk_err read_coils_response_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_coils_response_t *instance);
+ptk_err read_coils_response_decode(ptk_allocator_t *alloc, read_coils_response_t **instance, ptk_buf *buf);
 
 /* Array Accessors */
 ptk_err read_coils_response_get_coil_status_element(const read_coils_response_t *msg, size_t index, uint8_t *value);
@@ -126,8 +126,8 @@ ptk_err read_holding_registers_request_create(ptk_allocator_t *alloc, read_holdi
 void read_holding_registers_request_dispose(ptk_allocator_t *alloc, read_holding_registers_request_t *instance);
 
 /* Encode/Decode */
-ptk_err read_holding_registers_request_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_holding_registers_request_t *instance);
-ptk_err read_holding_registers_request_decode(ptk_allocator_t *alloc, read_holding_registers_request_t **instance, ptk_buf_t *buf);
+ptk_err read_holding_registers_request_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_holding_registers_request_t *instance);
+ptk_err read_holding_registers_request_decode(ptk_allocator_t *alloc, read_holding_registers_request_t **instance, ptk_buf *buf);
 
 /* read_holding_registers_response message definition */
 typedef struct read_holding_registers_response_t {
@@ -142,8 +142,8 @@ ptk_err read_holding_registers_response_create(ptk_allocator_t *alloc, read_hold
 void read_holding_registers_response_dispose(ptk_allocator_t *alloc, read_holding_registers_response_t *instance);
 
 /* Encode/Decode */
-ptk_err read_holding_registers_response_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_holding_registers_response_t *instance);
-ptk_err read_holding_registers_response_decode(ptk_allocator_t *alloc, read_holding_registers_response_t **instance, ptk_buf_t *buf);
+ptk_err read_holding_registers_response_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_holding_registers_response_t *instance);
+ptk_err read_holding_registers_response_decode(ptk_allocator_t *alloc, read_holding_registers_response_t **instance, ptk_buf *buf);
 
 /* Array Accessors */
 ptk_err read_holding_registers_response_get_register_value_element(const read_holding_registers_response_t *msg, size_t index, uint16_t *value);
@@ -162,8 +162,8 @@ ptk_err modbus_exception_response_create(ptk_allocator_t *alloc, modbus_exceptio
 void modbus_exception_response_dispose(ptk_allocator_t *alloc, modbus_exception_response_t *instance);
 
 /* Encode/Decode */
-ptk_err modbus_exception_response_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const modbus_exception_response_t *instance);
-ptk_err modbus_exception_response_decode(ptk_allocator_t *alloc, modbus_exception_response_t **instance, ptk_buf_t *buf);
+ptk_err modbus_exception_response_encode(ptk_allocator_t *alloc, ptk_buf *buf, const modbus_exception_response_t *instance);
+ptk_err modbus_exception_response_decode(ptk_allocator_t *alloc, modbus_exception_response_t **instance, ptk_buf *buf);
 
 /* Complete Modbus TCP Message */
 typedef struct modbus_tcp_message_t {
@@ -177,8 +177,8 @@ ptk_err modbus_tcp_message_create(ptk_allocator_t *alloc, modbus_tcp_message_t *
 void modbus_tcp_message_dispose(ptk_allocator_t *alloc, modbus_tcp_message_t *instance);
 
 /* Encode/Decode */
-ptk_err modbus_tcp_message_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const modbus_tcp_message_t *instance);
-ptk_err modbus_tcp_message_decode(ptk_allocator_t *alloc, modbus_tcp_message_t **instance, ptk_buf_t *buf);
+ptk_err modbus_tcp_message_encode(ptk_allocator_t *alloc, ptk_buf *buf, const modbus_tcp_message_t *instance);
+ptk_err modbus_tcp_message_decode(ptk_allocator_t *alloc, modbus_tcp_message_t **instance, ptk_buf *buf);
 
 /* Array Accessors */
 ptk_err modbus_tcp_message_get_pdu_data_element(const modbus_tcp_message_t *msg, size_t index, uint8_t *value);

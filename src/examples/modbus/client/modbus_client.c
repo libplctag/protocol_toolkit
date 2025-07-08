@@ -703,7 +703,7 @@ int run_client(const client_config_t *config) {
     }
 
     // Create client buffer with automatic cleanup
-    ptk_buf_t *client_buffer = ptk_buf_create(allocator, BUFFER_SIZE);
+    ptk_buf *client_buffer = ptk_buf_create(allocator, BUFFER_SIZE);
     if(!client_buffer) {
         error("Failed to create client buffer");
         ptk_allocator_destroy(allocator);

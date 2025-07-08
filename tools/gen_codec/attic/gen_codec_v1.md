@@ -282,13 +282,13 @@ typedef struct {
 } plc5_str_t;
 
 // Generated function declarations - all take context parameter
-extern ptk_err eip_header_decode(eip_header_t *header, ptk_buf_t *src, void *context);
-extern ptk_err eip_header_encode(ptk_buf_t *dst, const eip_header_t *header, void *context);
+extern ptk_err eip_header_decode(eip_header_t *header, ptk_buf *src, void *context);
+extern ptk_err eip_header_encode(ptk_buf *dst, const eip_header_t *header, void *context);
 extern ptk_err eip_header_validate(const eip_header_t *header, void *context);
 extern void eip_header_dispose(eip_header_t *header, void *context);
 
-extern ptk_err plc5_str_decode(plc5_str_t *str, ptk_buf_t *src, void *context);
-extern ptk_err plc5_str_encode(ptk_buf_t *dst, const plc5_str_t *str, void *context);
+extern ptk_err plc5_str_decode(plc5_str_t *str, ptk_buf *src, void *context);
+extern ptk_err plc5_str_encode(ptk_buf *dst, const plc5_str_t *str, void *context);
 extern ptk_err plc5_str_to_cstring(char *dest, size_t dest_size, const plc5_str_t *src, void *context);
 extern ptk_err plc5_str_from_cstring(plc5_str_t *dest, const char *src, void *context);
 
@@ -319,8 +319,8 @@ extern ptk_err generate_session_if_zero(uint32_t *session_handle, const eip_head
 extern ptk_err generate_connection_id(uint32_t *connection_id, const connection_msg_t *msg, void *context);
 
 // Custom encode/decode functions - complete control over encoding/decoding
-extern ptk_err encode_custom_data(ptk_buf_t *dst, const uint8_t *data, const custom_field_t *msg, void *context);
-extern ptk_err decode_custom_data(uint8_t *data, ptk_buf_t *src, const custom_field_t *msg, void *context);
+extern ptk_err encode_custom_data(ptk_buf *dst, const uint8_t *data, const custom_field_t *msg, void *context);
+extern ptk_err decode_custom_data(uint8_t *data, ptk_buf *src, const custom_field_t *msg, void *context);
 
 #endif
 ```

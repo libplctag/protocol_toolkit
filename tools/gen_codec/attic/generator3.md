@@ -163,7 +163,7 @@ Contains:
 Contains:
 - Implementation of all encode/decode functions
 - Validation logic implementation
-- Buffer manipulation using ptk_buf_t APIs
+- Buffer manipulation using ptk_buf APIs
 
 #### 3. User Functions Header (`protocol_user.h`)
 Contains:
@@ -257,12 +257,12 @@ void example_debug_allocation() {
 
 #### Decode Functions
 ```c
-ptk_err <message_name>_decode(const ptk_allocator_t *alloc, <message_type>_t *msg, ptk_buf_t *src, void *context);
+ptk_err <message_name>_decode(const ptk_allocator_t *alloc, <message_type>_t *msg, ptk_buf *src, void *context);
 ```
 
 #### Encode Functions
 ```c
-ptk_err <message_name>_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const <message_type>_t *msg, void *context);
+ptk_err <message_name>_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const <message_type>_t *msg, void *context);
 ```
 
 #### Validation Functions
@@ -279,32 +279,32 @@ void <message_name>_dispose(const ptk_allocator_t *alloc, <message_type>_t *msg,
 
 ```c
 // MBAPHeader functions
-ptk_err mbap_header_decode(const ptk_allocator_t *alloc, mbap_header_t *header, ptk_buf_t *src, void *context);
-ptk_err mbap_header_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const mbap_header_t *header, void *context);
+ptk_err mbap_header_decode(const ptk_allocator_t *alloc, mbap_header_t *header, ptk_buf *src, void *context);
+ptk_err mbap_header_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const mbap_header_t *header, void *context);
 ptk_err mbap_header_validate(const ptk_allocator_t *alloc, const mbap_header_t *header, void *context);
 void mbap_header_dispose(const ptk_allocator_t *alloc, mbap_header_t *header, void *context);
 
 // ReadBitsRequest functions
-ptk_err read_bits_request_decode(const ptk_allocator_t *alloc, read_bits_request_t *req, ptk_buf_t *src, void *context);
-ptk_err read_bits_request_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const read_bits_request_t *req, void *context);
+ptk_err read_bits_request_decode(const ptk_allocator_t *alloc, read_bits_request_t *req, ptk_buf *src, void *context);
+ptk_err read_bits_request_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const read_bits_request_t *req, void *context);
 ptk_err read_bits_request_validate(const ptk_allocator_t *alloc, const read_bits_request_t *req, void *context);
 void read_bits_request_dispose(const ptk_allocator_t *alloc, read_bits_request_t *req, void *context);
 
 // ModbusTCPRequest (discriminated union)
-ptk_err modbus_tcp_request_decode(const ptk_allocator_t *alloc, modbus_tcp_request_t *req, ptk_buf_t *src, void *context);
-ptk_err modbus_tcp_request_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const modbus_tcp_request_t *req, void *context);
+ptk_err modbus_tcp_request_decode(const ptk_allocator_t *alloc, modbus_tcp_request_t *req, ptk_buf *src, void *context);
+ptk_err modbus_tcp_request_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const modbus_tcp_request_t *req, void *context);
 ptk_err modbus_tcp_request_validate(const ptk_allocator_t *alloc, const modbus_tcp_request_t *req, void *context);
 void modbus_tcp_request_dispose(const ptk_allocator_t *alloc, modbus_tcp_request_t *req, void *context);
 
 // WriteCoilsResponse functions
-ptk_err write_coils_response_decode(const ptk_allocator_t *alloc, write_coils_response_t *resp, ptk_buf_t *src, void *context);
-ptk_err write_coils_response_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const write_coils_response_t *resp, void *context);
+ptk_err write_coils_response_decode(const ptk_allocator_t *alloc, write_coils_response_t *resp, ptk_buf *src, void *context);
+ptk_err write_coils_response_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const write_coils_response_t *resp, void *context);
 ptk_err write_coils_response_validate(const ptk_allocator_t *alloc, const write_coils_response_t *resp, void *context);
 void write_coils_response_dispose(const ptk_allocator_t *alloc, write_coils_response_t *resp, void *context);
 
 // ExceptionResponse functions
-ptk_err exception_response_decode(const ptk_allocator_t *alloc, exception_response_t *ex, ptk_buf_t *src, void *context);
-ptk_err exception_response_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const exception_response_t *ex, void *context);
+ptk_err exception_response_decode(const ptk_allocator_t *alloc, exception_response_t *ex, ptk_buf *src, void *context);
+ptk_err exception_response_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const exception_response_t *ex, void *context);
 ptk_err exception_response_validate(const ptk_allocator_t *alloc, const exception_response_t *ex, void *context);
 void exception_response_dispose(const ptk_allocator_t *alloc, exception_response_t *ex, void *context);
 ```
@@ -342,7 +342,7 @@ function_code: {
 
 ## Type-Safe Array API
 
-The generator uses a macro-based type-safe array API for all variable-length arrays within message structures. This complements `ptk_buf_t` (which remains the primary buffer management API) by providing safe handling of protocol message arrays. This provides significant safety improvements over raw pointer/length pairs.
+The generator uses a macro-based type-safe array API for all variable-length arrays within message structures. This complements `ptk_buf` (which remains the primary buffer management API) by providing safe handling of protocol message arrays. This provides significant safety improvements over raw pointer/length pairs.
 
 ### Array Type Definition
 
@@ -371,7 +371,7 @@ typedef struct T_array {
 
 ### Array vs Buffer Usage
 
-- **`ptk_buf_t`**: Primary buffer management for encode/decode operations, network I/O
+- **`ptk_buf`**: Primary buffer management for encode/decode operations, network I/O
 - **Type-safe arrays**: Message structure members for variable-length protocol data
 - **Generated arrays**: Based on protocol specification array field types
 
@@ -529,7 +529,7 @@ typedef struct mbap_header {
 
 **Generated Decode Function:**
 ```c
-ptk_err mbap_header_decode(const ptk_allocator_t *alloc, mbap_header_t *header, ptk_buf_t *src, void *context) {
+ptk_err mbap_header_decode(const ptk_allocator_t *alloc, mbap_header_t *header, ptk_buf *src, void *context) {
     ptk_err err = PTK_OK;
 
     debug("Decoding MBAP header");
@@ -575,7 +575,7 @@ ptk_err mbap_header_decode(const ptk_allocator_t *alloc, mbap_header_t *header, 
 
 **Generated Encode Function:**
 ```c
-ptk_err mbap_header_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const mbap_header_t *header, void *context) {
+ptk_err mbap_header_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const mbap_header_t *header, void *context) {
     ptk_err err = PTK_OK;
 
     debug("Encoding MBAP header");
@@ -649,7 +649,7 @@ typedef struct write_coils_request {
 
 **Generated Decode Function:**
 ```c
-ptk_err write_coils_request_decode(const ptk_allocator_t *alloc, write_coils_request_t *req, ptk_buf_t *src, void *context) {
+ptk_err write_coils_request_decode(const ptk_allocator_t *alloc, write_coils_request_t *req, ptk_buf *src, void *context) {
     ptk_err err = PTK_OK;
 
     debug("Decoding WriteCoilsRequest");
@@ -753,7 +753,7 @@ void write_coils_request_dispose(write_coils_request_t *req, void *context) {
 
 **Generated Encode Function:**
 ```c
-ptk_err write_coils_request_encode(ptk_buf_t *dst, const write_coils_request_t *req, void *context) {
+ptk_err write_coils_request_encode(ptk_buf *dst, const write_coils_request_t *req, void *context) {
     ptk_err err = PTK_OK;
 
     debug("Encoding WriteCoilsRequest");
@@ -924,7 +924,7 @@ typedef struct modbus_tcp_request {
 
 **Generated Decode Function:**
 ```c
-ptk_err modbus_tcp_request_decode(modbus_tcp_request_t *req, ptk_buf_t *src, void *context) {
+ptk_err modbus_tcp_request_decode(modbus_tcp_request_t *req, ptk_buf *src, void *context) {
     ptk_err err = PTK_OK;
 
     debug("Decoding ModbusTCPRequest");
@@ -1035,13 +1035,13 @@ struct write_coils_request {
 // ... more structures
 
 // Function declarations
-ptk_err mbap_header_decode(const ptk_allocator_t *alloc, mbap_header_t *header, ptk_buf_t *src, void *context);
-ptk_err mbap_header_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const mbap_header_t *header, void *context);
+ptk_err mbap_header_decode(const ptk_allocator_t *alloc, mbap_header_t *header, ptk_buf *src, void *context);
+ptk_err mbap_header_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const mbap_header_t *header, void *context);
 ptk_err mbap_header_validate(const ptk_allocator_t *alloc, const mbap_header_t *header, void *context);
 void mbap_header_dispose(const ptk_allocator_t *alloc, mbap_header_t *header, void *context);
 
-ptk_err write_coils_request_decode(const ptk_allocator_t *alloc, write_coils_request_t *req, ptk_buf_t *src, void *context);
-ptk_err write_coils_request_encode(const ptk_allocator_t *alloc, ptk_buf_t *dst, const write_coils_request_t *req, void *context);
+ptk_err write_coils_request_decode(const ptk_allocator_t *alloc, write_coils_request_t *req, ptk_buf *src, void *context);
+ptk_err write_coils_request_encode(const ptk_allocator_t *alloc, ptk_buf *dst, const write_coils_request_t *req, void *context);
 ptk_err write_coils_request_validate(const ptk_allocator_t *alloc, const write_coils_request_t *req, void *context);
 void write_coils_request_dispose(const ptk_allocator_t *alloc, write_coils_request_t *req, void *context);
 
@@ -1080,7 +1080,7 @@ The Python generator program must:
 1. **Parse JSON-like Syntax**: Handle the complete PDL3 syntax with comma-separated attributes in curly braces
 2. **Generate Constants**: Create `#define` entries for all constant aliases, converting names to uppercase
 3. **Generate Type Definitions**: Create appropriate C structures and enums
-4. **Generate Buffer Operations**: Use ptk_buf_t APIs for all data manipulation
+4. **Generate Buffer Operations**: Use ptk_buf APIs for all data manipulation
 5. **Generate Error Handling**: Use ptk_err codes and ptk_log macros for diagnostics
 6. **Handle Memory Management**: Use pluggable allocator for all dynamic allocations (first parameter in all functions)
 7. **Validate Constraints**: Generate runtime validation using named constants instead of raw numbers

@@ -33,8 +33,8 @@ ptk_err simple_message_create(ptk_allocator_t *alloc, simple_message_t **instanc
 void simple_message_dispose(ptk_allocator_t *alloc, simple_message_t *instance);
 
 /* Encode/Decode */
-ptk_err simple_message_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const simple_message_t *instance);
-ptk_err simple_message_decode(ptk_allocator_t *alloc, simple_message_t **instance, ptk_buf_t *buf);
+ptk_err simple_message_encode(ptk_allocator_t *alloc, ptk_buf *buf, const simple_message_t *instance);
+ptk_err simple_message_decode(ptk_allocator_t *alloc, simple_message_t **instance, ptk_buf *buf);
 
 #ifdef __cplusplus
 }

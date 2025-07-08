@@ -1,6 +1,6 @@
 #include "ptk_log.h"
-#include "ptk_buf.h"
 #include "ptk_atomic.h"
+#include "ptk_buf.h"
 #include "ptk_utils.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -73,7 +73,7 @@ void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level, const
     fflush(stdout);
 }
 
-void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf_t *data) {
+void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data) {
     if(log_level > ptk_log_level_get()) {
         return;  // Log level filtered out
     }

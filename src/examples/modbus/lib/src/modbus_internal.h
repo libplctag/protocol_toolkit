@@ -43,7 +43,7 @@ struct modbus_connection {
     uint16_t transaction_id;
     bool is_server;
     bool is_connected;
-    ptk_buf_t *buffer;  // Shared buffer for send/receive operations
+    ptk_buf *buffer;  // Shared buffer for send/receive operations
 };
 
 //=============================================================================
@@ -58,9 +58,9 @@ uint16_t modbus_next_transaction_id(modbus_connection *conn);
 /**
  * @brief Send Modbus TCP frame with header and PDU
  */
-ptk_err modbus_send_frame(modbus_connection *conn, ptk_buf_t *pdu_buf);
+ptk_err modbus_send_frame(modbus_connection *conn, ptk_buf *pdu_buf);
 
 /**
  * @brief Receive Modbus TCP frame and extract PDU
  */
-ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf_t *pdu_buf);
+ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf *pdu_buf);

@@ -58,7 +58,7 @@ HEX_NUMBER: /0x[0-9a-fA-F]+/
 %ignore CPP_COMMENT
 """
 
-@dataclass 
+@dataclass
 class Field:
     name: str
     field_type: str
@@ -89,28 +89,28 @@ class PDLTransformer(Transformer):
     def primitive_type(self, items):
         base_type = str(items[0])
         result = {"def_type": "primitive", "base_type": base_type}
-        
+
         for item in items[1:]:
             if isinstance(item, dict):
                 result.update(item)
-        
+
         return result
 
     def message_type(self, items):
         result = {"def_type": "message", "fields": []}
-        
+
         for item in items:
             if isinstance(item, dict) and "fields" in item:
                 result["fields"] = item["fields"]
-        
+
         return result
 
     def constant_type(self, items):
         const_type = str(items[0])
         const_value = items[1]
         return {
-            "def_type": "constant", 
-            "const_type": const_type, 
+            "def_type": "constant",
+            "const_type": const_type,
             "const_value": const_value
         }
 
@@ -124,13 +124,13 @@ class PDLTransformer(Transformer):
     def field(self, items):
         name = str(items[0])
         field_type_info = items[1]
-        
+
         if isinstance(field_type_info, str):
             return Field(name, "type_ref", type_ref=field_type_info)
         elif isinstance(field_type_info, dict):
             if field_type_info["field_type"] == "array":
                 return Field(
-                    name, "array", 
+                    name, "array",
                     element_type=field_type_info["element_type"],
                     size=field_type_info["size"]
                 )
@@ -139,7 +139,7 @@ class PDLTransformer(Transformer):
                     name, "bit_field",
                     bit_field_source=field_type_info["source"]
                 )
-        
+
         return Field(name, "unknown")
 
     def field_type(self, items):
@@ -231,10 +231,10 @@ class CodeGenerator:
                 "/* Message Type Enumeration */",
                 "typedef enum {"
             ])
-            
+
             for i, msg in enumerate(messages, 1):
                 lines.append(f"    {msg.name.upper()}_MESSAGE_TYPE = {i},")
-            
+
             lines.append("} message_type_t;")
 
         if constants:
@@ -272,8 +272,8 @@ class CodeGenerator:
                 f"void {msg.name}_dispose(ptk_allocator_t *alloc, {msg.name}_t *instance);",
                 "",
                 "/* Encode/Decode */",
-                f"ptk_err {msg.name}_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const {msg.name}_t *instance);",
-                f"ptk_err {msg.name}_decode(ptk_allocator_t *alloc, {msg.name}_t **instance, ptk_buf_t *buf);"
+                f"ptk_err {msg.name}_encode(ptk_allocator_t *alloc, ptk_buf *buf, const {msg.name}_t *instance);",
+                f"ptk_err {msg.name}_decode(ptk_allocator_t *alloc, {msg.name}_t **instance, ptk_buf *buf);"
             ])
 
             # Array accessors
@@ -299,7 +299,7 @@ class CodeGenerator:
                         c_type = self.get_bit_field_type(length)
                         container = source.get("container", "")
                         start_bit = source.get("start_bit", 0)
-                        
+
                         lines.extend([
                             f"static inline {c_type} {msg.name}_get_{field.name}(const {msg.name}_t *msg) {{",
                             f"    return (msg->{container} >> {start_bit}) & ((1 << {length}) - 1);",
@@ -334,44 +334,44 @@ def parse_args():
 
 def main():
     args = parse_args()
-    
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     parser = Lark(PDL_GRAMMAR, parser='lalr', transformer=PDLTransformer())
-    
+
     for input_file in args.input_files:
         input_path = Path(input_file)
-        
+
         if not input_path.exists():
             print(f"Error: File not found: {input_file}", file=sys.stderr)
             continue
-        
+
         if args.verbose:
             print(f"Processing {input_file}...")
-        
+
         try:
             with open(input_path, 'r') as f:
                 content = f.read()
-            
+
             definitions = parser.parse(content)
-            
+
             namespace = args.namespace or input_path.stem
             codegen = CodeGenerator(namespace)
-            
+
             header_content = codegen.generate_header(definitions, input_path.stem)
             header_file = output_dir / f"{input_path.stem}.h"
-            
+
             with open(header_file, 'w') as f:
                 f.write(header_content)
-            
+
             if args.verbose:
                 print(f"Generated {header_file}")
                 messages = [d for d in definitions if d.def_type == "message"]
                 constants = [d for d in definitions if d.def_type == "constant"]
                 print(f"  - {len(messages)} messages")
                 print(f"  - {len(constants)} constants")
-        
+
         except Exception as e:
             print(f"Error processing {input_file}: {e}", file=sys.stderr)
             if args.verbose:

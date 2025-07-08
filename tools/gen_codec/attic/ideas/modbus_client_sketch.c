@@ -46,7 +46,7 @@ ptk_err read_holding_registers_example(ptk_socket_t *socket) {
     // ===== RESPONSE RECEPTION =====
 
     // 5. set up receive buffer
-    ptk_buf_t *recv_buf = NULL;
+    ptk_buf *recv_buf = NULL;
     err = ptk_buf_create(malloc_alloc, &recv_buf, 1024);
     if(err != PTK_OK) { goto cleanup_recv; }
 
@@ -131,7 +131,7 @@ ptk_err read_coils_example(ptk_socket_t *socket) {
     err = request_msg->vtable->get_encoded_data(arena_alloc, request_msg, &encoded_request);
     if(err != PTK_OK) { goto cleanup; }
 
-    ptk_buf_t send_buf;
+    ptk_buf send_buf;
     err = ptk_buf_create(&send_buf, encoded_request);
     if(err != PTK_OK) { goto cleanup; }
 
@@ -147,7 +147,7 @@ ptk_err read_coils_example(ptk_socket_t *socket) {
     err = u8_array_resize(receive_buffer, 1024);
     if(err != PTK_OK) { goto cleanup_recv; }
 
-    ptk_buf_t recv_buf;
+    ptk_buf recv_buf;
     err = ptk_buf_create(&recv_buf, receive_buffer);
     if(err != PTK_OK) { goto cleanup_recv; }
 

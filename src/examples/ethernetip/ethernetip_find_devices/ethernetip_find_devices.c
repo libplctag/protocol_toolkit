@@ -63,7 +63,7 @@ static void signal_handler(void) {
 /**
  * Build EtherNet/IP List Identity request packet
  */
-static ptk_err build_list_identity_request(ptk_buf_t *buffer) {
+static ptk_err build_list_identity_request(ptk_buf *buffer) {
     // EtherNet/IP Encapsulation Header (24 bytes) - all little endian
     return ptk_buf_produce(buffer, "< w w d d q d",
                            (uint16_t)EIP_LIST_IDENTITY_CMD,  // Command
@@ -77,7 +77,7 @@ static ptk_err build_list_identity_request(ptk_buf_t *buffer) {
 /**
  * Parse EtherNet/IP List Identity response
  */
-static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const ptk_address_t *sender_addr) {
+static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t *sender_addr) {
     ptk_err err;
 
     char *sender_ip = ptk_address_to_string(g_allocator, sender_addr);
@@ -240,7 +240,7 @@ static void discovery_thread(void *arg) {
 
         // Send broadcast if it's time
         if(current_time - last_broadcast >= BROADCAST_INTERVAL) {
-            ptk_buf_t *request_buf = ptk_buf_create(g_allocator, 32);
+            ptk_buf *request_buf = ptk_buf_create(g_allocator, 32);
             if(!request_buf) {
                 printf("Failed to create request buffer\n");
                 break;
@@ -291,7 +291,7 @@ static void discovery_thread(void *arg) {
         }
 
         // Listen for responses
-        ptk_buf_t *response_buf = ptk_buf_create(g_allocator, 512);
+        ptk_buf *response_buf = ptk_buf_create(g_allocator, 512);
         if(!response_buf) {
             printf("Failed to create response buffer\n");
             usleep(100000);

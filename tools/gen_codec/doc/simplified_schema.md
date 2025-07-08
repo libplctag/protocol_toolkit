@@ -31,8 +31,8 @@ ptk_err message_name_create(ptk_allocator_t *alloc, message_name_t **msg);
 void message_name_dispose(ptk_allocator_t *alloc, message_name_t *msg);
 
 // Encode/decode
-ptk_err message_name_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const message_name_t *msg);
-ptk_err message_name_decode(ptk_allocator_t *alloc, message_name_t **msg, ptk_buf_t *buf);
+ptk_err message_name_encode(ptk_allocator_t *alloc, ptk_buf *buf, const message_name_t *msg);
+ptk_err message_name_decode(ptk_allocator_t *alloc, message_name_t **msg, ptk_buf *buf);
 
 // Safe array accessors
 ptk_err message_name_get_array_field_element(const message_name_t *msg, size_t index, field_type *value);
@@ -133,7 +133,7 @@ typedef struct control_register_t {
     const int message_type;
     u16 _control_bits;      // Source field
     bool start_bit;         // Virtual bit field
-    bool stop_bit;          // Virtual bit field  
+    bool stop_bit;          // Virtual bit field
     bool reset_bit;         // Virtual bit field
 } control_register_t;
 
@@ -201,16 +201,16 @@ def my_message = {
 
 ## Field Attributes Reference
 
-| Attribute | Description | Example |
-|-----------|-------------|---------|
-| `type` | Field type | `u16`, `message`, `u8[]`, `[msg_a, msg_b]` |
-| `byte_order` | Byte order array | `[0, 1]` (little), `[1, 0]` (big) |
-| `const` | Constant value | `0x1234` |
-| `length` | Array sizing | `{ decode: expr, encode: expr }` |
-| `match` | Discriminator | `($.field == VALUE)` |
-| `container_type` | Bit array container | `u8`, `u16_le`, `u32_le` |
-| `source_field` | Bit flag source | `field_name` |
-| `source_bit` | Bit flag position | `0`, `1`, `2`, etc. |
+| Attribute        | Description         | Example                                    |
+| ---------------- | ------------------- | ------------------------------------------ |
+| `type`           | Field type          | `u16`, `message`, `u8[]`, `[msg_a, msg_b]` |
+| `byte_order`     | Byte order array    | `[0, 1]` (little), `[1, 0]` (big)          |
+| `const`          | Constant value      | `0x1234`                                   |
+| `length`         | Array sizing        | `{ decode: expr, encode: expr }`           |
+| `match`          | Discriminator       | `($.field == VALUE)`                       |
+| `container_type` | Bit array container | `u8`, `u16_le`, `u32_le`                   |
+| `source_field`   | Bit flag source     | `field_name`                               |
+| `source_bit`     | Bit flag position   | `0`, `1`, `2`, etc.                        |
 
 ## Simplifications from Original Schema
 
@@ -225,7 +225,7 @@ def my_message = {
 ## Array Sizing Shortcuts
 
 - **Constant**: `u8[256]`
-- **Field reference**: `u8[length_field]` 
+- **Field reference**: `u8[length_field]`
 - **Complex**: Use `length: { decode: expr, encode: expr }`
 
 ## Usage Example
@@ -244,7 +244,7 @@ read_coils_response_set_coils_element(response, 5, true);   // Coil 5 ON
 read_coils_response_set_coils_element(response, 10, false); // Coil 10 OFF
 
 // Encode to buffer
-ptk_buf_t *send_buf;
+ptk_buf *send_buf;
 ptk_buf_create(malloc_alloc, &send_buf, 1024);
 read_coils_response_encode(arena_alloc, send_buf, response);
 

@@ -60,7 +60,7 @@ static void server_client_thread(void *arg) {
 
     info("[CLIENT_HANDLER_%d] Started\n", client_id);
 
-    ptk_buf_t *io_buf = ptk_buf_create(g_allocator, 1024);
+    ptk_buf *io_buf = ptk_buf_create(g_allocator, 1024);
     if(!io_buf) {
         error("Unable to allocated buffer memory!");
         return;
@@ -237,7 +237,7 @@ static void client_thread(void *arg) {
     // Send message to server
     const char *message = "Hello from client!";
 
-    ptk_buf_t *send_buf = ptk_buf_create(g_allocator, 1024);
+    ptk_buf *send_buf = ptk_buf_create(g_allocator, 1024);
     if(!send_buf) {
         info("[CLIENT] Failed to create send buffer\n");
         ptk_socket_close(client_socket);
@@ -258,7 +258,7 @@ static void client_thread(void *arg) {
     }
 
     // Read response
-    ptk_buf_t *recv_buf = ptk_buf_create(g_allocator, 1024);
+    ptk_buf *recv_buf = ptk_buf_create(g_allocator, 1024);
     if(!recv_buf) {
         info("[CLIENT] Failed to create receive buffer\n");
         ptk_buf_dispose(send_buf);

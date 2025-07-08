@@ -1,5 +1,5 @@
-#include "ptk_codec.h"
 #include "ptk_buf.h"
+#include "ptk_codec.h"
 #include "ptk_log.h"
 #include <arpa/inet.h>  // For htons, htonl, etc.
 #include <string.h>
@@ -120,9 +120,9 @@ static ptk_err apply_u64_endianness(u64 *correct_val, u64 value_le, ptk_codec_en
 // BUFFER ENCODING FUNCTIONS
 //=============================================================================
 
-ptk_err ptk_codec_produce_u8(ptk_buf_t *buf, u8 value) { return ptk_buf_produce_u8(buf, value); }
+ptk_err ptk_codec_produce_u8(ptk_buf *buf, u8 value) { return ptk_buf_produce_u8(buf, value); }
 
-ptk_err ptk_codec_produce_u16(ptk_buf_t *buf, u16 value, ptk_codec_endianness_t endianness) {
+ptk_err ptk_codec_produce_u16(ptk_buf *buf, u16 value, ptk_codec_endianness_t endianness) {
     ptk_err err = PTK_OK;
     u16 correct_val = 0;
 
@@ -140,7 +140,7 @@ ptk_err ptk_codec_produce_u16(ptk_buf_t *buf, u16 value, ptk_codec_endianness_t 
     return PTK_OK;
 }
 
-ptk_err ptk_codec_produce_u32(ptk_buf_t *buf, u32 value, ptk_codec_endianness_t endianness) {
+ptk_err ptk_codec_produce_u32(ptk_buf *buf, u32 value, ptk_codec_endianness_t endianness) {
     ptk_err err = PTK_OK;
     u32 correct_val = 0;
 
@@ -164,7 +164,7 @@ ptk_err ptk_codec_produce_u32(ptk_buf_t *buf, u32 value, ptk_codec_endianness_t 
     return PTK_OK;
 }
 
-ptk_err ptk_codec_produce_u64(ptk_buf_t *buf, u64 value, ptk_codec_endianness_t endianness) {
+ptk_err ptk_codec_produce_u64(ptk_buf *buf, u64 value, ptk_codec_endianness_t endianness) {
     ptk_err err = PTK_OK;
     u64 correct_val = 0;
 
@@ -205,9 +205,9 @@ ptk_err ptk_codec_produce_u64(ptk_buf_t *buf, u64 value, ptk_codec_endianness_t 
 // BUFFER DECODING FUNCTIONS
 //=============================================================================
 
-ptk_err ptk_codec_consume_u8(u8 *value, ptk_buf_t *buf, bool peek) { return ptk_buf_consume_u8(value, buf, peek); }
+ptk_err ptk_codec_consume_u8(u8 *value, ptk_buf *buf, bool peek) { return ptk_buf_consume_u8(value, buf, peek); }
 
-ptk_err ptk_codec_consume_u16(u16 *value, ptk_codec_endianness_t endianness, ptk_buf_t *buf, bool peek) {
+ptk_err ptk_codec_consume_u16(u16 *value, ptk_codec_endianness_t endianness, ptk_buf *buf, bool peek) {
     ptk_err err = PTK_OK;
     size_t old_start_index = 0;
     u16 tmp_val = 0;
@@ -235,7 +235,7 @@ ptk_err ptk_codec_consume_u16(u16 *value, ptk_codec_endianness_t endianness, ptk
     return PTK_OK;
 }
 
-ptk_err ptk_codec_consume_u32(u32 *value, ptk_codec_endianness_t endianness, ptk_buf_t *buf, bool peek) {
+ptk_err ptk_codec_consume_u32(u32 *value, ptk_codec_endianness_t endianness, ptk_buf *buf, bool peek) {
     ptk_err err = PTK_OK;
     size_t old_start_index = 0;
     u32 tmp_val = 0;
@@ -271,7 +271,7 @@ ptk_err ptk_codec_consume_u32(u32 *value, ptk_codec_endianness_t endianness, ptk
     return PTK_OK;
 }
 
-ptk_err ptk_codec_consume_u64(u64 *value, ptk_codec_endianness_t endianness, ptk_buf_t *buf, bool peek) {
+ptk_err ptk_codec_consume_u64(u64 *value, ptk_codec_endianness_t endianness, ptk_buf *buf, bool peek) {
     ptk_err err = PTK_OK;
     size_t old_start_index = 0;
     u64 tmp_val = 0;
@@ -522,11 +522,11 @@ ptk_err ptk_codec_consume_u64(u64 *value, ptk_codec_endianness_t endianness, ptk
 //     return PTK_OK;
 // }
 
-// ptk_err ptk_codec_validate_buffer_bounds(const ptk_buf_t *buf, size_t required_size) {
+// ptk_err ptk_codec_validate_buffer_bounds(const ptk_buf *buf, size_t required_size) {
 //     if(!buf || !buf->data) { return PTK_ERR_NULL_PTR; }
 
 //     size_t available;
-//     ptk_err err = ptk_buf_len((size_t *)&available, (ptk_buf_t *)buf);
+//     ptk_err err = ptk_buf_len((size_t *)&available, (ptk_buf *)buf);
 //     if(err != PTK_OK) { return err; }
 
 //     if(available < required_size) {

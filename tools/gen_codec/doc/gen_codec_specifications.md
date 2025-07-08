@@ -182,8 +182,8 @@ output_dir/
 #### Function Names
 - **Constructors**: `{type_name}_create(ptk_allocator_t *alloc, {type_name}_t **instance)`
 - **Destructors**: `{type_name}_dispose(ptk_allocator_t *alloc, {type_name}_t *instance)`
-- **Encoders**: `{type_name}_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const {type_name}_t *instance)`
-- **Decoders**: `{type_name}_decode(ptk_allocator_t *alloc, {type_name}_t **instance, ptk_buf_t *buf)`
+- **Encoders**: `{type_name}_encode(ptk_allocator_t *alloc, ptk_buf *buf, const {type_name}_t *instance)`
+- **Decoders**: `{type_name}_decode(ptk_allocator_t *alloc, {type_name}_t **instance, ptk_buf *buf)`
 - **Array Accessors**: `{type_name}_get_{field_name}(const {type_name}_t *instance, size_t index, {element_type} *value)`
 - **Bit Field Accessors**: `{type_name}_get_{field_name}(const {type_name}_t *instance)`
 
@@ -278,22 +278,22 @@ static inline void {type}_set_{field}({type}_t *msg, {bit_field_type} value) {
 ### Type System Mapping
 
 #### PDL to C Type Mapping
-| PDL Type  | C Type                  | Notes                     |
-| --------- | ----------------------- | ------------------------- |
-| `u8`      | `uint8_t`               | 8-bit unsigned            |
-| `u16`     | `uint16_t`              | 16-bit unsigned           |
-| `u32`     | `uint32_t`              | 32-bit unsigned           |
-| `u64`     | `uint64_t`              | 64-bit unsigned           |
-| `i8`      | `int8_t`                | 8-bit signed              |
-| `i16`     | `int16_t`               | 16-bit signed             |
-| `i32`     | `int32_t`               | 32-bit signed             |
-| `i64`     | `int64_t`               | 64-bit signed             |
-| `f32`     | `float`                 | 32-bit IEEE 754           |
-| `f64`     | `double`                | 64-bit IEEE 754           |
+| PDL Type    | C Type                      | Notes                                         |
+| ----------- | --------------------------- | --------------------------------------------- |
+| `u8`        | `uint8_t`                   | 8-bit unsigned                                |
+| `u16`       | `uint16_t`                  | 16-bit unsigned                               |
+| `u32`       | `uint32_t`                  | 32-bit unsigned                               |
+| `u64`       | `uint64_t`                  | 64-bit unsigned                               |
+| `i8`        | `int8_t`                    | 8-bit signed                                  |
+| `i16`       | `int16_t`                   | 16-bit signed                                 |
+| `i32`       | `int32_t`                   | 32-bit signed                                 |
+| `i64`       | `int64_t`                   | 64-bit signed                                 |
+| `f32`       | `float`                     | 32-bit IEEE 754                               |
+| `f64`       | `double`                    | 64-bit IEEE 754                               |
 | `bit_field` | `uint8_t/uint16_t/uint32_t` | Automatically sized based on bit field length |
-| `bit[]`   | `{container}_array_t *` | Container-based bit array |
-| `type[]`  | `type_array_t *`        | Safe array pointer        |
-| `message` | `{name}_t`              | Message struct            |
+| `bit[]`     | `{container}_array_t *`     | Container-based bit array                     |
+| `type[]`    | `type_array_t *`            | Safe array pointer                            |
+| `message`   | `{name}_t`                  | Message struct                                |
 
 #### Endianness Handling
 - **Byte Order Arrays**: `[0, 1, 2, 3]` for little-endian, `[3, 2, 1, 0]` for big-endian
@@ -464,10 +464,10 @@ def tcp_header = {
         destination_port: u16_be,
         sequence_number: u32_be,
         acknowledgment_number: u32_be,
-        
+
         // Bit field container for TCP flags
         _tcp_flags_container: u16_be,
-        
+
         // Bit fields extracted from the container
         data_offset: { type: bit_field, source: { container: _tcp_flags_container, start_bit: 12, length: 4 } },
         reserved: { type: bit_field, source: { container: _tcp_flags_container, start_bit: 9, length: 3 } },
@@ -480,7 +480,7 @@ def tcp_header = {
         rst_flag: { type: bit_field, source: { container: _tcp_flags_container, start_bit: 2, length: 1 } },
         syn_flag: { type: bit_field, source: { container: _tcp_flags_container, start_bit: 1, length: 1 } },
         fin_flag: { type: bit_field, source: { container: _tcp_flags_container, start_bit: 0, length: 1 } },
-        
+
         window_size: u16_be,
         checksum: u16_be,
         urgent_pointer: u16_be
@@ -496,9 +496,9 @@ typedef struct tcp_header_t {
     uint16_t destination_port;
     uint32_t sequence_number;
     uint32_t acknowledgment_number;
-    
+
     uint16_t _tcp_flags_container;      // Source container
-    
+
     // Bit fields with automatic type sizing
     uint8_t data_offset;                // 4-bit field -> uint8_t
     uint8_t reserved;                   // 3-bit field -> uint8_t
@@ -511,7 +511,7 @@ typedef struct tcp_header_t {
     uint8_t rst_flag;                   // 1-bit field -> uint8_t
     uint8_t syn_flag;                   // 1-bit field -> uint8_t
     uint8_t fin_flag;                   // 1-bit field -> uint8_t
-    
+
     uint16_t window_size;
     uint16_t checksum;
     uint16_t urgent_pointer;
@@ -543,7 +543,7 @@ static inline void tcp_header_set_syn_flag(tcp_header_t *msg, uint8_t value) {
 
 ### Automatic Type Sizing Rules
 - **1-8 bits**: `uint8_t`
-- **9-16 bits**: `uint16_t`  
+- **9-16 bits**: `uint16_t`
 - **17-32 bits**: `uint32_t`
 - **33-64 bits**: `uint64_t`
 

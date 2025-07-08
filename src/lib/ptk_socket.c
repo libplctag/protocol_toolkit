@@ -237,9 +237,7 @@ ptk_err ptk_address_create(ptk_address_t *address, const char *ip_string, uint16
         address->ip = INADDR_ANY;
     } else {
         struct in_addr addr;
-        if(inet_pton(AF_INET, ip_string, &addr) != 1) {
-            return PTK_ERR_INVALID_PARAM;
-        }
+        if(inet_pton(AF_INET, ip_string, &addr) != 1) { return PTK_ERR_INVALID_PARAM; }
         address->ip = addr.s_addr;  // Already in network byte order
     }
 
@@ -254,7 +252,7 @@ char *ptk_address_to_string(ptk_allocator_t *allocator, const ptk_address_t *add
 
     struct in_addr addr;
     addr.s_addr = address->ip;
-    
+
     if(!inet_ntop(AF_INET, &addr, str, INET_ADDRSTRLEN)) {
         ptk_free(allocator, str);
         return NULL;
@@ -604,7 +602,7 @@ cleanup:
     return NULL;
 }
 
-ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data) {
+ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }
@@ -643,7 +641,7 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data) {
     return PTK_OK;
 }
 
-ptk_err ptk_tcp_socket_read(ptk_buf_t *data, ptk_sock *sock) {
+ptk_err ptk_tcp_socket_read(ptk_buf *data, ptk_sock *sock) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }
@@ -898,7 +896,7 @@ cleanup:
     return NULL;
 }
 
-ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf_t *data, const ptk_address_t *dest_addr, bool broadcast) {
+ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast) {
     if(!ptk_socket_is_valid(sock) || !data || !dest_addr) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_UDP) { return PTK_ERR_INVALID_PARAM; }
@@ -948,7 +946,7 @@ ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf_t *data, const ptk_addres
     }
 }
 
-ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf_t *data, ptk_address_t *sender_addr) {
+ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf *data, ptk_address_t *sender_addr) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_UDP) { return PTK_ERR_INVALID_PARAM; }
@@ -967,7 +965,8 @@ ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf_t *data, ptk_address_t 
         struct sockaddr_storage sender_sockaddr;
         socklen_t sender_sockaddr_len = sizeof(sender_sockaddr);
 
-        ssize_t received = recvfrom(sock->fd, recv_data, space_available, 0, (struct sockaddr *)&sender_sockaddr, &sender_sockaddr_len);
+        ssize_t received =
+            recvfrom(sock->fd, recv_data, space_available, 0, (struct sockaddr *)&sender_sockaddr, &sender_sockaddr_len);
 
         if(received == -1) {
             if(errno == EAGAIN) {

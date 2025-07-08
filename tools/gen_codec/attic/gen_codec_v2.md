@@ -614,8 +614,8 @@ typedef struct eip_header {
 } eip_header_t;
 
 // Generated function declarations
-ptk_err eip_header_decode(eip_header_t *header, ptk_buf_t *buf, void *context);
-ptk_err eip_header_encode(ptk_buf_t *buf, const eip_header_t *header, void *context);
+ptk_err eip_header_decode(eip_header_t *header, ptk_buf *buf, void *context);
+ptk_err eip_header_encode(ptk_buf *buf, const eip_header_t *header, void *context);
 ptk_err eip_header_validate(const eip_header_t *header, void *context);
 
 #endif

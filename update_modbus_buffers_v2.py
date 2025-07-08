@@ -12,14 +12,14 @@ def update_file_comprehensively(file_path):
     # Replace all ptk_buf_create patterns with shared buffer usage
     # Pattern to match buffer creation and setup
     buffer_create_pattern = re.compile(
-        r'ptk_buf_t \*pdu_buf = ptk_buf_create\([^)]+\);\s*\n'
+        r'ptk_buf \*pdu_buf = ptk_buf_create\([^)]+\);\s*\n'
         r'(\s*)if \(!pdu_buf\) \{\s*\n'
         r'\s*return PTK_ERR_NO_RESOURCES;\s*\n'
         r'\s*\}',
         re.MULTILINE
     )
 
-    buffer_replacement = r'''ptk_buf_t *pdu_buf = conn->buffer;
+    buffer_replacement = r'''ptk_buf *pdu_buf = conn->buffer;
 \1
 \1// Reset buffer for new operation
 \1ptk_err err = ptk_buf_set_start(pdu_buf, 0);
@@ -34,8 +34,8 @@ def update_file_comprehensively(file_path):
     content = buffer_create_pattern.sub(buffer_replacement, content)
 
     # Also handle cases where there's no error checking for ptk_buf_create
-    simple_create_pattern = re.compile(r'ptk_buf_t \*pdu_buf = ptk_buf_create\([^)]+\);')
-    simple_replacement = '''ptk_buf_t *pdu_buf = conn->buffer;
+    simple_create_pattern = re.compile(r'ptk_buf \*pdu_buf = ptk_buf_create\([^)]+\);')
+    simple_replacement = '''ptk_buf *pdu_buf = conn->buffer;
 
     // Reset buffer for new operation
     ptk_err err = ptk_buf_set_start(pdu_buf, 0);

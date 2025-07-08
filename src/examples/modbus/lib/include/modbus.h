@@ -14,8 +14,8 @@ PTK_ARRAY_DECLARE(modbus_bool, bool);
 typedef struct modbus_connection modbus_connection;
 
 
-modbus_connection *modbus_open_client(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf_t *buffer);
-modbus_connection *modbus_open_server(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf_t *buffer);
+modbus_connection *modbus_open_client(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf *buffer);
+modbus_connection *modbus_open_server(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf *buffer);
 ptk_err modbus_close(modbus_connection *conn);
 
 
@@ -51,7 +51,7 @@ ptk_err client_recv_write_coil_resp(modbus_connection *con);
 ptk_err client_recv_write_coils_resp(modbus_connection *con);
 
 /* server functions */
-modbus_connection *server_accept_connection(modbus_connection *server_connection, ptk_buf_t *buffer);
+modbus_connection *server_accept_connection(modbus_connection *server_connection, ptk_buf *buffer);
 
 /* server request receiving functions */
 ptk_err server_recv_read_holding_register_req(modbus_connection *conn, uint16_t *register_addr);

@@ -226,7 +226,7 @@ ptk_sock *ptk_tcp_socket_connect(ptk_allocator_t *allocator, const ptk_address_t
  * @param data Data to write (ownership transferred)
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data);
+ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data);
 
 /**
  * @brief Read data from the socket.
@@ -240,7 +240,7 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data);
  * @param sock
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_tcp_socket_read(ptk_buf_t *data, ptk_sock *sock);
+ptk_err ptk_tcp_socket_read(ptk_buf *data, ptk_sock *sock);
 
 
 
@@ -307,7 +307,7 @@ ptk_sock *ptk_udp_socket_create(ptk_allocator_t *allocator, const ptk_address_t 
  * @param broadcast If true, send the data as a broadcast
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf_t *data, const ptk_address_t *dest_addr, bool broadcast);
+ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast);
 
 /**
  * @brief Get a UDP packet from the socket
@@ -317,7 +317,7 @@ ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf_t *data, const ptk_addres
  * @param sender_addr Address of the sender (output parameter, can be NULL)
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf_t *data, ptk_address_t *sender_addr);
+ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf *data, ptk_address_t *sender_addr);
 
 
 //=============================================================================

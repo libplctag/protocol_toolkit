@@ -132,23 +132,23 @@ void modbus_message_dispose(ptk_allocator_t *alloc, modbus_message_t *msg);
 // ENCODE/DECODE FUNCTIONS
 //=============================================================================
 
-ptk_err read_holding_registers_request_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_holding_registers_request_t *msg);
-ptk_err read_holding_registers_request_decode(ptk_allocator_t *alloc, read_holding_registers_request_t **msg, ptk_buf_t *buf);
+ptk_err read_holding_registers_request_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_holding_registers_request_t *msg);
+ptk_err read_holding_registers_request_decode(ptk_allocator_t *alloc, read_holding_registers_request_t **msg, ptk_buf *buf);
 
-ptk_err read_holding_registers_response_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_holding_registers_response_t *msg);
-ptk_err read_holding_registers_response_decode(ptk_allocator_t *alloc, read_holding_registers_response_t **msg, ptk_buf_t *buf);
+ptk_err read_holding_registers_response_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_holding_registers_response_t *msg);
+ptk_err read_holding_registers_response_decode(ptk_allocator_t *alloc, read_holding_registers_response_t **msg, ptk_buf *buf);
 
-ptk_err read_coils_request_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_coils_request_t *msg);
-ptk_err read_coils_request_decode(ptk_allocator_t *alloc, read_coils_request_t **msg, ptk_buf_t *buf);
+ptk_err read_coils_request_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_coils_request_t *msg);
+ptk_err read_coils_request_decode(ptk_allocator_t *alloc, read_coils_request_t **msg, ptk_buf *buf);
 
-ptk_err read_coils_response_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const read_coils_response_t *msg);
-ptk_err read_coils_response_decode(ptk_allocator_t *alloc, read_coils_response_t **msg, ptk_buf_t *buf);
+ptk_err read_coils_response_encode(ptk_allocator_t *alloc, ptk_buf *buf, const read_coils_response_t *msg);
+ptk_err read_coils_response_decode(ptk_allocator_t *alloc, read_coils_response_t **msg, ptk_buf *buf);
 
-ptk_err modbus_pdu_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const modbus_pdu_t *msg);
-ptk_err modbus_pdu_decode(ptk_allocator_t *alloc, modbus_pdu_t **msg, ptk_buf_t *buf);
+ptk_err modbus_pdu_encode(ptk_allocator_t *alloc, ptk_buf *buf, const modbus_pdu_t *msg);
+ptk_err modbus_pdu_decode(ptk_allocator_t *alloc, modbus_pdu_t **msg, ptk_buf *buf);
 
-ptk_err modbus_message_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const modbus_message_t *msg);
-ptk_err modbus_message_decode(ptk_allocator_t *alloc, modbus_message_t **msg, ptk_buf_t *buf);
+ptk_err modbus_message_encode(ptk_allocator_t *alloc, ptk_buf *buf, const modbus_message_t *msg);
+ptk_err modbus_message_decode(ptk_allocator_t *alloc, modbus_message_t **msg, ptk_buf *buf);
 
 //=============================================================================
 // SAFE ARRAY ACCESSORS

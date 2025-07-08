@@ -12,7 +12,7 @@ uint16_t modbus_next_transaction_id(modbus_connection *conn) { return ++conn->tr
 /**
  * @brief Send Modbus TCP frame with header and PDU
  */
-ptk_err modbus_send_frame(modbus_connection *conn, ptk_buf_t *pdu_buf) {
+ptk_err modbus_send_frame(modbus_connection *conn, ptk_buf *pdu_buf) {
     if(!conn || !pdu_buf) { return PTK_ERR_NULL_PTR; }
 
     size_t pdu_len = ptk_buf_len(pdu_buf);
@@ -49,11 +49,11 @@ ptk_err modbus_send_frame(modbus_connection *conn, ptk_buf_t *pdu_buf) {
 /**
  * @brief Receive Modbus TCP frame and extract PDU
  */
-ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf_t *pdu_buf) {
+ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf *pdu_buf) {
     if(!conn || !pdu_buf) { return PTK_ERR_NULL_PTR; }
 
     // Use the shared buffer for receiving complete frame
-    ptk_buf_t *frame_buf = conn->buffer;
+    ptk_buf *frame_buf = conn->buffer;
 
     // Reset buffer for new receive operation
     ptk_err err = ptk_buf_set_start(frame_buf, 0);
@@ -94,7 +94,7 @@ ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf_t *pdu_buf) {
 // CONNECTION MANAGEMENT FUNCTIONS
 //=============================================================================
 
-modbus_connection *modbus_open_client(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf_t *buffer) {
+modbus_connection *modbus_open_client(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf *buffer) {
     if(!allocator || !addr || !buffer) { return NULL; }
 
     modbus_connection *conn = ptk_alloc(allocator, sizeof(modbus_connection));
@@ -122,7 +122,7 @@ modbus_connection *modbus_open_client(ptk_allocator_t *allocator, ptk_address_t 
     return conn;
 }
 
-modbus_connection *modbus_open_server(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf_t *buffer) {
+modbus_connection *modbus_open_server(ptk_allocator_t *allocator, ptk_address_t *addr, uint8_t unit_id, ptk_buf *buffer) {
     if(!allocator || !addr || !buffer) { return NULL; }
 
     modbus_connection *conn = ptk_alloc(allocator, sizeof(modbus_connection));
@@ -167,7 +167,7 @@ ptk_err modbus_close(modbus_connection *conn) {
 // SERVER FUNCTIONS
 //=============================================================================
 
-modbus_connection *server_accept_connection(modbus_connection *server_connection, ptk_buf_t *buffer) {
+modbus_connection *server_accept_connection(modbus_connection *server_connection, ptk_buf *buffer) {
     if(!server_connection || !server_connection->is_server || !buffer) { return NULL; }
 
     ptk_sock *client_socket = ptk_tcp_socket_accept(server_connection->socket);
@@ -201,7 +201,7 @@ ptk_err server_send_exception_resp(modbus_connection *conn, uint8_t function_cod
     if(!conn || conn->is_server) { return PTK_ERR_INVALID_PARAM; }
 
     // Use shared buffer for PDU
-    ptk_buf_t *pdu_buf = conn->buffer;
+    ptk_buf *pdu_buf = conn->buffer;
 
     // Reset buffer for new operation
     ptk_err err = ptk_buf_set_start(pdu_buf, 0);

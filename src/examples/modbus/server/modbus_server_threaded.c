@@ -130,7 +130,7 @@ int parse_arguments(int argc, char *argv[], server_config_t *config) {
          "100"},
         PTK_CONFIG_END};
 
-    int result = ptk_config_parse(argc, argv, fields, "Modbus TCP Server");
+    int result = ptk_config_parse(argc, argv, fields, "Modbus TCP Multi-threaded Server");
     if(result == 1) {
         return 1;  // Help was shown
     } else if(result != 0) {
@@ -486,7 +486,7 @@ void client_thread_handler(void *arg) {
 }
 
 //=============================================================================
-// SERVER LOGIC
+// MULTI-THREADED SERVER LOGIC
 //=============================================================================
 
 int start_server(modbus_server_state_t *state, const char *listen_addr) {
@@ -537,7 +537,7 @@ int start_server(modbus_server_state_t *state, const char *listen_addr) {
         return -1;
     }
 
-    info("Modbus server listening on %s:%d", host, port);
+    info("Modbus multi-threaded server listening on %s:%d", host, port);
     info("Max concurrent clients: %d", MAX_CLIENTS);
     info("Supported functions: Read/Write Holding Registers (single), Read Input Registers (single)");
     info("                      Read/Write Coils (single), Read Discrete Inputs (single)");
@@ -663,7 +663,7 @@ int main(int argc, char *argv[]) {
 
     g_server_state = server_state;
 
-    info("Starting Modbus TCP Server...");
+    info("Starting Modbus TCP Multi-threaded Server...");
     info("Configuration:");
     info("  Listen address: %s", config.listen_addr);
     info("  Holding registers: %d", config.num_holding_regs);

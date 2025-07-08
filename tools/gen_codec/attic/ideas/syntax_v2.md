@@ -136,8 +136,8 @@ ptk_err eip_header_create(ptk_allocator_t *alloc, eip_header_t **header);
 void eip_header_dispose(ptk_allocator_t *alloc, eip_header_t *header);
 
 /* encode/decode functions */
-ptk_err eip_header_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const eip_header_t *header);
-ptk_err eip_header_decode(ptk_allocator_t *alloc, eip_header_t **header, ptk_buf_t *buf);
+ptk_err eip_header_encode(ptk_allocator_t *alloc, ptk_buf *buf, const eip_header_t *header);
+ptk_err eip_header_decode(ptk_allocator_t *alloc, eip_header_t **header, ptk_buf *buf);
 ```
 
 ## Direct Struct Access with Variable-Length Support
@@ -177,8 +177,8 @@ ptk_err variable_message_create(ptk_allocator_t *alloc, variable_message_t **msg
 void variable_message_dispose(ptk_allocator_t *alloc, variable_message_t *msg);
 
 // Encode/decode
-ptk_err variable_message_encode(ptk_allocator_t *alloc, ptk_buf_t *buf, const variable_message_t *msg);
-ptk_err variable_message_decode(ptk_allocator_t *alloc, variable_message_t **msg, ptk_buf_t *buf);
+ptk_err variable_message_encode(ptk_allocator_t *alloc, ptk_buf *buf, const variable_message_t *msg);
+ptk_err variable_message_decode(ptk_allocator_t *alloc, variable_message_t **msg, ptk_buf *buf);
 
 // Safe array accessors for name field
 ptk_err variable_message_get_name_element(const variable_message_t *msg, size_t index, u8 *value);
@@ -528,8 +528,8 @@ u8_array_t *receive_buffer;
 u8_array_init(&receive_buffer);
 u8_array_resize(&receive_buffer, 4096);  // Max expected message size
 
-// 2. Wrap in ptk_buf_t for stream processing
-ptk_buf_t network_buf;
+// 2. Wrap in ptk_buf for stream processing
+ptk_buf network_buf;
 ptk_buf_create(&network_buf, receive_buffer);
 
 // 3. Receive data from socket (from ptk_socket.h)
@@ -590,7 +590,7 @@ err = cip_request->vtable->encode_to_parent(alloc, cip_request, &context, &encod
 
 // 4. Result is array of byte arrays from each hierarchy level
 // 5. Send via socket
-ptk_buf_t send_buf;
+ptk_buf send_buf;
 ptk_buf_create(&send_buf, encoded_message);
 ptk_socket_send(socket, &send_buf);
 ```
@@ -643,13 +643,13 @@ Each hierarchy level allocates its own byte array using the provided allocator:
 
 ```c
 // Example: CPF packet encoding
-ptk_err cpf_packet_encode(ptk_allocator_t *alloc, ptk_buf_t *dst, const cpf_packet_t *self) {
+ptk_err cpf_packet_encode(ptk_allocator_t *alloc, ptk_buf *dst, const cpf_packet_t *self) {
     // Allocate our own encoding buffer
     u8_array_t *local_buffer;
     u8_array_init(&local_buffer);
 
     // Encode our fields
-    ptk_buf_t local_buf;
+    ptk_buf local_buf;
     ptk_buf_create(&local_buf, local_buffer);
 
     // Encode header fields
