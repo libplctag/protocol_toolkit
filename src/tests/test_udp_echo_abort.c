@@ -82,9 +82,9 @@ static void server_thread(void *arg) {
         if(data_len == 0) { continue; }
 
         char *client_ip = ptk_address_to_string(g_allocator, &client_addr);
-        printf("[SERVER] Received %zu bytes from %s:%d\n", data_len, 
-               client_ip ? client_ip : "unknown", ptk_address_get_port(&client_addr));
-        if(client_ip) ptk_free(g_allocator, client_ip);
+        printf("[SERVER] Received %zu bytes from %s:%d\n", data_len, client_ip ? client_ip : "unknown",
+               ptk_address_get_port(&client_addr));
+        if(client_ip) { ptk_free(g_allocator, client_ip); }
 
         // Echo the data back
         ptk_buf_t *send_buf = ptk_buf_create(g_allocator, sizeof(buffer_data));
@@ -197,9 +197,9 @@ static void client_thread(void *arg) {
     if(response_len > 0) {
         buffer_data[response_len] = '\0';  // Null terminate for printing
         char *response_ip = ptk_address_to_string(g_allocator, &response_addr);
-        printf("[CLIENT] Received UDP response from %s:%d: '%s'\n", 
-               response_ip ? response_ip : "unknown", ptk_address_get_port(&response_addr), buffer_data);
-        if(response_ip) ptk_free(g_allocator, response_ip);
+        printf("[CLIENT] Received UDP response from %s:%d: '%s'\n", response_ip ? response_ip : "unknown",
+               ptk_address_get_port(&response_addr), buffer_data);
+        if(response_ip) { ptk_free(g_allocator, response_ip); }
     }
 
     printf("[CLIENT] Test completed successfully\n");

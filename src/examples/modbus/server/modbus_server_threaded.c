@@ -212,16 +212,16 @@ modbus_server_state_t *create_server_state(ptk_allocator_t *allocator, const ser
     state->coils_mutex = ptk_mutex_create(allocator);
     state->discrete_inputs_mutex = ptk_mutex_create(allocator);
     state->client_count_mutex = ptk_mutex_create(allocator);
-    
-    if(!state->holding_registers_mutex || !state->input_registers_mutex || 
-       !state->coils_mutex || !state->discrete_inputs_mutex || !state->client_count_mutex) {
+
+    if(!state->holding_registers_mutex || !state->input_registers_mutex || !state->coils_mutex || !state->discrete_inputs_mutex
+       || !state->client_count_mutex) {
         error("Failed to initialize mutexes");
         // Clean up any successfully created mutexes
-        if(state->holding_registers_mutex) ptk_mutex_destroy(state->holding_registers_mutex);
-        if(state->input_registers_mutex) ptk_mutex_destroy(state->input_registers_mutex);
-        if(state->coils_mutex) ptk_mutex_destroy(state->coils_mutex);
-        if(state->discrete_inputs_mutex) ptk_mutex_destroy(state->discrete_inputs_mutex);
-        if(state->client_count_mutex) ptk_mutex_destroy(state->client_count_mutex);
+        if(state->holding_registers_mutex) { ptk_mutex_destroy(state->holding_registers_mutex); }
+        if(state->input_registers_mutex) { ptk_mutex_destroy(state->input_registers_mutex); }
+        if(state->coils_mutex) { ptk_mutex_destroy(state->coils_mutex); }
+        if(state->discrete_inputs_mutex) { ptk_mutex_destroy(state->discrete_inputs_mutex); }
+        if(state->client_count_mutex) { ptk_mutex_destroy(state->client_count_mutex); }
         ptk_free(allocator, state);
         return NULL;
     }

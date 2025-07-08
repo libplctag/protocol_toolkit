@@ -93,9 +93,10 @@ static void server_client_thread(void *arg) {
 
         client_msg_len = ptk_buf_len(io_buf);
 
-        snprintf(msg_buf, sizeof(msg_buf), "Message %d: %.*s", ++data->message_num, (int)client_msg_len, ptk_buf_get_start_ptr(io_buf));
+        snprintf(msg_buf, sizeof(msg_buf), "Message %d: %.*s", ++data->message_num, (int)client_msg_len,
+                 ptk_buf_get_start_ptr(io_buf));
 
-            info("[CLIENT_HANDLER_%d] Echoing %zu bytes\n", client_id, data_len);
+        info("[CLIENT_HANDLER_%d] Echoing %zu bytes\n", client_id, data_len);
 
         err = ptk_tcp_socket_write(client, io_buf);
         if(err == PTK_ERR_ABORT) {
@@ -160,7 +161,8 @@ static void server_thread(void *arg) {
             handler_data->client_socket = client_socket;
             handler_data->client_id = (int)g_num_clients;
 
-            g_client_handler_threads[g_num_clients] = ptk_thread_create(allocator_default_create(0), server_client_thread, handler_data);
+            g_client_handler_threads[g_num_clients] =
+                ptk_thread_create(allocator_default_create(0), server_client_thread, handler_data);
 
             g_num_clients++;
         } else {
@@ -234,7 +236,7 @@ static void client_thread(void *arg) {
 
     // Send message to server
     const char *message = "Hello from client!";
-    
+
     ptk_buf_t *send_buf = ptk_buf_create(g_allocator, 1024);
     if(!send_buf) {
         info("[CLIENT] Failed to create send buffer\n");
