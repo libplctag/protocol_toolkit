@@ -61,11 +61,15 @@ add_subdirectory(src/lib)
 #=============================================================================
 
 # Add examples
-# add_subdirectory(src/examples)
+# Add examples
+add_subdirectory(src/examples)
 # add_subdirectory(tools/gen_codec/examples)
 
 # Add tests
 add_subdirectory(src/tests)
+
+# Add modbus implementation (now in src/examples/modbus)
+# add_subdirectory(ideas/modbus)
 
 #=============================================================================
 # INSTALLATION

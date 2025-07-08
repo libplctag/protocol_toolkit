@@ -233,9 +233,9 @@ int main() {
     ptk_set_interrupt_handler(signal_handler);
 
     // Start server thread
-    ptk_err err = ptk_thread_create(&g_server_thread, server_thread, NULL);
-    if(err != PTK_OK) {
-        printf("[MAIN] Failed to create server thread: %s\n", ptk_err_to_string(err));
+    g_server_thread = ptk_thread_create(allocator_default_create(0), server_thread, NULL);
+    if(!g_server_thread) {
+        printf("[MAIN] Failed to create server thread\n");
         return 1;
     }
 
@@ -243,9 +243,9 @@ int main() {
     sleep(1);
 
     // Start client thread
-    err = ptk_thread_create(&g_client_thread, client_thread, NULL);
-    if(err != PTK_OK) {
-        printf("[MAIN] Failed to create client thread: %s\n", ptk_err_to_string(err));
+    g_client_thread = ptk_thread_create(allocator_default_create(0), client_thread, NULL);
+    if(!g_client_thread) {
+        printf("[MAIN] Failed to create client thread\n");
         return 1;
     }
 

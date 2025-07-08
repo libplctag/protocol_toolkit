@@ -6,6 +6,7 @@
 
 #include "ptk_err.h"
 #include "ptk_utils.h"
+#include "ptk_alloc.h"
 
 /**
  * @file ptk_threading.h
@@ -41,10 +42,10 @@ typedef struct ptk_thread ptk_thread;
 /**
  * @brief Creates a new recursive mutex.
  *
- * @param[out] mutex Pointer to the newly created mutex.
- * @return Error code indicating success or failure.
+ * @param allocator The allocator to use for creating the mutex
+ * @return Pointer to the newly created mutex, or NULL on failure
  */
-extern ptk_err ptk_mutex_create(ptk_mutex **mutex);
+extern ptk_mutex *ptk_mutex_create(ptk_allocator_t *allocator);
 
 /**
  * @brief Destroys a mutex.
@@ -78,10 +79,10 @@ extern ptk_err ptk_mutex_unlock(ptk_mutex *mutex);
 /**
  * @brief Creates a condition variable.
  *
- * @param[out] cond_var Pointer to the created condition variable.
- * @return Error code.
+ * @param allocator The allocator to use for creating the condition variable
+ * @return Pointer to the created condition variable, or NULL on failure
  */
-extern ptk_err ptk_cond_var_create(ptk_cond_var **cond_var);
+extern ptk_cond_var *ptk_cond_var_create(ptk_allocator_t *allocator);
 
 /**
  * @brief Destroys a condition variable.
@@ -123,12 +124,12 @@ typedef void (*ptk_thread_func)(void *data);
 /**
  * @brief Creates and starts a new thread.
  *
- * @param[out] thread Pointer to the created thread handle.
+ * @param allocator The allocator to use for creating the thread
  * @param func Entry point for the thread function.
  * @param data User data to pass to the thread function.
- * @return Error code.
+ * @return Pointer to the created thread handle, or NULL on failure
  */
-extern ptk_err ptk_thread_create(ptk_thread **thread, ptk_thread_func func, void *data);
+extern ptk_thread *ptk_thread_create(ptk_allocator_t *allocator, ptk_thread_func func, void *data);
 
 /**
  * @brief Waits for the specified thread to complete.

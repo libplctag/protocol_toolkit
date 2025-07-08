@@ -160,7 +160,7 @@ static void server_thread(void *arg) {
             handler_data->client_socket = client_socket;
             handler_data->client_id = (int)g_num_clients;
 
-            ptk_thread_create(&g_client_handler_threads[g_num_clients], server_client_thread, handler_data);
+            g_client_handler_threads[g_num_clients] = ptk_thread_create(allocator_default_create(0), server_client_thread, handler_data);
 
             g_num_clients++;
         } else {
@@ -315,9 +315,9 @@ int main() {
     ptk_set_interrupt_handler(signal_handler);
 
     // Create mutex for client list
-    ptk_err err = ptk_mutex_create(&g_clients_mutex);
-    if(err != PTK_OK) {
-        info("[MAIN] Failed to create mutex: %s\n", ptk_err_to_string(err));
+    g_clients_mutex = ptk_mutex_create(allocator_default_create(0));
+    if(!g_clients_mutex) {
+        info("[MAIN] Failed to create mutex\n");
         return 1;
     }
 
@@ -326,9 +326,9 @@ int main() {
     memset(g_client_handler_threads, 0, sizeof(g_client_handler_threads));
 
     // Start server thread
-    err = ptk_thread_create(&g_server_thread, server_thread, NULL);
-    if(err != PTK_OK) {
-        info("[MAIN] Failed to create server thread: %s\n", ptk_err_to_string(err));
+    g_server_thread = ptk_thread_create(allocator_default_create(0), server_thread, NULL);
+    if(!g_server_thread) {
+        info("[MAIN] Failed to create server thread\n");
         return 1;
     }
 
@@ -336,9 +336,9 @@ int main() {
     sleep(1);
 
     // Start client thread
-    err = ptk_thread_create(&g_client_thread, client_thread, NULL);
-    if(err != PTK_OK) {
-        info("[MAIN] Failed to create client thread: %s\n", ptk_err_to_string(err));
+    g_client_thread = ptk_thread_create(allocator_default_create(0), client_thread, NULL);
+    if(!g_client_thread) {
+        info("[MAIN] Failed to create client thread\n");
         return 1;
     }
 
