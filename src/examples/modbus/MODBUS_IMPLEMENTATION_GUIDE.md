@@ -42,7 +42,7 @@ The Protocol Toolkit provides these key components for Modbus implementation:
 // Create buffer from caller-provided memory
 uint8_t buffer_data[256];
 ptk_buf_t buffer;
-ptk_buf_make(&buffer, buffer_data, sizeof(buffer_data));
+ptk_buf_create(&buffer, buffer_data, sizeof(buffer_data));
 
 // Write data (producer operations - move end index)
 ptk_buf_produce_u16(&buffer, transaction_id, PTK_BUF_BIG_ENDIAN);
@@ -213,7 +213,7 @@ ptk_err modbus_read_holding_registers(modbus_client_t *client,
     // Build request
     uint8_t request_data[12];  // MBAP (7) + Function (1) + Address (2) + Quantity (2)
     ptk_buf_t request;
-    ptk_buf_make(&request, request_data, sizeof(request_data));
+    ptk_buf_create(&request, request_data, sizeof(request_data));
 
     ptk_err err = build_mbap_header(&request, client->transaction_id++, 6, client->unit_id);
     if (err != PTK_OK) return err;
@@ -234,7 +234,7 @@ ptk_err modbus_read_holding_registers(modbus_client_t *client,
     // Receive response
     uint8_t response_data[256];
     ptk_buf_t response;
-    ptk_buf_make(&response, response_data, sizeof(response_data));
+    ptk_buf_create(&response, response_data, sizeof(response_data));
 
     err = ptk_tcp_socket_read(client->socket, &response);
     if (err != PTK_OK) return err;
@@ -300,7 +300,7 @@ ptk_err modbus_write_single_register(modbus_client_t *client,
     // Build request
     uint8_t request_data[12];  // MBAP (7) + Function (1) + Address (2) + Value (2)
     ptk_buf_t request;
-    ptk_buf_make(&request, request_data, sizeof(request_data));
+    ptk_buf_create(&request, request_data, sizeof(request_data));
 
     ptk_err err = build_mbap_header(&request, client->transaction_id++, 6, client->unit_id);
     if (err != PTK_OK) return err;
@@ -321,7 +321,7 @@ ptk_err modbus_write_single_register(modbus_client_t *client,
     // Receive and validate echo response
     uint8_t response_data[12];
     ptk_buf_t response;
-    ptk_buf_make(&response, response_data, sizeof(response_data));
+    ptk_buf_create(&response, response_data, sizeof(response_data));
 
     err = ptk_tcp_socket_read(client->socket, &response);
     if (err != PTK_OK) return err;
@@ -410,7 +410,7 @@ static void handle_client_connection(modbus_server_t *server, ptk_sock *client) 
 
     while (server->running) {
         // Read request
-        ptk_buf_make(&buffer, buffer_data, sizeof(buffer_data));
+        ptk_buf_create(&buffer, buffer_data, sizeof(buffer_data));
         ptk_err err = ptk_tcp_socket_read(client, &buffer);
 
         if (err == PTK_ERR_CLOSED || err == PTK_ERR_ABORT) {
@@ -422,7 +422,7 @@ static void handle_client_connection(modbus_server_t *server, ptk_sock *client) 
 
         // Process request and build response
         ptk_buf_t response;
-        ptk_buf_make(&response, buffer_data, sizeof(buffer_data));
+        ptk_buf_create(&response, buffer_data, sizeof(buffer_data));
 
         err = process_modbus_request(server, &buffer, &response);
         if (err != PTK_OK) {

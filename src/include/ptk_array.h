@@ -152,22 +152,6 @@
         return PTK_OK; \
     } \
     \
-    /* Safe accessor functions for generated code */ \
-    static inline ptk_err T##_array_get(const T##_array_t *arr, size_t index, T *value) { \
-        if (!arr || !value) return PTK_ERR_NULL_PTR; \
-        if (!arr->elements) return PTK_ERR_NULL_PTR; \
-        if (index >= arr->len) return PTK_ERR_OUT_OF_BOUNDS; \
-        *value = arr->elements[index]; \
-        return PTK_OK; \
-    } \
-    \
-    static inline ptk_err T##_array_set(T##_array_t *arr, size_t index, T value) { \
-        if (!arr) return PTK_ERR_NULL_PTR; \
-        if (!arr->elements) return PTK_ERR_NULL_PTR; \
-        if (index >= arr->len) return PTK_ERR_OUT_OF_BOUNDS; \
-        arr->elements[index] = value; \
-        return PTK_OK; \
-    } \
     \
     static inline size_t T##_array_len(const T##_array_t *arr) { \
         return (arr && arr->elements) ? arr->len : 0; \

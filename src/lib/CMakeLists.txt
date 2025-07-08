@@ -3,8 +3,10 @@
 
 # Create protocol toolkit library
 add_library(protocol_toolkit
+    ptk_alloc.c
     ptk_atomic.c
     ptk_buf.c
+    # ptk_codec.c
     ptk_err.c
     ptk_log.c
     ptk_socket.c

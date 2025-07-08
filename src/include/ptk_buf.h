@@ -11,185 +11,221 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "ptk_err.h"
 #include "ptk_array.h"
+#include "ptk_alloc.h"
+
+
+//=============================================================================
+// TYPE DEFINITIONS
+//=============================================================================
+
+// Standard type aliases for protocol definitions (without endian suffix)
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+typedef float f32;
+typedef double f64;
 
 //=============================================================================
 // BUFFER STRUCTURE
 //=============================================================================
 
-/**
- * @brief Buffer structure using safe byte array
- */
 typedef struct ptk_buf_t {
-    u8_array_t *data;           // Safe byte array (owns capacity info)
-    size_t start;               // Start position for reading
-    size_t end;                 // End position (exclusive)
+    ptk_allocator_t *allocator;
+    u8 *data;
+    size_t capacity;
+    size_t start;  // Start position for reading
+    size_t end;    // End position (exclusive)
+    ptk_err last_err;
 } ptk_buf_t;
+
 
 //=============================================================================
 // BUFFER OPERATIONS
 //=============================================================================
 
-/**
- * @brief Initialize buffer from existing byte array.
- *
- * Sets start and end to zero. The buffer references the provided array.
- *
- * @param buf Pointer to buffer to initialize
- * @param data Pointer to existing u8_array_t
- * @return PTK_OK on success, error code on failure
- */
-ptk_err ptk_buf_make(ptk_buf_t *buf, u8_array_t *data);
+static inline ptk_buf_t *ptk_buf_create(ptk_allocator_t *alloc, size_t size) {
+    ptk_buf_t *buf = NULL;
+
+    if(!alloc) { return NULL; }
+
+    buf = ptk_alloc(alloc, sizeof(ptk_buf_t));
+    if(!buf) { return NULL; }
+
+    buf->data = ptk_alloc(alloc, size);
+    if(!buf->data) {
+        ptk_free(alloc, buf);
+        return NULL;
+    }
+
+    /* store the allocator for later. */
+    buf->allocator = alloc;
+    buf->capacity = size;
+    buf->start = 0;
+    buf->end = 0;
+    buf->last_err = PTK_OK;
+
+    return buf;
+}
+
+static inline ptk_err ptk_buf_dispose(ptk_buf_t *buf) {
+    if(!buf) { return PTK_ERR_NULL_PTR; }
+
+    if(buf->allocator) {
+        if(buf->data) {
+            ptk_free(buf->allocator, buf->data);
+            buf->data = NULL;
+        }
+
+        ptk_free(buf->allocator, buf);
+    } else {
+        return PTK_ERR_NULL_PTR;
+    }
+
+    return PTK_OK;
+}
+
+static inline size_t ptk_buf_len(ptk_buf_t *buf) {
+    if(!buf) { return SIZE_MAX; }
+
+    return buf->end - buf->start;
+}
+
+static inline size_t ptk_buf_cap(ptk_buf_t *buf) {
+    if(!buf) { return SIZE_MAX; }
+
+    return buf->capacity;
+}
+
+static inline size_t ptk_buf_get_start(ptk_buf_t *buf) {
+    if(!buf) { return SIZE_MAX; }
+
+    return buf->start;
+}
+
+extern u8 *ptk_buf_get_start_ptr(ptk_buf_t *buf);
+
+extern ptk_err ptk_buf_set_start(ptk_buf_t *buf, size_t start);
+
+static inline size_t ptk_buf_get_end(ptk_buf_t *buf) {
+    if(!buf) { return SIZE_MAX; }
+
+    return buf->end;
+}
+
+static inline u8 *ptk_buf_get_end_ptr(ptk_buf_t *buf) {
+    if(!buf) { return NULL; }
+
+    return buf->data + buf->end;
+}
+
+static inline ptk_err ptk_buf_set_end(ptk_buf_t *buf, size_t end) {
+    if(!buf) { return PTK_ERR_NULL_PTR; }
+
+    if(end < buf->start || end > buf->capacity) { return PTK_ERR_OUT_OF_BOUNDS; }
+
+    buf->end = end;
+    return PTK_OK;
+}
+
+static inline size_t ptk_buf_get_remaining(ptk_buf_t *buf) {
+    if(!buf) { return SIZE_MAX; }
+
+    return buf->capacity - buf->end;
+}
 
 /**
- * @brief Create buffer with new byte array of specified size.
- *
- * Allocates a new u8_array_t and initializes buffer to reference it.
- *
- * @param alloc Allocator to use for buffer creation
- * @param buf Pointer to store allocated buffer pointer
- * @param size Initial array size
- * @return PTK_OK on success, error code on failure
- */
-ptk_err ptk_buf_create(ptk_allocator_t *alloc, ptk_buf_t **buf, size_t size);
-
-/**
- * @brief Gets the amount of data between start and end.
- *
- * Note that the end index is exclusive.
- *
- * @param len
- * @param buf
- * @return ptk_err
- */
-ptk_err ptk_buf_len(size_t *len, ptk_buf_t *buf);
-
-/**
- * @brief Get the capacity of the buffer.
- *
- * Returns the capacity of the underlying byte array.
- *
- * @param cap Pointer to store capacity
- * @param buf Buffer to query
- * @return ptk_err
- */
-ptk_err ptk_buf_cap(size_t *cap, ptk_buf_t *buf);
-
-/**
- * @brief Get the current start position
- *
- * @param start
- * @param buf
- * @return ptk_err
- */
-ptk_err ptk_buf_get_start(size_t *start, ptk_buf_t *buf);
-
-/**
- * @brief Get a data pointer to the start index
- *
- * @param ptr
- * @param buf
- * @return ptk_err
- */
-ptk_err ptk_buf_get_start_ptr(uint8_t **ptr, ptk_buf_t *buf);
-
-/**
- * @brief Set the start positions
- *
- * Sets the start position to anywhere between 0 and end.
- *
- * @param start
- * @param buf
- * @return ptk_err
- */
-ptk_err ptk_buf_set_start(ptk_buf_t *buf, size_t start);
-
-/**
- * @brief Get the current end position
- *
- *
- * @param end
- * @param buf
- * @return ptk_err
- */
-ptk_err ptk_buf_get_end(size_t *end, ptk_buf_t *buf);
-
-/**
- * @brief Get a data pointer to the end index.
- *
- * @param ptr
- * @param buf
- * @return ptk_err
- */
-ptk_err ptk_buf_get_end_ptr(uint8_t **ptr, ptk_buf_t *buf);
-
-/**
- * @brief Set the end position
- *
- * Sets the end position to anywhere between start and capacity.
- *
- * @param buf
- * @param end
- * @return ptk_err
- */
-ptk_err ptk_buf_set_end(ptk_buf_t *buf, size_t end);
-
-/**
- * @brief Get the remaining space from the end index to the capacity of the buffer.
- *
- * @param remaining
- * @param buf
- * @return ptk_err
- */
-ptk_err ptk_buf_get_remaining(size_t *remaining, ptk_buf_t *buf);
-
-/**
- * @brief Moves the data between start and end to the new start position
- *
- * This moves the data between start and end to the new start position.  It updates
- * start to the new start and updates end so that it is correct with the new position
- * of the data within the buffer.
+ * @brief Moves the block of data between start and end to the new start location.
  *
  * @param buf
  * @param new_start
- * @return ptk_err OK on success, OUT_OF_BOUNDs if the move would truncate data.
+ * @return ptk_err
  */
-ptk_err ptk_buf_move_to(ptk_buf_t *buf, size_t new_start);
+static inline ptk_err ptk_buf_move_to(ptk_buf_t *buf, size_t new_start) {
+    if(!buf) { return PTK_ERR_NULL_PTR; }
 
+    size_t data_len = buf->end - buf->start;
+
+    // Check if new position would fit the data
+    if(new_start + data_len > buf->capacity) { return PTK_ERR_OUT_OF_BOUNDS; }
+
+    // Move data if there's any and positions are different
+    if(data_len > 0 && new_start != buf->start) { memmove(buf->data + new_start, buf->data + buf->start, data_len); }
+
+    buf->start = new_start;
+    buf->end = new_start + data_len;
+
+    return PTK_OK;
+}
 
 //=============================================================================
-// BUFFER UTILITIES
+// CONSUME/PRODUCE data in buffers
 //=============================================================================
 
-/**
- * @brief Get pointer to data at current start position
- * @param buf Buffer to query
- * @param ptr Pointer to store data pointer
- * @return PTK_OK on success, error code on failure
+/*
+
+This is much like printf()/scanf or Python's pack/unpack.  There are a set of format
+characters and modifiers.
+
+The general format of a field is '%'<modifiers><type>
+
+type  Meaning
+
+b       An 8-bit value
+w       A 16-bit value
+d       A 32-bit value
+q       A 64-bit value
+
+Modifier    Meaning
+*           An array of the value.  Producing this takes two arguments, a size_t
+            number of elements and a pointer to a C array of those elements.
+            Consuming takes two arguments: a size_t number of elements to consume,
+            and a pointer to a C array in which to copy those elements.
+
+Spaces are ignored.  All values are taken to be unsigned integers.  If you need to
+produce or consume other types, cast them.
+
+Special Format Characters
+
+<   All fields after this, until overridden, are little endian in the encoded data.
+>   All fields after this, until overridden, are big endian in the encoded data.
+
  */
-ptk_err ptk_buf_get_data_ptr(ptk_buf_t *buf, uint8_t **ptr);
+
+extern ptk_err ptk_buf_produce(ptk_buf_t *dest, const char *fmt, ...);
+
+extern ptk_err ptk_buf_consume(ptk_buf_t *src, bool peek, const char *fmt, ...);
+
+/* byte swap helpers */
 
 /**
- * @brief Advance start position by specified bytes
- * @param buf Buffer to modify
- * @param bytes Number of bytes to advance
- * @return PTK_OK on success, error code on failure
+ * @brief swap the bytes in each 16-bit word
+ *
+ * @param value
+ * @return u32
  */
-ptk_err ptk_buf_advance_start(ptk_buf_t *buf, size_t bytes);
+static inline u32 ptk_buf_byte_swap_u32(u32 value) {
+    return ((value & 0x000000FF) << 24) |
+           ((value & 0x0000FF00) << 8)  |
+           ((value & 0x00FF0000) >> 8)  |
+           ((value & 0xFF000000) >> 24);
+}
 
-/**
- * @brief Advance end position by specified bytes
- * @param buf Buffer to modify  
- * @param bytes Number of bytes to advance
- * @return PTK_OK on success, error code on failure
- */
-ptk_err ptk_buf_advance_end(ptk_buf_t *buf, size_t bytes);
-
-/**
- * @brief Reset buffer to empty state (start = end = 0)
- * @param buf Buffer to reset
- * @return PTK_OK on success, error code on failure
- */
-ptk_err ptk_buf_reset(ptk_buf_t *buf);
+static inline u64 ptk_buf_byte_swap_u64(u64 value) {
+    return ((value & 0x00000000000000FFULL) << 56) |
+           ((value & 0x000000000000FF00ULL) << 40) |
+           ((value & 0x0000000000FF0000ULL) << 24) |
+           ((value & 0x00000000FF000000ULL) << 8)  |
+           ((value & 0x000000FF00000000ULL) >> 8)  |
+           ((value & 0x0000FF0000000000ULL) >> 24) |
+           ((value & 0x00FF000000000000ULL) >> 40) |
+           ((value & 0xFF00000000000000ULL) >> 56);
+}

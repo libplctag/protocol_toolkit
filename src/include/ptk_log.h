@@ -15,8 +15,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "ptk_buf.h"
 #include "ptk_err.h"
+
+// Forward declaration to avoid circular dependency
+typedef struct ptk_buf_t ptk_buf_t;
 
 #if defined(_WIN32) && defined(_MSC_VER)
 /**

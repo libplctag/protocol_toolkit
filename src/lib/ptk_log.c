@@ -1,4 +1,5 @@
 #include "ptk_log.h"
+#include "ptk_buf.h"
 #include "ptk_atomic.h"
 #include "ptk_utils.h"
 #include <stdarg.h>
@@ -82,8 +83,8 @@ void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, p
         return;
     }
 
-    size_t data_len;
-    if(ptk_buf_len(&data_len, data) != PTK_OK) {
+    size_t data_len = ptk_buf_len(data);
+    if(data_len == SIZE_MAX) {
         ptk_log_impl(func, line_num, log_level, "Buffer data: (error getting length)");
         return;
     }
@@ -95,8 +96,8 @@ void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, p
         return;
     }
 
-    uint8_t *ptr;
-    if(ptk_buf_get_start_ptr(&ptr, data) != PTK_OK) {
+    uint8_t *ptr = ptk_buf_get_start_ptr(data);
+    if(!ptr) {
         printf("  (error getting data pointer)\n");
         return;
     }

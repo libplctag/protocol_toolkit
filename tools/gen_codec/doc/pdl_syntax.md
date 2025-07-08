@@ -385,7 +385,7 @@ typedef struct status_register_t {
     const int message_type;
     u16 _bit_source_do_not_access;              // Source field (could be hidden from API)
     bool ready_flag;                            // Virtual bit field
-    bool error_flag;                            // Virtual bit field  
+    bool error_flag;                            // Virtual bit field
     bool busy_flag;                             // Virtual bit field
     bool enabled_flag;                          // Virtual bit field
 } status_register_t;
@@ -473,12 +473,12 @@ typedef struct {
 
 typedef struct cpf_packet_vtable_t {
     // ... other functions (all with allocator first parameter) ...
-    
+
     // Variant array accessors
     ptk_err (*get_items_element)(ptk_allocator_t *alloc, cpf_packet_t *self, size_t index, cpf_items_element_t *element);
     ptk_err (*set_items_element)(ptk_allocator_t *alloc, cpf_packet_t *self, size_t index, const cpf_items_element_t *element);
     ptk_err (*get_items_length)(ptk_allocator_t *alloc, cpf_packet_t *self, size_t *length);
-    
+
     // Type-specific accessors for convenience
     ptk_err (*get_items_as_null_address)(ptk_allocator_t *alloc, cpf_packet_t *self, size_t index, null_address_item_t **element);
     ptk_err (*get_items_as_connected_address)(ptk_allocator_t *alloc, cpf_packet_t *self, size_t index, connected_address_item_t **element);
@@ -494,7 +494,7 @@ u8 coil_byte;
 msg->vtable->get_coil_data_element(msg, 5, &coil_byte);
 msg->vtable->set_coil_data_element(msg, 5, 0xFF);
 
-// Aggregate array access  
+// Aggregate array access
 register_info_t *reg_info;
 msg->vtable->get_registers_element(msg, 0, &reg_info);
 // reg_info points to the actual element in the array
@@ -530,14 +530,14 @@ u8_array_resize(&receive_buffer, 4096);  // Max expected message size
 
 // 2. Wrap in ptk_buf_t for stream processing
 ptk_buf_t network_buf;
-ptk_buf_make(&network_buf, receive_buffer);
+ptk_buf_create(&network_buf, receive_buffer);
 
 // 3. Receive data from socket (from ptk_socket.h)
 size_t bytes_received;
 ptk_err err = ptk_socket_receive(socket, &network_buf, &bytes_received);
 if (err != PTK_OK) return err;
 
-// 4. Create root message instance 
+// 4. Create root message instance
 eip_message_t *root_message;
 err = eip_message_create(alloc, &root_message);
 if (err != PTK_OK) return err;
@@ -591,7 +591,7 @@ err = cip_request->vtable->encode_to_parent(alloc, cip_request, &context, &encod
 // 4. Result is array of byte arrays from each hierarchy level
 // 5. Send via socket
 ptk_buf_t send_buf;
-ptk_buf_make(&send_buf, encoded_message);
+ptk_buf_create(&send_buf, encoded_message);
 ptk_socket_send(socket, &send_buf);
 ```
 
@@ -601,10 +601,10 @@ For messages that can appear in multiple parent contexts (like CIP payloads in b
 
 ```c
 // User-provided context resolution function
-ptk_err resolve_cpf_parent_type(const cip_request_t *cip_msg, const void *context, 
+ptk_err resolve_cpf_parent_type(const cip_request_t *cip_msg, const void *context,
                                cpf_parent_type_t *parent_type) {
     const encode_context_t *enc_ctx = (const encode_context_t *)context;
-    
+
     // Use context to determine which parent type to use
     switch (enc_ctx->target_connection_type) {
         case CPF_CONNECTED_DATA:
@@ -620,12 +620,12 @@ ptk_err resolve_cpf_parent_type(const cip_request_t *cip_msg, const void *contex
 }
 
 // Generated encode function uses the resolver
-ptk_err cip_request_encode_to_parent(ptk_allocator_t *alloc, const cip_request_t *self, 
+ptk_err cip_request_encode_to_parent(ptk_allocator_t *alloc, const cip_request_t *self,
                                     const void *context, u8_array_t **result) {
     cpf_parent_type_t parent_type;
     ptk_err err = resolve_cpf_parent_type(self, context, &parent_type);
     if (err != PTK_OK) return err;
-    
+
     switch (parent_type) {
         case CPF_PARENT_CONNECTED_DATA:
             return encode_via_connected_data_parent(alloc, self, context, result);
@@ -647,31 +647,31 @@ ptk_err cpf_packet_encode(ptk_allocator_t *alloc, ptk_buf_t *dst, const cpf_pack
     // Allocate our own encoding buffer
     u8_array_t *local_buffer;
     u8_array_init(&local_buffer);
-    
+
     // Encode our fields
     ptk_buf_t local_buf;
-    ptk_buf_make(&local_buf, local_buffer);
-    
+    ptk_buf_create(&local_buf, local_buffer);
+
     // Encode header fields
     ptk_codec_produce_u32(&local_buf, self->interface_handle, PTK_CODEC_LITTLE_ENDIAN);
     ptk_codec_produce_u16(&local_buf, self->timeout, PTK_CODEC_LITTLE_ENDIAN);
     ptk_codec_produce_u16(&local_buf, self->item_count, PTK_CODEC_LITTLE_ENDIAN);
-    
+
     // Encode each item (calls child encoders)
     for (size_t i = 0; i < self->item_count; i++) {
         cpf_items_element_t item;
         self->vtable->get_items_element(alloc, self, i, &item);
-        
+
         // Each item type encodes itself
         switch (item.type) {
             case CPF_ITEMS_CONNECTED_DATA_ITEM:
-                item.element.connected_data_item->vtable->encode(alloc, &local_buf, 
+                item.element.connected_data_item->vtable->encode(alloc, &local_buf,
                                                                item.element.connected_data_item);
                 break;
             // ... other item types ...
         }
     }
-    
+
     // Append our buffer to the destination
     ptk_buf_append_array(dst, local_buffer);
     return PTK_OK;
@@ -786,7 +786,7 @@ def complex_arrays = {
     fields: [
         total_length: u16_le,
         header_size: u8,
-        
+
         // Calculated size using expression
         payload: {
             type: u8[],
@@ -795,7 +795,7 @@ def complex_arrays = {
                 encode: (payload.count)  // Use actual array length
             }
         },
-        
+
         // Function-based size calculation
         compressed_data: {
             type: u8[],
@@ -804,7 +804,7 @@ def complex_arrays = {
                 encode: calculate_compressed_size
             }
         },
-        
+
         // Namespaced function with validation
         validated_payload: {
             type: u8[],

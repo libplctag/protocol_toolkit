@@ -13,18 +13,24 @@
 #include <stdbool.h>
 #include "ptk_err.h"
 
+// Forward declarations
+typedef struct ptk_allocator ptk_allocator_t;
+typedef struct ptk_alloc_stats ptk_alloc_stats_t;
+
 /**
  * @brief Allocator function types
  */
-typedef void* (*ptk_alloc_fn)(size_t size, void *alloc_ctx);
-typedef void* (*ptk_realloc_fn)(void *ptr, size_t new_size, void *alloc_ctx);
-typedef void (*ptk_free_fn)(void *ptr, void *alloc_ctx);
-typedef void (*ptk_reset_fn)(void *alloc_ctx);
+typedef void* (*ptk_alloc_fn)(struct ptk_allocator *allocator, size_t size);
+typedef void* (*ptk_realloc_fn)(struct ptk_allocator *allocator, void *ptr, size_t new_size);
+typedef void (*ptk_free_fn)(struct ptk_allocator *allocator, void *ptr);
+typedef void (*ptk_reset_fn)(struct ptk_allocator *allocator);
+typedef void (*ptk_get_stats_fn)(struct ptk_allocator *allocator, ptk_alloc_stats_t *stats);
+typedef void (*ptk_destroy_fn)(struct ptk_allocator *allocator);
 
 /**
  * @brief Allocator statistics structure
  */
-typedef struct ptk_alloc_stats {
+struct ptk_alloc_stats {
     size_t total_allocated;      ///< Total bytes currently allocated
     size_t peak_allocated;       ///< High water mark of allocated bytes
     size_t total_allocations;    ///< Total number of allocations made
@@ -32,68 +38,63 @@ typedef struct ptk_alloc_stats {
     size_t active_allocations;   ///< Number of currently active allocations
     size_t total_bytes_allocated; ///< Cumulative bytes allocated (lifetime)
     size_t total_bytes_freed;    ///< Cumulative bytes freed (lifetime)
-} ptk_alloc_stats_t;
-
-typedef void (*ptk_get_stats_fn)(void *alloc_ctx, ptk_alloc_stats_t *stats);
-
-/**
- * @brief Allocator v-table
- * 
- * Function pointer table for allocator implementations.
- */
-typedef struct ptk_allocator_vtable {
-    ptk_alloc_fn alloc;      ///< Allocate memory
-    ptk_realloc_fn realloc;  ///< Reallocate memory
-    ptk_free_fn free;        ///< Free memory
-    ptk_reset_fn reset;      ///< Reset/free all allocations (may be NULL)
-    ptk_get_stats_fn get_stats; ///< Get allocator statistics (may be NULL)
-} ptk_allocator_vtable_t;
+};
 
 /**
  * @brief Generic allocator interface
  * 
  * All allocators use this same structure. Allocator-specific data
- * is hidden behind the context pointer.
+ * follows this structure in memory.
  */
-typedef struct ptk_allocator {
-    const ptk_allocator_vtable_t *vtable;  ///< Function pointer table
-    void *context;                         ///< Allocator-specific context
-} ptk_allocator_t;
+struct ptk_allocator {
+    ptk_alloc_fn alloc;        ///< Allocate memory
+    ptk_realloc_fn realloc;    ///< Reallocate memory
+    ptk_free_fn free;          ///< Free memory
+    ptk_reset_fn reset;        ///< Reset/free all allocations (may be NULL)
+    ptk_get_stats_fn get_stats; ///< Get allocator statistics (may be NULL)
+    ptk_destroy_fn destroy;    ///< Destroy allocator and free all resources
+    size_t default_alignment;  ///< Default alignment for allocations
+};
 
 /**
- * @brief Standard system allocator (default)
+ * @brief Create default system allocator
  * 
- * Uses malloc/realloc/free with no debug tracking.
+ * Creates a system allocator that uses malloc/realloc/free with no debug tracking.
  * Reset function is a no-op for system allocator.
+ * 
+ * @param default_alignment Default alignment for allocations
+ * @return Pointer to allocator or NULL on failure
  */
-extern const ptk_allocator_t PTK_SYSTEM_ALLOCATOR;
+ptk_allocator_t *allocator_default_create(size_t default_alignment);
 
 /**
- * @brief Debug allocator initialization
+ * @brief Create debug allocator
  * 
  * Creates a debug allocator that tracks all allocations and can detect leaks.
- * The allocator context is hidden behind the returned generic allocator interface.
  * 
- * @param allocator Allocator structure to initialize (out)
- * @return PTK_OK on success, error code on failure
+ * @param default_alignment Default alignment for allocations
+ * @return Pointer to allocator or NULL on failure
  */
-ptk_err ptk_debug_allocator_init(ptk_allocator_t *allocator);
+ptk_allocator_t *allocator_debug_create(size_t default_alignment);
 
 /**
- * @brief Destroy debug allocator and free its resources
+ * @brief Create arena allocator
  * 
- * This will free any remaining tracked allocations and clean up the
- * debug allocator's internal state.
+ * Creates an arena allocator from a pre-allocated memory pool.
+ * No individual frees - all memory is reclaimed when the arena is reset.
  * 
- * @param allocator Debug allocator to destroy
+ * @param pool_size Size of memory pool to allocate
+ * @param default_alignment Default alignment for allocations
+ * @return Pointer to allocator or NULL on failure
  */
-void ptk_debug_allocator_destroy(ptk_allocator_t *allocator);
+ptk_allocator_t *allocator_arena_create(size_t pool_size, size_t default_alignment);
+
 
 /**
  * @brief Print debug allocator report
  * 
  * Prints detailed information about current allocations and statistics.
- * Useful for debugging memory leaks.
+ * Useful for debugging memory leaks. Only works with debug allocators.
  * 
  * @param allocator Debug allocator
  */
@@ -108,37 +109,14 @@ void ptk_debug_allocator_report(const ptk_allocator_t *allocator);
 bool ptk_debug_allocator_has_leaks(const ptk_allocator_t *allocator);
 
 /**
- * @brief Arena allocator initialization
- * 
- * Creates an arena allocator from a pre-allocated memory block.
- * No individual frees - all memory is reclaimed when the arena is reset.
- * The arena context is hidden behind the returned generic allocator interface.
- * 
- * @param allocator Allocator structure to initialize (out)
- * @param memory Pre-allocated memory block
- * @param size Size of memory block
- * @return PTK_OK on success, error code on failure
- */
-ptk_err ptk_arena_allocator_init(ptk_allocator_t *allocator, void *memory, size_t size);
-
-/**
- * @brief Destroy arena allocator
- * 
- * Cleans up the arena allocator's internal state. The memory block
- * itself is not freed (it was provided by the caller).
- * 
- * @param allocator Arena allocator to destroy
- */
-void ptk_arena_allocator_destroy(ptk_allocator_t *allocator);
-
-/**
  * @brief Simple convenience macros for allocator operations
  */
-#define ptk_alloc(allocator, size) (allocator)->vtable->alloc(size, (allocator)->context)
-#define ptk_realloc(allocator, ptr, new_size) (allocator)->vtable->realloc(ptr, new_size, (allocator)->context)
-#define ptk_free(allocator, ptr) (allocator)->vtable->free(ptr, (allocator)->context)
-#define ptk_reset(allocator) do { if ((allocator)->vtable->reset) (allocator)->vtable->reset((allocator)->context); } while(0)
-#define ptk_get_stats(allocator, stats) do { if ((allocator)->vtable->get_stats) (allocator)->vtable->get_stats((allocator)->context, stats); } while(0)
+#define ptk_alloc(allocator, size) (allocator)->alloc(allocator, size)
+#define ptk_realloc(allocator, ptr, new_size) (allocator)->realloc(allocator, ptr, new_size)
+#define ptk_free(allocator, ptr) (allocator)->free(allocator, ptr)
+#define ptk_reset(allocator) do { if ((allocator)->reset) (allocator)->reset(allocator); } while(0)
+#define ptk_get_stats(allocator, stats) do { if ((allocator)->get_stats) (allocator)->get_stats(allocator, stats); } while(0)
+#define ptk_allocator_destroy(allocator) do { if (allocator) { (allocator)->destroy(allocator); allocator = NULL; } } while(0)
 
 /**
  * @brief Allocation alignment helpers
@@ -152,41 +130,38 @@ void ptk_arena_allocator_destroy(ptk_allocator_t *allocator);
 #if 0
 // Example 1: Using system allocator
 void example_system_alloc() {
-    const ptk_allocator_t *alloc = &PTK_SYSTEM_ALLOCATOR;
+    ptk_allocator_t *alloc = allocator_default_create(8);
     void *ptr = ptk_alloc(alloc, 1024);
     // ... use ptr ...
     ptk_free(alloc, ptr);
+    ptk_allocator_destroy(alloc);
 }
 
 // Example 2: Using debug allocator
 void example_debug_alloc() {
-    ptk_allocator_t alloc;
-    ptk_debug_allocator_init(&alloc);
+    ptk_allocator_t *alloc = allocator_debug_create(8);
     
-    void *ptr1 = ptk_alloc(&alloc, 1024);
-    void *ptr2 = ptk_alloc(&alloc, 512);
+    void *ptr1 = ptk_alloc(alloc, 1024);
+    void *ptr2 = ptk_alloc(alloc, 512);
     
-    ptk_free(&alloc, ptr1);
+    ptk_free(alloc, ptr1);
     // ptr2 intentionally not freed to test leak detection
     
-    if (ptk_debug_allocator_has_leaks(&alloc)) {
-        ptk_debug_allocator_report(&alloc);  // Will show ptr2 leak
+    if (ptk_debug_allocator_has_leaks(alloc)) {
+        ptk_debug_allocator_report(alloc);  // Will show ptr2 leak
     }
     
-    ptk_reset(&alloc);  // Clean up remaining allocations
-    ptk_debug_allocator_destroy(&alloc);
+    ptk_allocator_destroy(alloc);  // Clean up remaining allocations
 }
 
 // Example 3: Using arena allocator for Modbus
 void example_arena_modbus() {
     // Allocate arena for up to 2000 coils + overhead
-    static uint8_t arena_memory[8192];
-    ptk_allocator_t alloc;
-    ptk_arena_allocator_init(&alloc, arena_memory, sizeof(arena_memory));
+    ptk_allocator_t *alloc = allocator_arena_create(8192, 8);
     
     // Decode Modbus message - all arrays allocated from arena
     modbus_tcp_request_t request;
-    ptk_err err = modbus_tcp_request_decode(&alloc, &request, buffer, context);
+    ptk_err err = modbus_tcp_request_decode(alloc, &request, buffer, context);
     
     if (err == PTK_OK) {
         // Process the request - arrays are in arena memory
@@ -194,7 +169,7 @@ void example_arena_modbus() {
     }
     
     // Simple cleanup - reset arena (no individual frees needed)
-    ptk_reset(&alloc);
-    ptk_arena_allocator_destroy(&alloc);
+    ptk_reset(alloc);
+    ptk_allocator_destroy(alloc);
 }
 #endif

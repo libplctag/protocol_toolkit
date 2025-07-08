@@ -13,3 +13,6 @@ CMakeUserPresets.json
 build
 .DS_Store
 .claude
+venv
+__pycache__
+.vscode

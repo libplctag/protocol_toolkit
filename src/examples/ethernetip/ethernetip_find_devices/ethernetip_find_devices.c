@@ -297,7 +297,7 @@ static void discovery_thread(void *arg) {
         if(current_time - last_broadcast >= BROADCAST_INTERVAL) {
             uint8_t request_data[32];
             ptk_buf_t request_buf;
-            ptk_buf_make(&request_buf, request_data, sizeof(request_data));
+            ptk_buf_create(&request_buf, request_data, sizeof(request_data));
 
             err = build_list_identity_request(&request_buf);
             if(err == PTK_OK) {
@@ -305,10 +305,10 @@ static void discovery_thread(void *arg) {
                 if(networks && num_networks > 0) {
                     for(size_t i = 0; i < num_networks; i++) {
                         // Reset buffer for each send
-                        ptk_buf_make(&request_buf, request_data, sizeof(request_data));
+                        ptk_buf_create(&request_buf, request_data, sizeof(request_data));
                         build_list_identity_request(&request_buf);
 
-                        err = ptk_udp_socket_send(g_udp_socket, &request_buf, networks[i].broadcast, EIP_PORT, true);
+                        err = ptk_udp_socket_send_to(g_udp_socket, &request_buf, networks[i].broadcast, EIP_PORT, true);
                         if(err == PTK_OK) {
                             printf("Sent broadcast to %s:%d\n", networks[i].broadcast, EIP_PORT);
                         } else if(err != PTK_ERR_ABORT) {
@@ -317,7 +317,7 @@ static void discovery_thread(void *arg) {
                     }
                 } else {
                     // Fallback broadcast
-                    err = ptk_udp_socket_send(g_udp_socket, &request_buf, "255.255.255.255", EIP_PORT, true);
+                    err = ptk_udp_socket_send_to(g_udp_socket, &request_buf, "255.255.255.255", EIP_PORT, true);
                     if(err == PTK_OK) {
                         printf("Sent fallback broadcast to 255.255.255.255:%d\n", EIP_PORT);
                     } else if(err != PTK_ERR_ABORT) {
@@ -332,12 +332,12 @@ static void discovery_thread(void *arg) {
         // Listen for responses
         uint8_t response_data[512];
         ptk_buf_t response_buf;
-        ptk_buf_make(&response_buf, response_data, sizeof(response_data));
+        ptk_buf_create(&response_buf, response_data, sizeof(response_data));
 
         char sender_host[256];
         int sender_port;
 
-        err = ptk_udp_socket_recv(g_udp_socket, &response_buf, sender_host, &sender_port);
+        err = ptk_udp_socket_recv_from(g_udp_socket, &response_buf, sender_host, &sender_port);
 
         if(err == PTK_OK) {
             g_responses_received++;

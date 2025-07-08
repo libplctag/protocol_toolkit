@@ -31,6 +31,7 @@
 
 typedef struct ptk_sock {
     uint32_t magic;                                                                   // Magic number for validation
+    ptk_allocator_t *allocator;                                                       // Allocator for memory management
     ptk_sock_type type;                                                               // Socket type
     int fd;                                                                           // OS socket file descriptor
     int kqueue_fd;                                                                    // kqueue file descriptor
@@ -222,14 +223,108 @@ static ptk_err ptk_socket_resolve_addr(const char *host, int port, struct sockad
 }
 
 //=============================================================================
+// ADDRESS FUNCTIONS
+//=============================================================================
+
+ptk_err ptk_address_create(ptk_address_t *address, const char *ip_string, uint16_t port) {
+    if(!address) { return PTK_ERR_NULL_PTR; }
+
+    memset(address, 0, sizeof(ptk_address_t));
+    address->family = AF_INET;
+    address->port = port;
+
+    if(!ip_string || strcmp(ip_string, "0.0.0.0") == 0) {
+        address->ip = INADDR_ANY;
+    } else {
+        struct in_addr addr;
+        if(inet_pton(AF_INET, ip_string, &addr) != 1) {
+            return PTK_ERR_INVALID_PARAM;
+        }
+        address->ip = addr.s_addr;  // Already in network byte order
+    }
+
+    return PTK_OK;
+}
+
+char *ptk_address_to_string(ptk_allocator_t *allocator, const ptk_address_t *address) {
+    if(!allocator || !address) { return NULL; }
+
+    char *str = ptk_alloc(allocator, INET_ADDRSTRLEN);
+    if(!str) { return NULL; }
+
+    struct in_addr addr;
+    addr.s_addr = address->ip;
+    
+    if(!inet_ntop(AF_INET, &addr, str, INET_ADDRSTRLEN)) {
+        ptk_free(allocator, str);
+        return NULL;
+    }
+
+    return str;
+}
+
+uint16_t ptk_address_get_port(const ptk_address_t *address) {
+    if(!address) { return 0; }
+    return address->port;
+}
+
+bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2) {
+    if(!addr1 || !addr2) { return false; }
+    return addr1->ip == addr2->ip && addr1->port == addr2->port && addr1->family == addr2->family;
+}
+
+ptk_err ptk_address_create_any(ptk_address_t *address, uint16_t port) {
+    if(!address) { return PTK_ERR_NULL_PTR; }
+
+    memset(address, 0, sizeof(ptk_address_t));
+    address->family = AF_INET;
+    address->port = port;
+    address->ip = INADDR_ANY;
+
+    return PTK_OK;
+}
+
+/**
+ * @brief Convert ptk_address_t to sockaddr_storage
+ */
+static ptk_err ptk_address_to_sockaddr(const ptk_address_t *address, struct sockaddr_storage *sockaddr, socklen_t *sockaddr_len) {
+    if(!address || !sockaddr || !sockaddr_len) { return PTK_ERR_NULL_PTR; }
+
+    struct sockaddr_in *addr_in = (struct sockaddr_in *)sockaddr;
+    memset(addr_in, 0, sizeof(struct sockaddr_in));
+    addr_in->sin_family = AF_INET;
+    addr_in->sin_port = htons(address->port);
+    addr_in->sin_addr.s_addr = address->ip;
+    *sockaddr_len = sizeof(struct sockaddr_in);
+
+    return PTK_OK;
+}
+
+/**
+ * @brief Convert sockaddr_storage to ptk_address_t
+ */
+static ptk_err ptk_sockaddr_to_address(const struct sockaddr_storage *sockaddr, socklen_t sockaddr_len, ptk_address_t *address) {
+    if(!sockaddr || !address) { return PTK_ERR_NULL_PTR; }
+
+    if(sockaddr->ss_family != AF_INET) { return PTK_ERR_INVALID_PARAM; }
+
+    const struct sockaddr_in *addr_in = (const struct sockaddr_in *)sockaddr;
+    memset(address, 0, sizeof(ptk_address_t));
+    address->family = AF_INET;
+    address->port = ntohs(addr_in->sin_port);
+    address->ip = addr_in->sin_addr.s_addr;
+
+    return PTK_OK;
+}
+
+//=============================================================================
 // SOCKET MANAGEMENT
 //=============================================================================
 
-ptk_err ptk_socket_type(ptk_sock *sock, ptk_sock_type *type) {
-    if(!ptk_socket_is_valid(sock) || !type) { return PTK_ERR_NULL_PTR; }
+ptk_sock_type ptk_socket_type(ptk_sock *sock) {
+    if(!ptk_socket_is_valid(sock)) { return PRK_SOCK_INVALID; }
 
-    *type = sock->type;
-    return PTK_OK;
+    return sock->type;
 }
 
 ptk_err ptk_socket_start_repeat_interrupt(ptk_sock *sock, ptk_duration_ms timer_period_ms) {
@@ -286,7 +381,7 @@ ptk_err ptk_socket_close(ptk_sock *sock) {
     }
 
     sock->magic = 0;
-    free(sock);
+    ptk_free(sock->allocator, sock);
 
     return PTK_OK;
 }
@@ -415,18 +510,28 @@ ptk_err ptk_socket_abort(ptk_sock *sock) {
     return PTK_OK;
 }
 
+ptk_err ptk_socket_last_error(ptk_sock *sock) {
+    if(!ptk_socket_is_valid(sock)) { return PTK_ERR_NULL_PTR; }
+
+    if(sock->aborted) { return PTK_ERR_ABORT; }
+
+    return PTK_OK;
+}
+
 //=============================================================================
 // TCP CLIENT SOCKETS
 //=============================================================================
 
-ptk_err ptk_tcp_socket_connect(ptk_sock **client, const char *remote_ip, int remote_port) {
-    if(!client || !remote_ip) { return PTK_ERR_NULL_PTR; }
+ptk_sock *ptk_tcp_socket_connect(ptk_allocator_t *allocator, const ptk_address_t *remote_addr) {
+    if(!allocator || !remote_addr) { return NULL; }
 
     // Allocate socket structure
-    ptk_sock *sock = calloc(1, sizeof(ptk_sock));
-    if(!sock) { return PTK_ERR_NO_RESOURCES; }
+    ptk_sock *sock = ptk_alloc(allocator, sizeof(ptk_sock));
+    if(!sock) { return NULL; }
 
+    memset(sock, 0, sizeof(ptk_sock));
     sock->magic = PTK_SOCKET_MAGIC;
+    sock->allocator = allocator;
     sock->type = PTK_SOCK_TCP_CLIENT;
     sock->fd = PTK_SOCKET_INVALID_FD;
     sock->kqueue_fd = PTK_SOCKET_INVALID_FD;
@@ -437,8 +542,8 @@ ptk_err ptk_tcp_socket_connect(ptk_sock **client, const char *remote_ip, int rem
     err = ptk_socket_setup_kqueue(sock);
     if(err != PTK_OK) { goto cleanup; }
 
-    // Resolve remote address
-    err = ptk_socket_resolve_addr(remote_ip, remote_port, &sock->remote_addr, &sock->remote_addr_len);
+    // Convert address to sockaddr
+    err = ptk_address_to_sockaddr(remote_addr, &sock->remote_addr, &sock->remote_addr_len);
     if(err != PTK_OK) { goto cleanup; }
 
     // Create socket
@@ -490,14 +595,13 @@ ptk_err ptk_tcp_socket_connect(ptk_sock **client, const char *remote_ip, int rem
     sock->local_addr_len = sizeof(sock->local_addr);
     getsockname(sock->fd, (struct sockaddr *)&sock->local_addr, &sock->local_addr_len);
 
-    *client = sock;
-    return PTK_OK;
+    return sock;
 
 cleanup:
     if(sock->fd != PTK_SOCKET_INVALID_FD) { close(sock->fd); }
     if(sock->kqueue_fd != PTK_SOCKET_INVALID_FD) { close(sock->kqueue_fd); }
-    free(sock);
-    return err;
+    ptk_free(allocator, sock);
+    return NULL;
 }
 
 ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data) {
@@ -506,15 +610,13 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data) {
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }
 
     // Get data to send from start to end
-    size_t data_len;
-    ptk_err err = ptk_buf_len(&data_len, data);
-    if(err != PTK_OK || data_len == 0) {
+    size_t data_len = ptk_buf_len(data);
+    if(data_len == 0) {
         return PTK_OK;  // Nothing to send
     }
 
-    uint8_t *send_data;
-    err = ptk_buf_get_start_ptr(&send_data, data);
-    if(err != PTK_OK) { return err; }
+    uint8_t *send_data = ptk_buf_get_start_ptr(data);
+    if(!send_data) { return PTK_ERR_NULL_PTR; }
 
     size_t total_sent = 0;
 
@@ -534,27 +636,24 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data) {
 
         total_sent += sent;
         // Update start position to reflect sent data
-        size_t new_start;
-        ptk_buf_get_start(&new_start, data);
+        size_t new_start = ptk_buf_get_start(data);
         ptk_buf_set_start(data, new_start + sent);
     }
 
     return PTK_OK;
 }
 
-ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data) {
+ptk_err ptk_tcp_socket_read(ptk_buf_t *data, ptk_sock *sock) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }
 
     // Read as much as possible into buffer starting at end
-    size_t space_available;
-    ptk_err err = ptk_buf_get_remaining(&space_available, data);
-    if(err != PTK_OK || space_available == 0) { return PTK_ERR_BUFFER_TOO_SMALL; }
+    size_t space_available = ptk_buf_get_remaining(data);
+    if(space_available == 0) { return PTK_ERR_BUFFER_TOO_SMALL; }
 
-    uint8_t *recv_data;
-    err = ptk_buf_get_end_ptr(&recv_data, data);
-    if(err != PTK_OK) { return err; }
+    uint8_t *recv_data = ptk_buf_get_end_ptr(data);
+    if(!recv_data) { return PTK_ERR_NULL_PTR; }
 
     size_t total_received = 0;
 
@@ -565,8 +664,7 @@ ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data) {
             if(errno == EAGAIN) {
                 if(total_received > 0) {
                     // We got some data, update buffer end and return
-                    size_t current_end;
-                    ptk_buf_get_end(&current_end, data);
+                    size_t current_end = ptk_buf_get_end(data);
                     ptk_buf_set_end(data, current_end + total_received);
                     return PTK_OK;
                 }
@@ -583,7 +681,7 @@ ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data) {
             // Connection closed by peer
             if(total_received > 0) {
                 size_t current_end;
-                ptk_buf_get_end(&current_end, data);
+                current_end = ptk_buf_get_end(data);
                 ptk_buf_set_end(data, current_end + total_received);
                 return PTK_OK;
             }
@@ -598,8 +696,7 @@ ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data) {
     }
 
     // Update buffer end position
-    size_t current_end;
-    ptk_buf_get_end(&current_end, data);
+    size_t current_end = ptk_buf_get_end(data);
     ptk_buf_set_end(data, current_end + total_received);
     return PTK_OK;
 }
@@ -608,14 +705,16 @@ ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data) {
 // TCP SERVER SOCKETS
 //=============================================================================
 
-ptk_err ptk_tcp_socket_listen(ptk_sock **server, const char *local_ip, int local_port, int backlog) {
-    if(!server) { return PTK_ERR_NULL_PTR; }
+ptk_sock *ptk_tcp_socket_listen(ptk_allocator_t *allocator, const ptk_address_t *local_addr, int backlog) {
+    if(!allocator || !local_addr) { return NULL; }
 
     // Allocate socket structure
-    ptk_sock *sock = calloc(1, sizeof(ptk_sock));
-    if(!sock) { return PTK_ERR_NO_RESOURCES; }
+    ptk_sock *sock = ptk_alloc(allocator, sizeof(ptk_sock));
+    if(!sock) { return NULL; }
 
+    memset(sock, 0, sizeof(ptk_sock));
     sock->magic = PTK_SOCKET_MAGIC;
+    sock->allocator = allocator;
     sock->type = PTK_SOCK_TCP_SERVER;
     sock->fd = PTK_SOCKET_INVALID_FD;
     sock->kqueue_fd = PTK_SOCKET_INVALID_FD;
@@ -643,21 +742,9 @@ ptk_err ptk_tcp_socket_listen(ptk_sock **server, const char *local_ip, int local
     err = ptk_socket_set_small_packet_opts(sock->fd, PTK_SOCK_TCP_SERVER);
     if(err != PTK_OK) { goto cleanup; }
 
-    // Setup local address
-    struct sockaddr_in *addr = (struct sockaddr_in *)&sock->local_addr;
-    addr->sin_family = AF_INET;
-    addr->sin_port = htons(local_port);
-
-    if(local_ip && strcmp(local_ip, "0.0.0.0") != 0) {
-        if(inet_pton(AF_INET, local_ip, &addr->sin_addr) != 1) {
-            err = PTK_ERR_INVALID_PARAM;
-            goto cleanup;
-        }
-    } else {
-        addr->sin_addr.s_addr = INADDR_ANY;
-    }
-
-    sock->local_addr_len = sizeof(struct sockaddr_in);
+    // Convert address to sockaddr
+    err = ptk_address_to_sockaddr(local_addr, &sock->local_addr, &sock->local_addr_len);
+    if(err != PTK_OK) { goto cleanup; }
 
     // Bind socket
     if(bind(sock->fd, (struct sockaddr *)&sock->local_addr, sock->local_addr_len) == -1) {
@@ -673,20 +760,19 @@ ptk_err ptk_tcp_socket_listen(ptk_sock **server, const char *local_ip, int local
 
     sock->listening = true;
 
-    *server = sock;
-    return PTK_OK;
+    return sock;
 
 cleanup:
     if(sock->fd != PTK_SOCKET_INVALID_FD) { close(sock->fd); }
     if(sock->kqueue_fd != PTK_SOCKET_INVALID_FD) { close(sock->kqueue_fd); }
-    free(sock);
-    return err;
+    ptk_free(allocator, sock);
+    return NULL;
 }
 
-ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **client) {
-    if(!ptk_socket_is_valid(server) || !client) { return PTK_ERR_NULL_PTR; }
+ptk_sock *ptk_tcp_socket_accept(ptk_sock *server) {
+    if(!ptk_socket_is_valid(server)) { return NULL; }
 
-    if(server->type != PTK_SOCK_TCP_SERVER || !server->listening) { return PTK_ERR_INVALID_PARAM; }
+    if(server->type != PTK_SOCK_TCP_SERVER || !server->listening) { return NULL; }
 
     while(true) {
         // Try to accept connection
@@ -699,21 +785,23 @@ ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **client) {
             if(errno == EAGAIN || errno == EWOULDBLOCK) {
                 // No connections available, wait for read readiness
                 ptk_err err = ptk_socket_wait_for_event(server, EVFILT_READ);
-                if(err != PTK_OK) { return err; }
+                if(err != PTK_OK) { return NULL; }
                 continue;
             } else {
-                return ptk_socket_map_errno(errno);
+                return NULL;
             }
         }
 
         // Create client socket structure
-        ptk_sock *client_sock = calloc(1, sizeof(ptk_sock));
+        ptk_sock *client_sock = ptk_alloc(server->allocator, sizeof(ptk_sock));
         if(!client_sock) {
             close(client_fd);
-            return PTK_ERR_NO_RESOURCES;
+            return NULL;
         }
 
+        memset(client_sock, 0, sizeof(ptk_sock));
         client_sock->magic = PTK_SOCKET_MAGIC;
+        client_sock->allocator = server->allocator;
         client_sock->type = PTK_SOCK_TCP_CLIENT;
         client_sock->fd = client_fd;
         client_sock->connected = true;
@@ -722,8 +810,8 @@ ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **client) {
         ptk_err err = ptk_socket_setup_kqueue(client_sock);
         if(err != PTK_OK) {
             close(client_fd);
-            free(client_sock);
-            return err;
+            ptk_free(server->allocator, client_sock);
+            return NULL;
         }
 
         // Copy addresses
@@ -738,18 +826,17 @@ ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **client) {
         if(err != PTK_OK) {
             close(client_fd);
             ptk_socket_close(client_sock);
-            return err;
+            return NULL;
         }
 
         err = ptk_socket_set_small_packet_opts(client_fd, PTK_SOCK_TCP_CLIENT);
         if(err != PTK_OK) {
             close(client_fd);
             ptk_socket_close(client_sock);
-            return err;
+            return NULL;
         }
 
-        *client = client_sock;
-        return PTK_OK;
+        return client_sock;
     }
 }
 
@@ -757,14 +844,16 @@ ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **client) {
 // UDP SOCKETS
 //=============================================================================
 
-ptk_err ptk_udp_socket_create(ptk_sock **udp_sock, const char *local_host, int local_port) {
-    if(!udp_sock) { return PTK_ERR_NULL_PTR; }
+ptk_sock *ptk_udp_socket_create(ptk_allocator_t *allocator, const ptk_address_t *local_addr) {
+    if(!allocator) { return NULL; }
 
     // Allocate socket structure
-    ptk_sock *sock = calloc(1, sizeof(ptk_sock));
-    if(!sock) { return PTK_ERR_NO_RESOURCES; }
+    ptk_sock *sock = ptk_alloc(allocator, sizeof(ptk_sock));
+    if(!sock) { return NULL; }
 
+    memset(sock, 0, sizeof(ptk_sock));
     sock->magic = PTK_SOCKET_MAGIC;
+    sock->allocator = allocator;
     sock->type = PTK_SOCK_UDP;
     sock->fd = PTK_SOCKET_INVALID_FD;
     sock->kqueue_fd = PTK_SOCKET_INVALID_FD;
@@ -790,21 +879,9 @@ ptk_err ptk_udp_socket_create(ptk_sock **udp_sock, const char *local_host, int l
     if(err != PTK_OK) { goto cleanup; }
 
     // Bind if local address specified
-    if(local_host && local_port > 0) {
-        struct sockaddr_in *addr = (struct sockaddr_in *)&sock->local_addr;
-        addr->sin_family = AF_INET;
-        addr->sin_port = htons(local_port);
-
-        if(strcmp(local_host, "0.0.0.0") != 0) {
-            if(inet_pton(AF_INET, local_host, &addr->sin_addr) != 1) {
-                err = PTK_ERR_INVALID_PARAM;
-                goto cleanup;
-            }
-        } else {
-            addr->sin_addr.s_addr = INADDR_ANY;
-        }
-
-        sock->local_addr_len = sizeof(struct sockaddr_in);
+    if(local_addr) {
+        err = ptk_address_to_sockaddr(local_addr, &sock->local_addr, &sock->local_addr_len);
+        if(err != PTK_OK) { goto cleanup; }
 
         if(bind(sock->fd, (struct sockaddr *)&sock->local_addr, sock->local_addr_len) == -1) {
             err = ptk_socket_map_errno(errno);
@@ -812,18 +889,17 @@ ptk_err ptk_udp_socket_create(ptk_sock **udp_sock, const char *local_host, int l
         }
     }
 
-    *udp_sock = sock;
-    return PTK_OK;
+    return sock;
 
 cleanup:
     if(sock->fd != PTK_SOCKET_INVALID_FD) { close(sock->fd); }
     if(sock->kqueue_fd != PTK_SOCKET_INVALID_FD) { close(sock->kqueue_fd); }
-    free(sock);
-    return err;
+    ptk_free(allocator, sock);
+    return NULL;
 }
 
-ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf_t *data, const char *host, int port, bool broadcast) {
-    if(!ptk_socket_is_valid(sock) || !data || !host) { return PTK_ERR_NULL_PTR; }
+ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf_t *data, const ptk_address_t *dest_addr, bool broadcast) {
+    if(!ptk_socket_is_valid(sock) || !data || !dest_addr) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_UDP) { return PTK_ERR_INVALID_PARAM; }
 
@@ -835,25 +911,23 @@ ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf_t *data, const char *host, i
         }
     }
 
-    // Resolve destination address
-    struct sockaddr_storage dest_addr;
-    socklen_t dest_addr_len;
-    ptk_err err = ptk_socket_resolve_addr(host, port, &dest_addr, &dest_addr_len);
+    // Convert destination address
+    struct sockaddr_storage dest_sockaddr;
+    socklen_t dest_sockaddr_len;
+    ptk_err err = ptk_address_to_sockaddr(dest_addr, &dest_sockaddr, &dest_sockaddr_len);
     if(err != PTK_OK) { return err; }
 
     // Send data from start to end
-    size_t send_len;
-    err = ptk_buf_len(&send_len, data);
-    if(err != PTK_OK || send_len == 0) {
+    size_t send_len = ptk_buf_len(data);
+    if(send_len == 0) {
         return PTK_OK;  // Nothing to send
     }
 
-    uint8_t *send_data;
-    err = ptk_buf_get_start_ptr(&send_data, data);
-    if(err != PTK_OK) { return err; }
+    uint8_t *send_data = ptk_buf_get_start_ptr(data);
+    if(!send_data) { return PTK_ERR_NULL_PTR; }
 
     while(true) {
-        ssize_t sent = sendto(sock->fd, send_data, send_len, 0, (struct sockaddr *)&dest_addr, dest_addr_len);
+        ssize_t sent = sendto(sock->fd, send_data, send_len, 0, (struct sockaddr *)&dest_sockaddr, dest_sockaddr_len);
 
         if(sent == -1) {
             if(errno == EAGAIN) {
@@ -868,14 +942,13 @@ ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf_t *data, const char *host, i
 
         // For UDP, should send all at once or fail
         // Update start position to reflect sent data
-        size_t start;
-        ptk_buf_get_start(&start, data);
+        size_t start = ptk_buf_get_start(data);
         ptk_buf_set_start(data, start + sent);
         return PTK_OK;
     }
 }
 
-ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf_t *data, char *host, int *port) {
+ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf_t *data, ptk_address_t *sender_addr) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_UDP) { return PTK_ERR_INVALID_PARAM; }
@@ -884,25 +957,23 @@ ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf_t *data, char *host, int *po
     if(sock->aborted) { return PTK_ERR_ABORT; }
 
     // Get buffer space for receiving
-    size_t space_available;
-    ptk_err err = ptk_buf_get_remaining(&space_available, data);
-    if(err != PTK_OK || space_available == 0) { return PTK_ERR_BUFFER_TOO_SMALL; }
+    size_t space_available = ptk_buf_get_remaining(data);
+    if(space_available == 0) { return PTK_ERR_BUFFER_TOO_SMALL; }
 
-    uint8_t *recv_data;
-    err = ptk_buf_get_end_ptr(&recv_data, data);
-    if(err != PTK_OK) { return err; }
+    uint8_t *recv_data = ptk_buf_get_end_ptr(data);
+    if(!recv_data) { return PTK_ERR_NULL_PTR; }
 
     while(true) {
-        struct sockaddr_storage sender_addr;
-        socklen_t sender_addr_len = sizeof(sender_addr);
+        struct sockaddr_storage sender_sockaddr;
+        socklen_t sender_sockaddr_len = sizeof(sender_sockaddr);
 
-        ssize_t received = recvfrom(sock->fd, recv_data, space_available, 0, (struct sockaddr *)&sender_addr, &sender_addr_len);
+        ssize_t received = recvfrom(sock->fd, recv_data, space_available, 0, (struct sockaddr *)&sender_sockaddr, &sender_sockaddr_len);
 
         if(received == -1) {
             if(errno == EAGAIN) {
                 // Socket would block, wait for read readiness
-                err = ptk_socket_wait_for_event(sock, EVFILT_READ);
-                if(err != PTK_OK) { return err; }
+                ptk_err sock_err = ptk_socket_wait_for_event(sock, EVFILT_READ);
+                if(sock_err != PTK_OK) { return sock_err; }
                 continue;
             } else {
                 return ptk_socket_map_errno(errno);
@@ -915,19 +986,15 @@ ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf_t *data, char *host, int *po
         }
 
         // Update buffer end position
-        size_t current_end;
-        ptk_buf_get_end(&current_end, data);
+        size_t current_end = ptk_buf_get_end(data);
         ptk_buf_set_end(data, current_end + received);
 
-        // Extract sender address information if requested
-        if(host && port) {
-            if(sender_addr.ss_family == AF_INET) {
-                struct sockaddr_in *addr_in = (struct sockaddr_in *)&sender_addr;
-                inet_ntop(AF_INET, &addr_in->sin_addr, host, INET_ADDRSTRLEN);
-                *port = ntohs(addr_in->sin_port);
-            } else {
-                strcpy(host, "unknown");
-                *port = 0;
+        // Convert sender address if requested
+        if(sender_addr) {
+            ptk_err err = ptk_sockaddr_to_address(&sender_sockaddr, sender_sockaddr_len, sender_addr);
+            if(err != PTK_OK) {
+                // Clear sender address on conversion error
+                memset(sender_addr, 0, sizeof(ptk_address_t));
             }
         }
 
@@ -939,11 +1006,20 @@ ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf_t *data, char *host, int *po
 // NETWORK DISCOVERY
 //=============================================================================
 
-ptk_err ptk_socket_find_networks(ptk_network_info **network_info, size_t *num_networks) {
-    if(!network_info || !num_networks) { return PTK_ERR_NULL_PTR; }
+/**
+ * Network information structure (hidden implementation)
+ */
+struct ptk_network_info {
+    ptk_allocator_t *allocator;
+    ptk_network_info_entry *network_info;
+    size_t num_networks;
+};
+
+ptk_network_info *ptk_socket_find_networks(ptk_allocator_t *allocator) {
+    if(!allocator) { return NULL; }
 
     struct ifaddrs *ifaddrs_list;
-    if(getifaddrs(&ifaddrs_list) == -1) { return PTK_ERR_NETWORK_ERROR; }
+    if(getifaddrs(&ifaddrs_list) == -1) { return NULL; }
 
     // Count interfaces
     size_t count = 0;
@@ -955,17 +1031,24 @@ ptk_err ptk_socket_find_networks(ptk_network_info **network_info, size_t *num_ne
 
     if(count == 0) {
         freeifaddrs(ifaddrs_list);
-        *network_info = NULL;
-        *num_networks = 0;
-        return PTK_OK;
+        return NULL;
+    }
+
+    // Allocate result struct
+    ptk_network_info *result = ptk_alloc(allocator, sizeof(ptk_network_info));
+    if(!result) {
+        freeifaddrs(ifaddrs_list);
+        return NULL;
     }
 
     // Allocate result array
-    ptk_network_info *info = calloc(count, sizeof(ptk_network_info));
+    ptk_network_info_entry *info = ptk_alloc(allocator, count * sizeof(ptk_network_info_entry));
     if(!info) {
         freeifaddrs(ifaddrs_list);
-        return PTK_ERR_NO_RESOURCES;
+        ptk_free(allocator, result);
+        return NULL;
     }
+    memset(info, 0, count * sizeof(ptk_network_info_entry));
 
     // Fill in network information
     size_t index = 0;
@@ -976,15 +1059,15 @@ ptk_err ptk_socket_find_networks(ptk_network_info **network_info, size_t *num_ne
             struct sockaddr_in *netmask_in = (struct sockaddr_in *)ifa->ifa_netmask;
 
             // Allocate and copy IP address
-            info[index].network_ip = malloc(INET_ADDRSTRLEN);
+            info[index].network_ip = ptk_alloc(allocator, INET_ADDRSTRLEN);
             if(info[index].network_ip) { inet_ntop(AF_INET, &addr_in->sin_addr, info[index].network_ip, INET_ADDRSTRLEN); }
 
             // Allocate and copy netmask
-            info[index].netmask = malloc(INET_ADDRSTRLEN);
+            info[index].netmask = ptk_alloc(allocator, INET_ADDRSTRLEN);
             if(info[index].netmask) { inet_ntop(AF_INET, &netmask_in->sin_addr, info[index].netmask, INET_ADDRSTRLEN); }
 
             // Calculate and copy broadcast address
-            info[index].broadcast = malloc(INET_ADDRSTRLEN);
+            info[index].broadcast = ptk_alloc(allocator, INET_ADDRSTRLEN);
             if(info[index].broadcast) {
                 uint32_t ip = ntohl(addr_in->sin_addr.s_addr);
                 uint32_t mask = ntohl(netmask_in->sin_addr.s_addr);
@@ -1001,20 +1084,35 @@ ptk_err ptk_socket_find_networks(ptk_network_info **network_info, size_t *num_ne
 
     freeifaddrs(ifaddrs_list);
 
-    *network_info = info;
-    *num_networks = index;
+    // Populate result struct
+    result->allocator = allocator;
+    result->network_info = info;
+    result->num_networks = index;
 
-    return PTK_OK;
+    return result;
 }
 
-void ptk_socket_network_info_dispose(ptk_network_info *network_info, size_t num_networks) {
+size_t ptk_socket_network_info_count(const ptk_network_info *network_info) {
+    if(!network_info) { return 0; }
+    return network_info->num_networks;
+}
+
+const ptk_network_info_entry *ptk_socket_network_info_get(const ptk_network_info *network_info, size_t index) {
+    if(!network_info || index >= network_info->num_networks) { return NULL; }
+    return &network_info->network_info[index];
+}
+
+void ptk_socket_network_info_dispose(ptk_network_info *network_info) {
     if(!network_info) { return; }
 
-    for(size_t i = 0; i < num_networks; i++) {
-        free(network_info[i].network_ip);
-        free(network_info[i].netmask);
-        free(network_info[i].broadcast);
+    ptk_allocator_t *allocator = network_info->allocator;
+
+    for(size_t i = 0; i < network_info->num_networks; i++) {
+        ptk_free(allocator, network_info->network_info[i].network_ip);
+        ptk_free(allocator, network_info->network_info[i].netmask);
+        ptk_free(allocator, network_info->network_info[i].broadcast);
     }
 
-    free(network_info);
+    ptk_free(allocator, network_info->network_info);
+    ptk_free(allocator, network_info);
 }

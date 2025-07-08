@@ -61,7 +61,8 @@ add_subdirectory(src/lib)
 #=============================================================================
 
 # Add examples
-add_subdirectory(src/examples)
+# add_subdirectory(src/examples)
+# add_subdirectory(tools/gen_codec/examples)
 
 # Add tests
 add_subdirectory(src/tests)
@@ -72,17 +73,17 @@ add_subdirectory(src/tests)
 
 # Install any targets that exist
 # Note: modbus_server and modbus_client removed
-if(TARGET ethernetip_find_devices)
-    install(TARGETS ethernetip_find_devices
-        RUNTIME DESTINATION bin
-    )
-endif()
+# if(TARGET ethernetip_find_devices)
+#     install(TARGETS ethernetip_find_devices
+#         RUNTIME DESTINATION bin
+#     )
+# endif()
 
-if(TARGET ethernetip_tag_server)
-    install(TARGETS ethernetip_tag_server
-        RUNTIME DESTINATION bin
-    )
-endif()
+# if(TARGET ethernetip_tag_server)
+#     install(TARGETS ethernetip_tag_server
+#         RUNTIME DESTINATION bin
+#     )
+# endif()
 
 install(FILES
     src/include/ptk_buf.h
@@ -99,10 +100,10 @@ install(FILES
 #=============================================================================
 
 # Add test targets
-add_custom_target(test_sockets
-    COMMENT "Testing socket implementation"
-    DEPENDS test_tcp_echo_abort test_udp_echo_abort
-)
+# add_custom_target(test_sockets
+#     COMMENT "Testing socket implementation"
+#     DEPENDS test_tcp_echo_abort test_udp_echo_abort
+# )
 
 #=============================================================================
 # INFORMATION

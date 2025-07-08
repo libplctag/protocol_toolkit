@@ -1,0 +1,18 @@
+// Final test PDL file
+
+def u16_le = { type: u16, byte_order: [0, 1] }
+def u32_le = { type: u32 }
+
+def TEST_CONSTANT = { type: u16_le, const: 0x1234 }
+
+def simple_message = {
+    type: message,
+    fields: [
+        command: u16_le,
+        length: u16_le,
+        data: u8[length],
+        flags: u32_le,
+        enable_bit: { type: bit_field, source: { container: flags, start_bit: 0, length: 1 } },
+        mode_bits: { type: bit_field, source: { container: flags, start_bit: 4, length: 3 } }
+    ]
+}

@@ -132,7 +132,7 @@ ptk_err read_coils_example(ptk_socket_t *socket) {
     if(err != PTK_OK) { goto cleanup; }
 
     ptk_buf_t send_buf;
-    err = ptk_buf_make(&send_buf, encoded_request);
+    err = ptk_buf_create(&send_buf, encoded_request);
     if(err != PTK_OK) { goto cleanup; }
 
     err = ptk_socket_send(socket, &send_buf);
@@ -148,7 +148,7 @@ ptk_err read_coils_example(ptk_socket_t *socket) {
     if(err != PTK_OK) { goto cleanup_recv; }
 
     ptk_buf_t recv_buf;
-    err = ptk_buf_make(&recv_buf, receive_buffer);
+    err = ptk_buf_create(&recv_buf, receive_buffer);
     if(err != PTK_OK) { goto cleanup_recv; }
 
     size_t bytes_received;

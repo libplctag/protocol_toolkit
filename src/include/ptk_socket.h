@@ -14,6 +14,7 @@
 #include <ptk_buf.h>
 #include <ptk_err.h>
 #include <ptk_utils.h>
+#include <ptk_alloc.h>
 
 
 // Forward declarations
@@ -29,6 +30,65 @@ operations mmove the start index of the passed buffer.  Buffers are provided by 
 
 
 //=============================================================================
+// ADDRESS STRUCTURES AND FUNCTIONS
+//=============================================================================
+
+/**
+ * Network address structure
+ */
+typedef struct {
+    uint32_t ip;        // IPv4 address in network byte order
+    uint16_t port;      // Port number in host byte order
+    uint8_t family;     // Address family (AF_INET for IPv4)
+    uint8_t reserved;   // Reserved for alignment/future use
+} ptk_address_t;
+
+/**
+ * @brief Create an address structure from IP string and port
+ *
+ * @param address Output parameter for the created address
+ * @param ip_string The IP address as a string (e.g., "192.168.1.1" or NULL for INADDR_ANY)
+ * @param port The port number in host byte order
+ * @return PTK_OK on success, error code on failure
+ */
+ptk_err ptk_address_create(ptk_address_t *address, const char *ip_string, uint16_t port);
+
+/**
+ * @brief Convert an address structure to an IP string
+ *
+ * @param allocator The allocator to use for string allocation
+ * @param address The address structure to convert
+ * @return Allocated string containing IP address, or NULL on failure. Caller must free with ptk_free()
+ */
+char *ptk_address_to_string(ptk_allocator_t *allocator, const ptk_address_t *address);
+
+/**
+ * @brief Get the port number from an address structure
+ *
+ * @param address The address structure
+ * @return Port number in host byte order, 0 if address is NULL
+ */
+uint16_t ptk_address_get_port(const ptk_address_t *address);
+
+/**
+ * @brief Check if two addresses are equal
+ *
+ * @param addr1 First address
+ * @param addr2 Second address
+ * @return true if addresses are equal, false otherwise
+ */
+bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2);
+
+/**
+ * @brief Create an address for any interface (INADDR_ANY)
+ *
+ * @param address Output parameter for the created address
+ * @param port The port number in host byte order
+ * @return PTK_OK on success, error code on failure
+ */
+ptk_err ptk_address_create_any(ptk_address_t *address, uint16_t port);
+
+//=============================================================================
 // GENERIC SOCKET OPERATIONS
 //=============================================================================
 
@@ -36,28 +96,39 @@ operations mmove the start index of the passed buffer.  Buffers are provided by 
  * Socket types
  */
 typedef enum {
+    PRK_SOCK_INVALID,           // Invalid socket type
     PTK_SOCK_TCP_SERVER,        // TCP listening socket
     PTK_SOCK_TCP_CLIENT,        // TCP client socket
     PTK_SOCK_UDP,               // UDP socket
 } ptk_sock_type;
 
-ptk_err ptk_socket_type(ptk_sock *sock, ptk_sock_type *type);
+/**
+ * @brief The success or failure of any operation on a socket is stored in the last error.
+ */
+
+/**
+ * @brief Return the socket type.
+ *
+ * @param sock The socket to get the type for
+ * @return socket type on success, PTK_SOCK_INVALID on error
+ */
+ptk_sock_type ptk_socket_type(ptk_sock *sock);
 
 /**
  * @brief Close the socket. Any type of socket.
  *
- * @param sock
- * @return ptk_err
+ * @param sock The socket to close
+ * @return PTK_OK on success, error code on failure
  */
 ptk_err ptk_socket_close(ptk_sock *sock);
 
 /**
  * @brief Set the interrupt handler for a socket.
  *
- * @param sock
- * @param interrupt_handler
- * @param user_data
- * @return ptk_err
+ * @param sock The socket to set the handler on
+ * @param interrupt_handler Function to call when interrupt occurs
+ * @param user_data User data to pass to the interrupt handler
+ * @return PTK_OK on success, error code on failure
  */
 ptk_err ptk_socket_set_interrupt_handler(ptk_sock *sock, void (*interrupt_handler)(ptk_sock *sock, ptk_time_ms time_ms, void *user_data), void *user_data);
 
@@ -69,51 +140,35 @@ ptk_err ptk_socket_set_interrupt_handler(ptk_sock *sock, void (*interrupt_handle
  * **Abort Behavior**: Returns PTK_ERR_ABORT immediately if ptk_socket_abort()
  * has been called on this socket, or if abort is called while waiting.
  *
- * @param sock
- * @return ptk_err PTK_OK on interrupt, PTK_ERR_ABORT if aborted
+ * @param sock The socket to wait for interrupt on
+ * @return PTK_OK on interrupt, PTK_ERR_ABORT if aborted
  */
 ptk_err ptk_socket_wait_for_interrupt(ptk_sock *sock);
 
 /**
- * @brief Wait for socket events with timeout.
- *
- * Waits for any events on the socket for the specified timeout period.
- *
- * **Abort Behavior**: Returns PTK_ERR_ABORT immediately if ptk_socket_abort()
- * has been called on this socket, or if abort is called while waiting.
- *
- * @param sock
- * @param timeout_ms Timeout in milliseconds
- * @return PTK_OK on event, PTK_ERR_TIMEOUT on timeout, PTK_ERR_ABORT if aborted
- */
-ptk_err ptk_socket_wait(ptk_sock *sock, ptk_time_ms timeout_ms);
-
-/**
- * @brief Call the interrupt callback and return from ptk_socket_wait_for_interrupt.
+ * @brief Set up a periodic interrupt event.
  *
  * Anything waiting on a synchronous operation will fail with the status PTK_ERR_INTERRUPT.
  *
- * @param socket
- * @param timer_period_ms
- * @param wake_callback
- * @param user_data
- * @return ptk_err
+ * @param socket The socket to set the timer on
+ * @param timer_period_ms Timer period in milliseconds
+ * @return PTK_OK on success, error code on failure
  */
 ptk_err ptk_socket_start_repeat_interrupt(ptk_sock *socket, ptk_duration_ms timer_period_ms);
 
 /**
- * @brief stop any timer running on a socket.
+ * @brief Stop any timer running on a socket.
  *
- * @param socket
- * @return ptk_err
+ * @param socket The socket to stop the timer on
+ * @return PTK_OK on success, error code on failure
  */
 ptk_err ptk_socket_stop_repeat_interrupt(ptk_sock *socket);
 
 /**
  * @brief Raise the event to call the interrupt callback.
  *
- * @param socket
- * @return ptk_err
+ * @param socket The socket to raise the interrupt on
+ * @return PTK_OK on success, error code on failure
  */
 ptk_err ptk_socket_interrupt_once(ptk_sock *socket);
 
@@ -124,10 +179,21 @@ ptk_err ptk_socket_interrupt_once(ptk_sock *socket);
  * operations like send, receive, accept, etc. The stopped operations
  * will return PTK_ERR_ABORT.
  *
- * @param socket
- * @return ptk_err
+ * @param socket The socket to abort operations on
+ * @return PTK_OK on success, error code on failure
  */
 ptk_err ptk_socket_abort(ptk_sock *socket);
+
+/**
+ * @brief Return the last status on the socket
+ *
+ * The status is set by the last operation or set to PTK_ERR_ABORT if the
+ * socket was aborted.
+ *
+ * @param sock The socket to get the last error for
+ * @return The last error code for this socket
+ */
+ptk_err ptk_socket_last_error(ptk_sock *sock);
 
 
 //=============================================================================
@@ -139,15 +205,14 @@ ptk_err ptk_socket_abort(ptk_sock *socket);
  *
  * Connection is performed synchronously.
  *
- * **Abort Behavior**: Returns PTK_ERR_ABORT immediately if ptk_socket_abort()
+ * **Abort Behavior**: Returns NULL immediately if ptk_socket_abort()
  * has been called on this socket, or if abort is called while connecting.
  *
- * @param client
- * @param remote_ip
- * @param remote_port
- * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
+ * @param allocator The allocator to use for socket creation
+ * @param remote_addr The remote address to connect to
+ * @return a valid client socket on success, NULL on failure or abort.
  */
-ptk_err ptk_tcp_socket_connect(ptk_sock **client, const char *remote_ip, int remote_port);
+ptk_sock *ptk_tcp_socket_connect(ptk_allocator_t *allocator, const ptk_address_t *remote_addr);
 
 /**
  * Write data to a TCP socket
@@ -171,11 +236,11 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf_t *data);
  * **Abort Behavior**: Returns PTK_ERR_ABORT immediately if ptk_socket_abort()
  * has been called on this socket, or if abort is called while reading.
  *
- * @param sock
  * @param data
+ * @param sock
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data);
+ptk_err ptk_tcp_socket_read(ptk_buf_t *data, ptk_sock *sock);
 
 
 
@@ -189,12 +254,12 @@ ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf_t *data);
  *
  * The server will immediately start listening and accepting connections.
  *
- * @param loop The event loop
- * @param server Pointer to store the created server socket
- * @param server_opts Server configuration
- * @return PTK_OK on success, error code on failure
+ * @param allocator The allocator to use for creating this socket and any of its operations in the future
+ * @param local_addr The local address to bind to (use ptk_address_create_any for all interfaces)
+ * @param backlog The maximum number of pending connections
+ * @return a valid socket pointer on success, NULL on failure, last err set.
  */
-ptk_err ptk_tcp_socket_listen(ptk_sock **server, const char *local_ip, int local_port, int backlog);
+ptk_sock *ptk_tcp_socket_listen(ptk_allocator_t *allocator, const ptk_address_t *local_addr, int backlog);
 
 
 /**
@@ -206,10 +271,9 @@ ptk_err ptk_tcp_socket_listen(ptk_sock **server, const char *local_ip, int local
  * has been called on this socket, or if abort is called while waiting for connections.
  *
  * @param server
- * @param client
- * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
+ * @return a valid socket pointer on success, NULL on failure, last err set.
  */
-ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **client);
+ptk_sock *ptk_tcp_socket_accept(ptk_sock *server);
 
 
 //=============================================================================
@@ -221,14 +285,13 @@ ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **client);
  * Create a UDP socket
  *
  * Can be used for both client and server operations.
- * If bind_host/bind_port are specified, the socket is bound for receiving.
+ * If local_addr is specified, the socket is bound for receiving.
  *
- * @param udp_sock Pointer to store the created UDP socket
- * @param local_host the local host IP to bind to.
- * @param local_port the local port to bind to.
- * @return PTK_OK on success, error code on failure
+ * @param allocator The allocator to use for creating this socket and any of its operations in the future
+ * @param local_addr The local address to bind to (NULL for client-only socket)
+ * @return a valid socket pointer on success, NULL on failure, last err set.
  */
-ptk_err ptk_udp_socket_create(ptk_sock **udp_sock, const char *local_host, int local_port);
+ptk_sock *ptk_udp_socket_create(ptk_allocator_t *allocator, const ptk_address_t *local_addr);
 
 /**
  * @brief Send UDP data to a specific address
@@ -240,23 +303,21 @@ ptk_err ptk_udp_socket_create(ptk_sock **udp_sock, const char *local_host, int l
  *
  * @param sock The UDP socket
  * @param data Data to send
- * @param host Destination host
- * @param port Destination port
- * @param broadcast If true, send the data as a broadcast.
+ * @param dest_addr Destination address
+ * @param broadcast If true, send the data as a broadcast
  * @return PTK_OK on success, PTK_ERR_ABORT if aborted, error code on failure
  */
-ptk_err ptk_udp_socket_send(ptk_sock *sock, ptk_buf_t *data, const char *host, int port, bool broadcast);
+ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf_t *data, const ptk_address_t *dest_addr, bool broadcast);
 
 /**
- * @brief Get a UDT packet from the socket
+ * @brief Get a UDP packet from the socket
  *
- * @param sock
- * @param data received data
- * @param host remote host that sent the packet
- * @param port remote port on the host that sent the packet
- * @return ptk_err
+ * @param sock The UDP socket
+ * @param data Buffer to receive data into
+ * @param sender_addr Address of the sender (output parameter, can be NULL)
+ * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_udp_socket_recv(ptk_sock *sock, ptk_buf_t *data, char *host, int *port);
+ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf_t *data, ptk_address_t *sender_addr);
 
 
 //=============================================================================
@@ -270,7 +331,9 @@ typedef struct {
     char *network_ip;          // Network interface IP address (allocated)
     char *netmask;             // Network mask (allocated)
     char *broadcast;           // Broadcast address (allocated)
-} ptk_network_info;
+} ptk_network_info_entry;
+
+typedef struct ptk_network_info ptk_network_info;
 
 /**
  * Find all network interfaces and their broadcast addresses
@@ -278,16 +341,31 @@ typedef struct {
  * This function discovers all active network interfaces on the system
  * and returns their IP addresses, netmasks, and calculated broadcast addresses.
  *
- * @param network_info Pointer to store allocated array of network info structures
- * @param num_networks Pointer to store the number of networks found
- * @return PTK_OK on success, error code on failure
+ * @param allocator - the allocator to use to allocate memory for the results.
+ * @return A valid network info pointer on success, NULL on failure, sets last error.
  */
-ptk_err ptk_socket_find_networks(ptk_network_info **network_info, size_t *num_networks);
+ptk_network_info *ptk_socket_find_networks(ptk_allocator_t *allocator);
 
 /**
- * Free network information array allocated by ptk_loop_find_networks
+ * Get the number of network interface entries
  *
- * @param network_info The network information array to free
- * @param num_networks The number of network entries in the array
+ * @param network_info The network information structure
+ * @return Number of network entries, 0 if network_info is NULL
  */
-void ptk_socket_network_info_dispose(ptk_network_info *network_info, size_t num_networks);
+size_t ptk_socket_network_info_count(const ptk_network_info *network_info);
+
+/**
+ * Get a specific network interface entry by index
+ *
+ * @param network_info The network information structure
+ * @param index Index of the entry to retrieve (0-based)
+ * @return Pointer to network entry, NULL if index is out of bounds or network_info is NULL
+ */
+const ptk_network_info_entry *ptk_socket_network_info_get(const ptk_network_info *network_info, size_t index);
+
+/**
+ * Free network information structure allocated by ptk_socket_find_networks
+ *
+ * @param network_info The network information structure to free
+ */
+void ptk_socket_network_info_dispose(ptk_network_info *network_info);
