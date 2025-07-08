@@ -9,6 +9,7 @@
 #include <modbus.h>
 #include <ptk_alloc.h>
 #include <ptk_buf.h>
+#include <ptk_config.h>
 #include <ptk_err.h>
 #include <ptk_log.h>
 #include <ptk_socket.h>
@@ -104,90 +105,78 @@ void setup_signal_handlers() {
 //=============================================================================
 
 typedef struct server_config {
-    char listen_addr[256];
+    const char *listen_addr;
     uint16_t num_holding_regs;
     uint16_t num_input_regs;
     uint16_t num_coils;
     uint16_t num_discrete_inputs;
 } server_config_t;
 
-void print_usage(const char *program_name) {
-    printf("Usage: %s [OPTIONS]\n", program_name);
-    printf("Modbus TCP Multi-threaded Server\n\n");
-    printf("Options:\n");
-    printf("  --listen-addr=ADDR:PORT  Listen address and port (default: %s)\n", DEFAULT_LISTEN_ADDR);
-    printf("  --num-holding-regs=N     Number of holding registers (default: %d, max: %d)\n", DEFAULT_NUM_HOLDING_REGS,
-           MODBUS_MAX_HOLDING_REGS);
-    printf("  --num-input-regs=N       Number of input registers (default: %d, max: %d)\n", DEFAULT_NUM_INPUT_REGS,
-           MODBUS_MAX_INPUT_REGS);
-    printf("  --num-coils=N            Number of coils (default: %d, max: %d)\n", DEFAULT_NUM_COILS, MODBUS_MAX_COILS);
-    printf("  --num-discrete-inputs=N  Number of discrete inputs (default: %d, max: %d)\n", DEFAULT_NUM_DISCRETE_INPUTS,
-           MODBUS_MAX_DISCRETE_INPUTS);
-    printf("  --help                   Show this help message\n");
-}
-
 int parse_arguments(int argc, char *argv[], server_config_t *config) {
     // Set defaults
-    strncpy(config->listen_addr, DEFAULT_LISTEN_ADDR, sizeof(config->listen_addr) - 1);
+    config->listen_addr = DEFAULT_LISTEN_ADDR;
     config->num_holding_regs = DEFAULT_NUM_HOLDING_REGS;
     config->num_input_regs = DEFAULT_NUM_INPUT_REGS;
     config->num_coils = DEFAULT_NUM_COILS;
     config->num_discrete_inputs = DEFAULT_NUM_DISCRETE_INPUTS;
 
-    static struct option long_options[] = {{"listen-addr", required_argument, 0, 'l'},
-                                           {"num-holding-regs", required_argument, 0, 'h'},
-                                           {"num-input-regs", required_argument, 0, 'i'},
-                                           {"num-coils", required_argument, 0, 'c'},
-                                           {"num-discrete-inputs", required_argument, 0, 'd'},
-                                           {"help", no_argument, 0, '?'},
-                                           {0, 0, 0, 0}};
+    // Define configuration fields
+    ptk_config_field_t fields[] = {
+        {"listen-addr", 'l', PTK_CONFIG_STRING, &config->listen_addr, "Listen address and port", DEFAULT_LISTEN_ADDR},
+        {"num-holding-regs", 0, PTK_CONFIG_UINT16, &config->num_holding_regs, "Number of holding registers (max: 65535)", "100"},
+        {"num-input-regs", 0, PTK_CONFIG_UINT16, &config->num_input_regs, "Number of input registers (max: 65535)", "100"},
+        {"num-coils", 0, PTK_CONFIG_UINT16, &config->num_coils, "Number of coils (max: 65535)", "100"},
+        {"num-discrete-inputs", 0, PTK_CONFIG_UINT16, &config->num_discrete_inputs, "Number of discrete inputs (max: 65535)",
+         "100"},
+        PTK_CONFIG_END};
 
-    int c;
-    while((c = getopt_long(argc, argv, "", long_options, NULL)) != -1) {
-        switch(c) {
-            case 'l': strncpy(config->listen_addr, optarg, sizeof(config->listen_addr) - 1); break;
-            case 'h': {
-                long val = strtol(optarg, NULL, 10);
-                if(val < 0 || val > MODBUS_MAX_HOLDING_REGS) {
-                    error("Invalid number of holding registers: %s (max: %d)", optarg, MODBUS_MAX_HOLDING_REGS);
-                    return -1;
-                }
-                config->num_holding_regs = (uint16_t)val;
-                break;
-            }
-            case 'i': {
-                long val = strtol(optarg, NULL, 10);
-                if(val < 0 || val > MODBUS_MAX_INPUT_REGS) {
-                    error("Invalid number of input registers: %s (max: %d)", optarg, MODBUS_MAX_INPUT_REGS);
-                    return -1;
-                }
-                config->num_input_regs = (uint16_t)val;
-                break;
-            }
-            case 'c': {
-                long val = strtol(optarg, NULL, 10);
-                if(val < 0 || val > MODBUS_MAX_COILS) {
-                    error("Invalid number of coils: %s (max: %d)", optarg, MODBUS_MAX_COILS);
-                    return -1;
-                }
-                config->num_coils = (uint16_t)val;
-                break;
-            }
-            case 'd': {
-                long val = strtol(optarg, NULL, 10);
-                if(val < 0 || val > MODBUS_MAX_DISCRETE_INPUTS) {
-                    error("Invalid number of discrete inputs: %s (max: %d)", optarg, MODBUS_MAX_DISCRETE_INPUTS);
-                    return -1;
-                }
-                config->num_discrete_inputs = (uint16_t)val;
-                break;
-            }
-            case '?': print_usage(argv[0]); return 1;
-            default: error("Unknown option"); return -1;
-        }
+    int result = ptk_config_parse(argc, argv, fields, "Modbus TCP Server");
+    if(result == 1) {
+        return 1;  // Help was shown
+    } else if(result != 0) {
+        error("Failed to parse arguments");
+        return -1;
+    }
+
+    // Validate ranges
+    if(config->num_holding_regs > MODBUS_MAX_HOLDING_REGS) {
+        error("Invalid number of holding registers: %d (max: %d)", config->num_holding_regs, MODBUS_MAX_HOLDING_REGS);
+        return -1;
+    }
+    if(config->num_input_regs > MODBUS_MAX_INPUT_REGS) {
+        error("Invalid number of input registers: %d (max: %d)", config->num_input_regs, MODBUS_MAX_INPUT_REGS);
+        return -1;
+    }
+    if(config->num_coils > MODBUS_MAX_COILS) {
+        error("Invalid number of coils: %d (max: %d)", config->num_coils, MODBUS_MAX_COILS);
+        return -1;
+    }
+    if(config->num_discrete_inputs > MODBUS_MAX_DISCRETE_INPUTS) {
+        error("Invalid number of discrete inputs: %d (max: %d)", config->num_discrete_inputs, MODBUS_MAX_DISCRETE_INPUTS);
+        return -1;
     }
 
     return 0;
+}
+
+//=============================================================================
+// DESTRUCTOR FUNCTIONS FOR AUTOMATIC CLEANUP
+//=============================================================================
+
+void modbus_connection_destructor(void *conn) {
+    if(conn) { modbus_close((modbus_connection *)conn); }
+}
+
+void ptk_buf_destructor(void *buf) {
+    if(buf) { ptk_buf_dispose((ptk_buf_t *)buf); }
+}
+
+void ptk_mutex_destructor(void *mutex) {
+    if(mutex) { ptk_mutex_destroy((ptk_mutex *)mutex); }
+}
+
+void ptk_thread_destructor(void *thread) {
+    if(thread) { ptk_thread_destroy((ptk_thread *)thread); }
 }
 
 //=============================================================================
@@ -216,13 +205,6 @@ modbus_server_state_t *create_server_state(ptk_allocator_t *allocator, const ser
     if(!state->holding_registers_mutex || !state->input_registers_mutex || !state->coils_mutex || !state->discrete_inputs_mutex
        || !state->client_count_mutex) {
         error("Failed to initialize mutexes");
-        // Clean up any successfully created mutexes
-        if(state->holding_registers_mutex) { ptk_mutex_destroy(state->holding_registers_mutex); }
-        if(state->input_registers_mutex) { ptk_mutex_destroy(state->input_registers_mutex); }
-        if(state->coils_mutex) { ptk_mutex_destroy(state->coils_mutex); }
-        if(state->discrete_inputs_mutex) { ptk_mutex_destroy(state->discrete_inputs_mutex); }
-        if(state->client_count_mutex) { ptk_mutex_destroy(state->client_count_mutex); }
-        ptk_free(allocator, state);
         return NULL;
     }
 
@@ -237,7 +219,6 @@ modbus_server_state_t *create_server_state(ptk_allocator_t *allocator, const ser
         state->holding_registers = ptk_alloc(allocator, state->num_holding_regs * sizeof(uint16_t));
         if(!state->holding_registers) {
             error("Failed to allocate holding registers");
-            ptk_free(allocator, state);
             return NULL;
         }
         // Initialize with some test values
@@ -248,8 +229,6 @@ modbus_server_state_t *create_server_state(ptk_allocator_t *allocator, const ser
         state->input_registers = ptk_alloc(allocator, state->num_input_regs * sizeof(uint16_t));
         if(!state->input_registers) {
             error("Failed to allocate input registers");
-            ptk_free(allocator, state->holding_registers);
-            ptk_free(allocator, state);
             return NULL;
         }
         // Initialize with some test values
@@ -260,9 +239,6 @@ modbus_server_state_t *create_server_state(ptk_allocator_t *allocator, const ser
         state->coils = ptk_alloc(allocator, state->num_coils * sizeof(bool));
         if(!state->coils) {
             error("Failed to allocate coils");
-            ptk_free(allocator, state->input_registers);
-            ptk_free(allocator, state->holding_registers);
-            ptk_free(allocator, state);
             return NULL;
         }
         // Initialize some test values
@@ -273,10 +249,6 @@ modbus_server_state_t *create_server_state(ptk_allocator_t *allocator, const ser
         state->discrete_inputs = ptk_alloc(allocator, state->num_discrete_inputs * sizeof(bool));
         if(!state->discrete_inputs) {
             error("Failed to allocate discrete inputs");
-            ptk_free(allocator, state->coils);
-            ptk_free(allocator, state->input_registers);
-            ptk_free(allocator, state->holding_registers);
-            ptk_free(allocator, state);
             return NULL;
         }
         // Initialize some test values
@@ -292,23 +264,11 @@ modbus_server_state_t *create_server_state(ptk_allocator_t *allocator, const ser
 void destroy_server_state(modbus_server_state_t *state) {
     if(!state) { return; }
 
-    // Clean up server connection
+    // Clean up server connection (not allocated from our allocator)
     if(state->server_conn) { modbus_close(state->server_conn); }
 
-    // Destroy mutexes
-    if(state->holding_registers_mutex) { ptk_mutex_destroy(state->holding_registers_mutex); }
-    if(state->input_registers_mutex) { ptk_mutex_destroy(state->input_registers_mutex); }
-    if(state->coils_mutex) { ptk_mutex_destroy(state->coils_mutex); }
-    if(state->discrete_inputs_mutex) { ptk_mutex_destroy(state->discrete_inputs_mutex); }
-    if(state->client_count_mutex) { ptk_mutex_destroy(state->client_count_mutex); }
-
-    // Free register storage
-    ptk_free(state->allocator, state->holding_registers);
-    ptk_free(state->allocator, state->input_registers);
-    ptk_free(state->allocator, state->coils);
-    ptk_free(state->allocator, state->discrete_inputs);
-
-    ptk_free(state->allocator, state);
+    // Note: All other resources (mutexes, register arrays, etc.) will be automatically
+    // cleaned up when the arena allocator is destroyed in main()
 }
 
 //=============================================================================
@@ -522,12 +482,11 @@ void client_thread_handler(void *arg) {
 
     info("Client thread %d finished. %d clients remaining", client_id, remaining_clients);
 
-    // Free context
-    ptk_free(state->allocator, ctx);
+    // Note: Context will be cleaned up automatically when the arena allocator is destroyed
 }
 
 //=============================================================================
-// MULTI-THREADED SERVER LOGIC
+// SERVER LOGIC
 //=============================================================================
 
 int start_server(modbus_server_state_t *state, const char *listen_addr) {
@@ -561,7 +520,7 @@ int start_server(modbus_server_state_t *state, const char *listen_addr) {
 
     info("Created address for %s:%d", host, port);
 
-    // Create server buffer
+    // Create server buffer with automatic cleanup if arena allocator is used
     ptk_buf_t *server_buffer = ptk_buf_create(state->allocator, BUFFER_SIZE);
     if(!server_buffer) {
         error("Failed to create server buffer");
@@ -578,7 +537,7 @@ int start_server(modbus_server_state_t *state, const char *listen_addr) {
         return -1;
     }
 
-    info("Modbus multi-threaded server listening on %s:%d", host, port);
+    info("Modbus server listening on %s:%d", host, port);
     info("Max concurrent clients: %d", MAX_CLIENTS);
     info("Supported functions: Read/Write Holding Registers (single), Read Input Registers (single)");
     info("                      Read/Write Coils (single), Read Discrete Inputs (single)");
@@ -641,7 +600,7 @@ int start_server(modbus_server_state_t *state, const char *listen_addr) {
             error("Failed to create client thread");
             modbus_close(client_conn);
             ptk_buf_dispose(client_buffer);
-            ptk_free(state->allocator, ctx);
+            // Note: ctx will be cleaned up automatically when allocator is destroyed
 
             // Decrement client count
             ptk_mutex_wait_lock(state->client_count_mutex, PTK_TIME_WAIT_FOREVER);
@@ -687,10 +646,10 @@ int main(int argc, char *argv[]) {
     // Setup signal handlers
     setup_signal_handlers();
 
-    // Create allocator
-    ptk_allocator_t *allocator = allocator_default_create(8);
+    // Create arena allocator for automatic cleanup
+    ptk_allocator_t *allocator = allocator_arena_create(64 * 1024 * 1024, 8);  // 64MB arena, 8-byte alignment
     if(!allocator) {
-        error("Failed to create allocator");
+        error("Failed to create arena allocator");
         return 1;
     }
 
@@ -704,7 +663,7 @@ int main(int argc, char *argv[]) {
 
     g_server_state = server_state;
 
-    info("Starting Modbus TCP Multi-threaded Server...");
+    info("Starting Modbus TCP Server...");
     info("Configuration:");
     info("  Listen address: %s", config.listen_addr);
     info("  Holding registers: %d", config.num_holding_regs);
@@ -718,9 +677,19 @@ int main(int argc, char *argv[]) {
 
     info("Server shutting down...");
 
-    // Clean up
+    // Clean up server state (mainly closes server connection)
     destroy_server_state(server_state);
+
+    // Destroy arena allocator - this automatically cleans up ALL allocated resources:
+    // - Server state structure
+    // - All mutexes
+    // - All register arrays
+    // - All client thread contexts
+    // - All buffers allocated from this allocator
+    // - All threads created with this allocator
+    info("Cleaning up all resources...");
     ptk_allocator_destroy(allocator);
+    info("All resources cleaned up automatically");
 
     return result;
 }

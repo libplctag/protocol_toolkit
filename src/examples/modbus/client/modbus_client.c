@@ -9,6 +9,7 @@
 #include <modbus.h>
 #include <ptk_alloc.h>
 #include <ptk_buf.h>
+#include <ptk_config.h>
 #include <ptk_err.h>
 #include <ptk_log.h>
 #include <ptk_socket.h>
@@ -681,10 +682,10 @@ ptk_err execute_write_coil(modbus_connection *conn, const client_config_t *confi
 int run_client(const client_config_t *config) {
     ptk_err err;
 
-    // Create allocator
-    ptk_allocator_t *allocator = allocator_default_create(8);
+    // Create arena allocator for automatic cleanup
+    ptk_allocator_t *allocator = allocator_arena_create(1024 * 1024, 8);  // 1MB arena, 8-byte alignment
     if(!allocator) {
-        error("Failed to create allocator");
+        error("Failed to create arena allocator");
         return 1;
     }
 
@@ -701,7 +702,7 @@ int run_client(const client_config_t *config) {
         return 1;
     }
 
-    // Create client buffer
+    // Create client buffer with automatic cleanup
     ptk_buf_t *client_buffer = ptk_buf_create(allocator, BUFFER_SIZE);
     if(!client_buffer) {
         error("Failed to create client buffer");
@@ -713,7 +714,6 @@ int run_client(const client_config_t *config) {
     modbus_connection *conn = modbus_open_client(allocator, &server_addr, config->unit_id, client_buffer);
     if(!conn) {
         error("Failed to connect to Modbus server at %s:%d", config->host, config->port);
-        ptk_buf_dispose(client_buffer);
         ptk_allocator_destroy(allocator);
         return 1;
     }
@@ -736,9 +736,13 @@ int run_client(const client_config_t *config) {
             break;
     }
 
-    // Clean up
+    // Close connection (not allocated from our allocator)
     modbus_close(conn);
-    ptk_buf_dispose(client_buffer);
+
+    // Destroy arena allocator - this automatically cleans up ALL allocated resources:
+    // - Client buffer
+    // - Any temporary allocations made during operations
+    if(config->verbose) { info("Cleaning up all resources..."); }
     ptk_allocator_destroy(allocator);
 
     if(err != PTK_OK) {

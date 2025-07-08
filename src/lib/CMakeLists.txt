@@ -6,6 +6,7 @@ add_library(protocol_toolkit
     ptk_alloc.c
     ptk_atomic.c
     ptk_buf.c
+    ptk_config.c
     # ptk_codec.c
     ptk_err.c
     ptk_log.c
@@ -35,3 +36,6 @@ set_target_properties(protocol_toolkit PROPERTIES
     C_STANDARD 11
     C_STANDARD_REQUIRED ON
 )
+
+# Add tests subdirectory
+add_subdirectory(test)
