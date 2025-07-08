@@ -179,6 +179,14 @@ static int test_arena_allocator() {
     }
     printf("PASS: Arena reset successful\n");
 
+    // After arena reset, destructors should have been called for ptr2 and ptr3
+    // destructor_calls should now be 2 (for the two allocations before reset)
+    int expected_calls_after_reset = 2;
+    int calls_during_reset = destructor_calls;
+
+    // Reset destructor counter to track only post-reset destructor calls
+    destructor_calls = 0;
+
     // Allocate again after reset
     void *ptr4 = ptk_alloc_with_destructor(alloc, 64, test_destructor);
     if(!ptr4) {
@@ -192,9 +200,13 @@ static int test_arena_allocator() {
     printf("Destroying arena allocator (should call destructors)...\n");
     ptk_allocator_destroy(alloc);
 
-    // Check if destructors were called
+    // Check if destructors were called correctly
+    if(calls_during_reset != expected_calls_after_reset) {
+        printf("FAIL: Expected %d destructor calls during reset, got %d\n", expected_calls_after_reset, calls_during_reset);
+        return 0;
+    }
     if(destructor_calls != 1) {
-        printf("FAIL: Expected 1 destructor call, got %d\n", destructor_calls);
+        printf("FAIL: Expected 1 destructor call during destroy, got %d\n", destructor_calls);
         return 0;
     }
     printf("PASS: Destructor called correctly during arena cleanup\n");

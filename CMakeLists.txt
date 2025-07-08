@@ -68,9 +68,6 @@ add_subdirectory(src/examples)
 # Add tests
 add_subdirectory(src/tests)
 
-# Add modbus implementation (now in src/examples/modbus)
-# add_subdirectory(ideas/modbus)
-
 #=============================================================================
 # INSTALLATION
 #=============================================================================

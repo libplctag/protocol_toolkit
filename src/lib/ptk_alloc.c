@@ -482,6 +482,19 @@ static void arena_reset(ptk_allocator_t *allocator) {
 
     debug("Arena allocator reset - reclaiming %zu bytes", arena->offset);
 
+    // Call all destructors in reverse order (LIFO) before resetting
+    arena_destructor_entry_t *entry = arena->destructor_list;
+    while(entry) {
+        if(entry->destructor && entry->ptr) {
+            trace("Calling destructor for %p during reset", entry->ptr);
+            entry->destructor(entry->ptr);
+        }
+        entry = entry->next;
+    }
+
+    // Clear the destructor list since all destructors have been called
+    arena->destructor_list = NULL;
+
     arena->offset = 0;
     arena->stats.total_allocated = 0;
     arena->stats.active_allocations = 0;

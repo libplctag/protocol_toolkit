@@ -2,7 +2,7 @@
  * EtherNet/IP Device Discovery Tool
  *
  * This tool discovers EtherNet/IP devices on the network by sending List Identity
- * broadcasts and processing responses. Rewritten to use the new Protocol Toolkit APIs.
+ * broadcasts and processing responses. Uses the Protocol Toolkit APIs.
  */
 
 #include <arpa/inet.h>
@@ -13,6 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "ptk_alloc.h"
 #include "ptk_buf.h"
 #include "ptk_err.h"
 #include "ptk_socket.h"
@@ -42,6 +43,7 @@ static volatile bool g_running = true;
 static int g_responses_received = 0;
 static ptk_sock *g_udp_socket = NULL;
 static ptk_thread *g_discovery_thread = NULL;
+static ptk_allocator_t *g_allocator = NULL;
 
 //=============================================================================
 // SIGNAL HANDLING
@@ -62,61 +64,37 @@ static void signal_handler(void) {
  * Build EtherNet/IP List Identity request packet
  */
 static ptk_err build_list_identity_request(ptk_buf_t *buffer) {
-    ptk_err err;
-
-    // EtherNet/IP Encapsulation Header (24 bytes)
-    err = ptk_buf_produce_u16(buffer, EIP_LIST_IDENTITY_CMD, PTK_BUF_LITTLE_ENDIAN);  // Command
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_produce_u16(buffer, 0, PTK_BUF_LITTLE_ENDIAN);  // Length (0 for List Identity)
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_produce_u32(buffer, 0, PTK_BUF_LITTLE_ENDIAN);  // Session Handle
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_produce_u32(buffer, 0, PTK_BUF_LITTLE_ENDIAN);  // Status
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_produce_u64(buffer, 0, PTK_BUF_LITTLE_ENDIAN);  // Sender Context (8 bytes)
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_produce_u32(buffer, 0, PTK_BUF_LITTLE_ENDIAN);  // Options
-    if(err != PTK_OK) { return err; }
-
-    return PTK_OK;
+    // EtherNet/IP Encapsulation Header (24 bytes) - all little endian
+    return ptk_buf_produce(buffer, "< w w d d q d",
+                           (uint16_t)EIP_LIST_IDENTITY_CMD,  // Command
+                           (uint16_t)0,                      // Length (0 for List Identity)
+                           (uint32_t)0,                      // Session Handle
+                           (uint32_t)0,                      // Status
+                           (uint64_t)0,                      // Sender Context (8 bytes)
+                           (uint32_t)0);                     // Options
 }
 
 /**
  * Parse EtherNet/IP List Identity response
  */
-static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const char *sender_ip, int sender_port) {
+static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const ptk_address_t *sender_addr) {
     ptk_err err;
 
-    printf("\n=== EtherNet/IP Device Found ===\n");
-    printf("From: %s:%d\n", sender_ip, sender_port);
+    char *sender_ip = ptk_address_to_string(g_allocator, sender_addr);
+    uint16_t sender_port = ptk_address_get_port(sender_addr);
 
-    // Parse Encapsulation Header
+    printf("\n=== EtherNet/IP Device Found ===\n");
+    printf("From: %s:%d\n", sender_ip ? sender_ip : "unknown", sender_port);
+
+    if(sender_ip) { ptk_free(g_allocator, sender_ip); }
+
+    // Parse Encapsulation Header (all little endian)
     uint16_t command, length;
     uint32_t session_handle, status;
     uint64_t sender_context;
     uint32_t options;
 
-    err = ptk_buf_consume_u16(buffer, &command, PTK_BUF_LITTLE_ENDIAN, false);
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_consume_u16(buffer, &length, PTK_BUF_LITTLE_ENDIAN, false);
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_consume_u32(buffer, &session_handle, PTK_BUF_LITTLE_ENDIAN, false);
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_consume_u32(buffer, &status, PTK_BUF_LITTLE_ENDIAN, false);
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_consume_u64(buffer, &sender_context, PTK_BUF_LITTLE_ENDIAN, false);
-    if(err != PTK_OK) { return err; }
-
-    err = ptk_buf_consume_u32(buffer, &options, PTK_BUF_LITTLE_ENDIAN, false);
+    err = ptk_buf_consume(buffer, false, "< w w d d q d", &command, &length, &session_handle, &status, &sender_context, &options);
     if(err != PTK_OK) { return err; }
 
     printf("Command: 0x%04X\n", command);
@@ -135,7 +113,7 @@ static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const char *sende
     // Parse CPF (Common Packet Format) data if present
     if(length > 0) {
         uint16_t item_count;
-        err = ptk_buf_consume_u16(buffer, &item_count, PTK_BUF_LITTLE_ENDIAN, false);
+        err = ptk_buf_consume(buffer, false, "w", &item_count);
         if(err != PTK_OK) { return err; }
 
         printf("CPF Items: %u\n", item_count);
@@ -143,10 +121,7 @@ static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const char *sende
         for(uint16_t i = 0; i < item_count; i++) {
             uint16_t type_id, item_length;
 
-            err = ptk_buf_consume_u16(buffer, &type_id, PTK_BUF_LITTLE_ENDIAN, false);
-            if(err != PTK_OK) { return err; }
-
-            err = ptk_buf_consume_u16(buffer, &item_length, PTK_BUF_LITTLE_ENDIAN, false);
+            err = ptk_buf_consume(buffer, false, "w w", &type_id, &item_length);
             if(err != PTK_OK) { return err; }
 
             printf("  Item %u: Type 0x%04X, Length %u\n", i + 1, type_id, item_length);
@@ -154,35 +129,12 @@ static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const char *sende
             if(type_id == CPF_TYPE_CIP_IDENTITY && item_length >= 34) {
                 // Parse CIP Identity data
                 uint16_t vendor_id, device_type, product_code;
-                uint16_t major_rev, minor_rev, status_word;
+                uint16_t status_word;
                 uint32_t serial_number;
-                uint8_t product_name_len;
+                uint8_t major_rev, minor_rev, product_name_len;
 
-                err = ptk_buf_consume_u16(buffer, &vendor_id, PTK_BUF_LITTLE_ENDIAN, false);
-                if(err != PTK_OK) { break; }
-
-                err = ptk_buf_consume_u16(buffer, &device_type, PTK_BUF_LITTLE_ENDIAN, false);
-                if(err != PTK_OK) { break; }
-
-                err = ptk_buf_consume_u16(buffer, &product_code, PTK_BUF_LITTLE_ENDIAN, false);
-                if(err != PTK_OK) { break; }
-
-                uint8_t major_rev_u8, minor_rev_u8;
-                err = ptk_buf_consume_u8(buffer, &major_rev_u8, false);
-                if(err != PTK_OK) { break; }
-                major_rev = major_rev_u8;
-
-                err = ptk_buf_consume_u8(buffer, &minor_rev_u8, false);
-                if(err != PTK_OK) { break; }
-                minor_rev = minor_rev_u8;
-
-                err = ptk_buf_consume_u16(buffer, &status_word, PTK_BUF_LITTLE_ENDIAN, false);
-                if(err != PTK_OK) { break; }
-
-                err = ptk_buf_consume_u32(buffer, &serial_number, PTK_BUF_LITTLE_ENDIAN, false);
-                if(err != PTK_OK) { break; }
-
-                err = ptk_buf_consume_u8(buffer, &product_name_len, false);
+                err = ptk_buf_consume(buffer, false, "w w w b b w d b", &vendor_id, &device_type, &product_code, &major_rev,
+                                      &minor_rev, &status_word, &serial_number, &product_name_len);
                 if(err != PTK_OK) { break; }
 
                 printf("    Vendor ID: 0x%04X\n", vendor_id);
@@ -194,11 +146,8 @@ static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const char *sende
 
                 if(product_name_len > 0 && product_name_len < 64) {
                     char product_name[65] = {0};
-                    uint8_t *name_ptr;
-                    ptk_buf_get_start_ptr(&name_ptr, buffer);
-
-                    size_t available;
-                    ptk_buf_len(&available, buffer);
+                    uint8_t *name_ptr = ptk_buf_get_start_ptr(buffer);
+                    size_t available = ptk_buf_len(buffer);
 
                     if(available >= product_name_len) {
                         memcpy(product_name, name_ptr, product_name_len);
@@ -206,38 +155,25 @@ static ptk_err parse_list_identity_response(ptk_buf_t *buffer, const char *sende
                         printf("    Product Name: %s\n", product_name);
 
                         // Skip past the product name
-                        size_t current_start;
-                        ptk_buf_get_start(&current_start, buffer);
+                        size_t current_start = ptk_buf_get_start(buffer);
                         ptk_buf_set_start(buffer, current_start + product_name_len);
                     }
                 }
             } else if(type_id == CPF_TYPE_SOCKET_ADDR && item_length >= 16) {
-                // Parse Socket Address
+                // Parse Socket Address (network byte order)
                 uint16_t sin_family, sin_port;
                 uint32_t sin_addr;
+                uint8_t padding[8];
 
-                err = ptk_buf_consume_u16(buffer, &sin_family, PTK_BUF_BIG_ENDIAN, false);  // Network byte order
+                err = ptk_buf_consume(buffer, false, "> w w d 8*b", &sin_family, &sin_port, &sin_addr, 8, padding);
                 if(err != PTK_OK) { break; }
-
-                err = ptk_buf_consume_u16(buffer, &sin_port, PTK_BUF_BIG_ENDIAN, false);  // Network byte order
-                if(err != PTK_OK) { break; }
-
-                err = ptk_buf_consume_u32(buffer, &sin_addr, PTK_BUF_BIG_ENDIAN, false);  // Network byte order
-                if(err != PTK_OK) { break; }
-
-                // Skip padding (8 bytes)
-                for(int j = 0; j < 8; j++) {
-                    uint8_t padding;
-                    ptk_buf_consume_u8(buffer, &padding, false);
-                }
 
                 uint8_t *addr_bytes = (uint8_t *)&sin_addr;
                 printf("    Socket Address: %u.%u.%u.%u:%u\n", addr_bytes[0], addr_bytes[1], addr_bytes[2], addr_bytes[3],
                        sin_port);
             } else {
                 // Skip unknown item type
-                size_t current_start;
-                ptk_buf_get_start(&current_start, buffer);
+                size_t current_start = ptk_buf_get_start(buffer);
                 ptk_buf_set_start(buffer, current_start + item_length);
             }
         }
@@ -259,28 +195,37 @@ static void discovery_thread(void *arg) {
     printf("Starting EtherNet/IP device discovery for %d seconds...\n", *discovery_time);
 
     // Get network interfaces for broadcasting
-    ptk_network_info *networks;
-    size_t num_networks;
+    ptk_network_info *networks = ptk_socket_find_networks(g_allocator);
+    size_t num_networks = 0;
 
-    ptk_err err = ptk_socket_find_networks(&networks, &num_networks);
-    if(err != PTK_OK) {
-        printf("Warning: Failed to discover networks: %s\n", ptk_err_to_string(err));
+    if(!networks) {
+        printf("Warning: Failed to discover networks\n");
         printf("Will use fallback broadcast to 255.255.255.255\n");
-        networks = NULL;
-        num_networks = 0;
     } else {
+        num_networks = ptk_socket_network_info_count(networks);
         printf("Discovered %zu network interfaces:\n", num_networks);
         for(size_t i = 0; i < num_networks; i++) {
-            printf("  %zu: IP=%s, Netmask=%s, Broadcast=%s\n", i + 1, networks[i].network_ip, networks[i].netmask,
-                   networks[i].broadcast);
+            const ptk_network_info_entry *entry = ptk_socket_network_info_get(networks, i);
+            if(entry) {
+                printf("  %zu: IP=%s, Netmask=%s, Broadcast=%s\n", i + 1, entry->network_ip, entry->netmask, entry->broadcast);
+            }
         }
     }
 
-    // Create UDP socket for discovery
-    err = ptk_udp_socket_create(&g_udp_socket, "0.0.0.0", 0);
+    // Create local address for UDP socket
+    ptk_address_t local_addr;
+    ptk_err err = ptk_address_create_any(&local_addr, 0);
     if(err != PTK_OK) {
-        printf("Failed to create UDP socket: %s\n", ptk_err_to_string(err));
-        if(networks) { ptk_socket_network_info_dispose(networks, num_networks); }
+        printf("Failed to create local address: %s\n", ptk_err_to_string(err));
+        if(networks) { ptk_socket_network_info_dispose(networks); }
+        return;
+    }
+
+    // Create UDP socket for discovery
+    g_udp_socket = ptk_udp_socket_create(g_allocator, &local_addr);
+    if(!g_udp_socket) {
+        printf("Failed to create UDP socket\n");
+        if(networks) { ptk_socket_network_info_dispose(networks); }
         return;
     }
 
@@ -295,67 +240,87 @@ static void discovery_thread(void *arg) {
 
         // Send broadcast if it's time
         if(current_time - last_broadcast >= BROADCAST_INTERVAL) {
-            uint8_t request_data[32];
-            ptk_buf_t request_buf;
-            ptk_buf_create(&request_buf, request_data, sizeof(request_data));
+            ptk_buf_t *request_buf = ptk_buf_create(g_allocator, 32);
+            if(!request_buf) {
+                printf("Failed to create request buffer\n");
+                break;
+            }
 
-            err = build_list_identity_request(&request_buf);
+            err = build_list_identity_request(request_buf);
             if(err == PTK_OK) {
                 // Send to all discovered networks
                 if(networks && num_networks > 0) {
                     for(size_t i = 0; i < num_networks; i++) {
-                        // Reset buffer for each send
-                        ptk_buf_create(&request_buf, request_data, sizeof(request_data));
-                        build_list_identity_request(&request_buf);
+                        const ptk_network_info_entry *entry = ptk_socket_network_info_get(networks, i);
+                        if(!entry) { continue; }
 
-                        err = ptk_udp_socket_send_to(g_udp_socket, &request_buf, networks[i].broadcast, EIP_PORT, true);
+                        // Reset buffer for each send
+                        ptk_buf_set_start(request_buf, 0);
+                        ptk_buf_set_end(request_buf, 0);
+                        build_list_identity_request(request_buf);
+
+                        // Create broadcast address
+                        ptk_address_t broadcast_addr;
+                        err = ptk_address_create(&broadcast_addr, entry->broadcast, EIP_PORT);
                         if(err == PTK_OK) {
-                            printf("Sent broadcast to %s:%d\n", networks[i].broadcast, EIP_PORT);
-                        } else if(err != PTK_ERR_ABORT) {
-                            printf("Failed to send to %s: %s\n", networks[i].broadcast, ptk_err_to_string(err));
+                            err = ptk_udp_socket_send_to(g_udp_socket, request_buf, &broadcast_addr, true);
+                            if(err == PTK_OK) {
+                                printf("Sent broadcast to %s:%d\n", entry->broadcast, EIP_PORT);
+                            } else if(err != PTK_ERR_ABORT) {
+                                printf("Failed to send to %s: %s\n", entry->broadcast, ptk_err_to_string(err));
+                            }
                         }
                     }
                 } else {
                     // Fallback broadcast
-                    err = ptk_udp_socket_send_to(g_udp_socket, &request_buf, "255.255.255.255", EIP_PORT, true);
+                    ptk_address_t broadcast_addr;
+                    err = ptk_address_create(&broadcast_addr, "255.255.255.255", EIP_PORT);
                     if(err == PTK_OK) {
-                        printf("Sent fallback broadcast to 255.255.255.255:%d\n", EIP_PORT);
-                    } else if(err != PTK_ERR_ABORT) {
-                        printf("Failed to send fallback broadcast: %s\n", ptk_err_to_string(err));
+                        err = ptk_udp_socket_send_to(g_udp_socket, request_buf, &broadcast_addr, true);
+                        if(err == PTK_OK) {
+                            printf("Sent fallback broadcast to 255.255.255.255:%d\n", EIP_PORT);
+                        } else if(err != PTK_ERR_ABORT) {
+                            printf("Failed to send fallback broadcast: %s\n", ptk_err_to_string(err));
+                        }
                     }
                 }
             }
 
+            ptk_buf_dispose(request_buf);
             last_broadcast = current_time;
         }
 
         // Listen for responses
-        uint8_t response_data[512];
-        ptk_buf_t response_buf;
-        ptk_buf_create(&response_buf, response_data, sizeof(response_data));
+        ptk_buf_t *response_buf = ptk_buf_create(g_allocator, 512);
+        if(!response_buf) {
+            printf("Failed to create response buffer\n");
+            usleep(100000);
+            continue;
+        }
 
-        char sender_host[256];
-        int sender_port;
-
-        err = ptk_udp_socket_recv_from(g_udp_socket, &response_buf, sender_host, &sender_port);
+        ptk_address_t sender_addr;
+        err = ptk_udp_socket_recv_from(g_udp_socket, response_buf, &sender_addr);
 
         if(err == PTK_OK) {
             g_responses_received++;
-            parse_list_identity_response(&response_buf, sender_host, sender_port);
+            parse_list_identity_response(response_buf, &sender_addr);
         } else if(err == PTK_ERR_ABORT) {
             printf("Discovery aborted\n");
+            ptk_buf_dispose(response_buf);
             break;
         } else if(err == PTK_ERR_WOULD_BLOCK || err == PTK_ERR_TIMEOUT) {
             // No data available, continue
+            ptk_buf_dispose(response_buf);
             usleep(100000);  // Sleep 100ms
         } else {
             printf("Receive error: %s\n", ptk_err_to_string(err));
+            ptk_buf_dispose(response_buf);
             usleep(100000);  // Sleep 100ms before retry
         }
     }
 
     // Cleanup
-    if(networks) { ptk_socket_network_info_dispose(networks, num_networks); }
+    if(networks) { ptk_socket_network_info_dispose(networks); }
 
     printf("Discovery thread ending\n");
 }
@@ -367,6 +332,13 @@ static void discovery_thread(void *arg) {
 int main(int argc, char *argv[]) {
     printf("EtherNet/IP Device Discovery Tool\n");
     printf("Using Protocol Toolkit APIs\n\n");
+
+    // Create allocator
+    g_allocator = allocator_default_create(8);
+    if(!g_allocator) {
+        printf("Failed to create allocator\n");
+        return 1;
+    }
 
     // Parse command line arguments
     int discovery_time = 30;  // Default 30 seconds
@@ -385,22 +357,25 @@ int main(int argc, char *argv[]) {
     ptk_set_interrupt_handler(signal_handler);
 
     // Start discovery thread
-    ptk_err err = ptk_thread_create(&g_discovery_thread, discovery_thread, &discovery_time);
-    if(err != PTK_OK) {
-        printf("Failed to create discovery thread: %s\n", ptk_err_to_string(err));
+    g_discovery_thread = ptk_thread_create(g_allocator, discovery_thread, &discovery_time);
+    if(!g_discovery_thread) {
+        printf("Failed to create discovery thread\n");
+        ptk_allocator_destroy(g_allocator);
         return 1;
     }
 
     printf("Discovery started. Press Ctrl+C to stop early...\n\n");
 
     // Wait for discovery thread to complete
-    err = ptk_thread_join(g_discovery_thread);
+    ptk_err err = ptk_thread_join(g_discovery_thread);
     if(err != PTK_OK) { printf("Error joining discovery thread: %s\n", ptk_err_to_string(err)); }
 
     // Cleanup
     if(g_udp_socket) { ptk_socket_close(g_udp_socket); }
 
     if(g_discovery_thread) { ptk_thread_destroy(g_discovery_thread); }
+
+    if(g_allocator) { ptk_allocator_destroy(g_allocator); }
 
     printf("\n=== Discovery Summary ===\n");
     printf("Total devices found: %d\n", g_responses_received);
