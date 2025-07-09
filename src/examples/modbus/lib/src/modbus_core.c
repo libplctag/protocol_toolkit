@@ -31,10 +31,10 @@ ptk_err modbus_send_frame(modbus_connection *conn, ptk_buf *pdu_buf) {
     if(err != PTK_OK) { return err; }
 
     // Produce Modbus TCP header at the beginning: transaction_id, protocol_id, length, unit_id
-    err = ptk_buf_produce(pdu_buf, ">wwwb", conn->transaction_id,
-                          (uint16_t)0,              // Protocol ID (always 0 for Modbus TCP)
-                          (uint16_t)(pdu_len + 1),  // Length = PDU length + unit ID
-                          conn->unit_id);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, conn->transaction_id,
+                            (uint16_t)0,              // Protocol ID (always 0 for Modbus TCP)
+                            (uint16_t)(pdu_len + 1),  // Length = PDU length + unit ID
+                            conn->unit_id);
 
     if(err != PTK_OK) { return err; }
 
@@ -69,7 +69,7 @@ ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf *pdu_buf) {
     uint16_t transaction_id, protocol_id, length;
     uint8_t unit_id;
 
-    err = ptk_buf_consume(frame_buf, false, ">wwwb", &transaction_id, &protocol_id, &length, &unit_id);
+    err = ptk_buf_deserialize(frame_buf, false, PTK_BUF_BIG_ENDIAN, &transaction_id, &protocol_id, &length, &unit_id);
 
     if(err != PTK_OK) { return err; }
 
@@ -85,7 +85,10 @@ ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf *pdu_buf) {
 
     // Copy PDU data to output buffer
     uint8_t *pdu_data = ptk_buf_get_start_ptr(frame_buf);
-    err = ptk_buf_produce(pdu_buf, "*b", pdu_len, pdu_data);
+    if(pdu_len > 0) {
+        memcpy(ptk_buf_get_end_ptr(pdu_buf), pdu_data, pdu_len);
+        err = ptk_buf_set_end(pdu_buf, ptk_buf_get_end(pdu_buf) + pdu_len);
+    }
 
     return err;
 }
@@ -210,9 +213,8 @@ ptk_err server_send_exception_resp(modbus_connection *conn, uint8_t function_cod
     if(err != PTK_OK) { return err; }
 
     // Produce exception response PDU: exception_function_code, exception_code
-    err = ptk_buf_produce(pdu_buf, ">bb",
-                          (uint8_t)(function_code | 0x80),  // Set exception bit
-                          exception_code);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, (uint8_t)(function_code | 0x80),  // Set exception bit
+                            exception_code);
 
     if(err != PTK_OK) { return err; }
 

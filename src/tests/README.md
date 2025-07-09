@@ -1,8 +1,8 @@
-# Protocol Toolkit Socket Tests
+# Protocol Toolkit Tests
 
-This directory contains comprehensive tests for the socket functionality with abort handling.
+This directory contains comprehensive tests for the protocol toolkit functionality.
 
-## Tests
+## Socket Tests
 
 ### Test 1: TCP Echo Server/Client with Abort (`test_tcp_echo_abort`)
 
@@ -18,61 +18,86 @@ This directory contains comprehensive tests for the socket functionality with ab
 **Test Features:**
 - ✅ Multi-threaded TCP server with client handlers
 - ✅ Timer-based interrupt handling
-- ✅ Echo protocol implementation
-- ✅ Graceful abort propagation (server → all clients)
-- ✅ Clean shutdown after timeout
+- ✅ Socket abort functionality
+- ✅ Clean shutdown handling
 
 ### Test 2: UDP Echo Server/Client with Abort (`test_udp_echo_abort`)
 
 **Test Description:**
 - Starts a UDP server thread that listens on port 12346
-- Server receives UDP packets and echoes them back to sender
-- When server receives abort, it stops the receive loop
-- Starts a client thread that creates UDP socket
-- Client sets 500ms timer, waits for interrupt, sends message, reads response
+- Server echoes back any UDP packets received
+- When server receives abort, it stops listening
+- Starts a client thread that connects to server
+- Client sets timer, waits for interrupt, sends message, reads response
 - Test runs for 5 seconds then cleanly shuts down
 
 **Test Features:**
-- ✅ UDP echo server implementation
+- ✅ UDP socket handling
 - ✅ Timer-based interrupt handling
-- ✅ UDP packet echo with sender identification
-- ✅ Abort handling in UDP receive loop
-- ✅ Clean shutdown after timeout
+- ✅ Socket abort functionality
+- ✅ Clean shutdown handling
 
-## Building and Running
+## Type-Safe Serialization Tests
+
+### Test 3: Type-Safe Serialization Test (`test_type_safe_serialize`)
+
+**Test Description:**
+- Comprehensive test suite for the type-safe buffer serialization system
+- Tests basic serialization/deserialization of various data types
+- Tests struct-based field serialization
+- Tests endianness conversion (little-endian vs big-endian)
+- Tests peek functionality (non-destructive reads)
+- Tests error handling (buffer overflow/underflow protection)
+
+**Test Features:**
+- ✅ Automatic type detection using C11 _Generic
+- ✅ Automatic argument counting
+- ✅ EtherNet/IP header serialization
+- ✅ Endianness conversion verification
+- ✅ Peek functionality validation
+- ✅ Buffer safety and error handling
+
+### Demo 4: Type-Safe Serialization Demo (`demo_type_safe_serialize`)
+
+**Demo Description:**
+- Interactive demonstration of the type-safe serialization system
+- Shows practical usage examples for protocol development
+- Demonstrates EtherNet/IP header serialization
+- Shows endianness handling for different protocols
+- Demonstrates safety features and error protection
+- Shows peek functionality for protocol parsing
+
+**Demo Features:**
+- ✅ Real-world protocol examples (EtherNet/IP)
+- ✅ Interactive demonstrations
+- ✅ Safety feature validation
+- ✅ Performance characteristics
+- ✅ Best practices examples
+
+## Building and Running Tests
+
+All tests are built automatically with the main project:
 
 ```bash
-# Build tests
-cmake --build build --target test_tcp_echo_abort
-cmake --build build --target test_udp_echo_abort
-
-# Run tests
-./build/bin/test_tcp_echo_abort
-./build/bin/test_udp_echo_abort
+make -C build
 ```
 
-## Expected Output
+Run individual tests:
 
-Both tests should:
-1. Start server and client threads
-2. Show timer interrupt firing at ~500ms
-3. Display message exchange between client and server
-4. Show clean abort and shutdown after 5 seconds
-5. Complete with "Test completed" message
+```bash
+./build/bin/test_tcp_echo_abort
+./build/bin/test_udp_echo_abort
+./build/bin/test_type_safe_serialize
+./build/bin/demo_type_safe_serialize
+```
 
-## Abort Functionality Tested
+## Test Coverage
 
-- **Immediate abort detection**: All socket operations check abort flag before starting
-- **Event-driven abort**: kqueue user events wake up blocked operations instantly
-- **Thread-safe abort**: External threads can abort socket operations safely
-- **Abort propagation**: Server abort cascades to all client connections (TCP test)
-- **Clean resource cleanup**: All sockets and threads shut down properly
-
-## Error Handling
-
-Tests demonstrate proper error handling for:
-- Connection failures
-- Read/write errors  
-- Abort conditions
-- Timeout scenarios
-- Resource cleanup
+The test suite covers:
+- ✅ Socket functionality (TCP/UDP)
+- ✅ Abort handling and clean shutdown
+- ✅ Type-safe buffer serialization
+- ✅ Multi-threading and concurrency
+- ✅ Error handling and safety features
+- ✅ Real-world protocol examples
+- ✅ Performance and reliability testing

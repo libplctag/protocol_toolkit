@@ -24,7 +24,7 @@ ptk_err client_send_read_coil_req(modbus_connection *conn, uint16_t coil_addr) {
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_COILS, coil_addr, (uint16_t)1);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_COILS, coil_addr, (uint16_t)1);
 
     if(err != PTK_OK) { return err; }
 
@@ -51,7 +51,7 @@ ptk_err client_send_read_coils_req(modbus_connection *conn, uint16_t base_coil, 
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_COILS, base_coil, num_coils);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_COILS, base_coil, num_coils);
 
     if(err != PTK_OK) { return err; }
 
@@ -82,7 +82,7 @@ ptk_err client_send_write_coil_req(modbus_connection *conn, uint16_t coil_addr, 
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, coil_address, coil_value (0x0000 for OFF, 0xFF00 for ON)
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_WRITE_SINGLE_COIL, coil_addr, coil_value ? 0xFF00 : 0x0000);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_SINGLE_COIL, coil_addr, coil_value ? 0xFF00 : 0x0000);
 
     if(err != PTK_OK) { return err; }
 
@@ -117,7 +117,8 @@ ptk_err client_send_write_coils_req(modbus_connection *conn, uint16_t base_coil,
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity, byte_count
-    err = ptk_buf_produce(pdu_buf, ">bwwb", MODBUS_FC_WRITE_MULTIPLE_COILS, base_coil, (uint16_t)num_coils, (uint8_t)byte_count);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_MULTIPLE_COILS, base_coil, (uint16_t)num_coils,
+                            (uint8_t)byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -129,7 +130,7 @@ ptk_err client_send_write_coils_req(modbus_connection *conn, uint16_t base_coil,
             if(coil_idx < num_coils && coil_values->elements[coil_idx]) { packed_byte |= (1 << bit_idx); }
         }
 
-        err = ptk_buf_produce(pdu_buf, ">b", packed_byte);
+        err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, packed_byte);
         if(err != PTK_OK) { return err; }
     }
 
@@ -158,7 +159,7 @@ ptk_err client_recv_read_coil_resp(modbus_connection *conn, bool *coil_value) {
     // Parse response: function_code, byte_count, coil_status
     uint8_t function_code, byte_count, coil_status;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bbb", &function_code, &byte_count, &coil_status);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count, &coil_status);
 
     if(err != PTK_OK) { return err; }
 
@@ -187,7 +188,7 @@ ptk_err client_recv_read_coils_resp(modbus_connection *conn, modbus_bool_array_t
     // Parse response header: function_code, byte_count
     uint8_t function_code, byte_count;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bb", &function_code, &byte_count);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -207,7 +208,7 @@ ptk_err client_recv_read_coils_resp(modbus_connection *conn, modbus_bool_array_t
     // Read packed boolean values
     for(size_t byte_idx = 0; byte_idx < byte_count; byte_idx++) {
         uint8_t packed_byte;
-        err = ptk_buf_consume(pdu_buf, false, ">b", &packed_byte);
+        err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &packed_byte);
         if(err != PTK_OK) {
             modbus_bool_array_dispose(array);
             ptk_free(conn->allocator, array);
@@ -253,7 +254,7 @@ ptk_err client_recv_write_coil_resp(modbus_connection *conn) {
     uint8_t function_code;
     uint16_t coil_addr, coil_value;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &coil_addr, &coil_value);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &coil_addr, &coil_value);
 
     if(err != PTK_OK) { return err; }
 
@@ -281,7 +282,7 @@ ptk_err client_recv_write_coils_resp(modbus_connection *conn) {
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -313,7 +314,7 @@ ptk_err server_recv_read_coil_req(modbus_connection *conn, uint16_t *coil_addr) 
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -343,7 +344,7 @@ ptk_err server_recv_read_coils_req(modbus_connection *conn, uint16_t *base_coil,
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -378,7 +379,7 @@ ptk_err server_recv_write_coil_req(modbus_connection *conn, uint16_t *coil_addr,
     uint8_t function_code;
     uint16_t c_addr, c_value;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &c_addr, &c_value);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &c_addr, &c_value);
 
     if(err != PTK_OK) { return err; }
 
@@ -412,7 +413,7 @@ ptk_err server_recv_write_coils_req(modbus_connection *conn, uint16_t *base_coil
     uint8_t function_code, byte_count;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bwwb", &function_code, &starting_address, &quantity, &byte_count);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity, &byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -432,7 +433,7 @@ ptk_err server_recv_write_coils_req(modbus_connection *conn, uint16_t *base_coil
     // Read packed coil values
     for(size_t byte_idx = 0; byte_idx < byte_count; byte_idx++) {
         uint8_t packed_byte;
-        err = ptk_buf_consume(pdu_buf, false, ">b", &packed_byte);
+        err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &packed_byte);
         if(err != PTK_OK) {
             modbus_bool_array_dispose(array);
             ptk_free(conn->allocator, array);
@@ -476,9 +477,9 @@ ptk_err server_send_read_coil_resp(modbus_connection *conn, bool coil_value) {
     if(err != PTK_OK) { return err; }
 
     // Produce response PDU: function_code, byte_count, coil_status
-    err = ptk_buf_produce(pdu_buf, ">bbb", MODBUS_FC_READ_COILS,
-                          (uint8_t)1,  // byte count
-                          coil_value ? 0x01 : 0x00);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_COILS,
+                            (uint8_t)1,  // byte count
+                            coil_value ? 0x01 : 0x00);
 
     if(err != PTK_OK) { return err; }
 
@@ -505,7 +506,7 @@ ptk_err server_send_read_coils_resp(modbus_connection *conn, const modbus_bool_a
     if(err != PTK_OK) { return err; }
 
     // Produce response header: function_code, byte_count
-    err = ptk_buf_produce(pdu_buf, ">bb", MODBUS_FC_READ_COILS, (uint8_t)byte_count);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_COILS, (uint8_t)byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -517,7 +518,7 @@ ptk_err server_send_read_coils_resp(modbus_connection *conn, const modbus_bool_a
             if(coil_idx < num_coils && coil_values->elements[coil_idx]) { packed_byte |= (1 << bit_idx); }
         }
 
-        err = ptk_buf_produce(pdu_buf, ">b", packed_byte);
+        err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, packed_byte);
         if(err != PTK_OK) { return err; }
     }
 
@@ -543,9 +544,9 @@ ptk_err server_send_write_coil_resp(modbus_connection *conn) {
 
     // Response format is identical to request for write single coil
     // Note: In a real implementation, you'd store the original request values
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_WRITE_SINGLE_COIL,
-                          (uint16_t)0,  // coil address (should be stored from request)
-                          (uint16_t)0   // coil value (should be stored from request)
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_SINGLE_COIL,
+                            (uint16_t)0,  // coil address (should be stored from request)
+                            (uint16_t)0   // coil value (should be stored from request)
     );
 
     if(err != PTK_OK) { return err; }
@@ -567,9 +568,9 @@ ptk_err server_send_write_coils_resp(modbus_connection *conn) {
     if(err != PTK_OK) { return err; }
 
     // Note: In a real implementation, you'd store the original request values
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_WRITE_MULTIPLE_COILS,
-                          (uint16_t)0,  // starting address (should be stored from request)
-                          (uint16_t)0   // quantity (should be stored from request)
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_MULTIPLE_COILS,
+                            (uint16_t)0,  // starting address (should be stored from request)
+                            (uint16_t)0   // quantity (should be stored from request)
     );
 
     if(err != PTK_OK) { return err; }

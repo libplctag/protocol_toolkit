@@ -24,7 +24,7 @@ ptk_err client_send_read_discrete_input_req(modbus_connection *conn, uint16_t in
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_DISCRETE_INPUTS, input_addr, (uint16_t)1);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_DISCRETE_INPUTS, input_addr, (uint16_t)1);
 
     if(err != PTK_OK) { return err; }
 
@@ -51,7 +51,7 @@ ptk_err client_send_read_discrete_inputs_req(modbus_connection *conn, uint16_t b
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_DISCRETE_INPUTS, base_input, num_inputs);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_DISCRETE_INPUTS, base_input, num_inputs);
 
     if(err != PTK_OK) { return err; }
 
@@ -80,7 +80,7 @@ ptk_err client_recv_read_discrete_input_resp(modbus_connection *conn, bool *inpu
     // Parse response: function_code, byte_count, input_status
     uint8_t function_code, byte_count, input_status;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bbb", &function_code, &byte_count, &input_status);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count, &input_status);
 
     if(err != PTK_OK) { return err; }
 
@@ -109,7 +109,7 @@ ptk_err client_recv_read_discrete_inputs_resp(modbus_connection *conn, modbus_bo
     // Parse response header: function_code, byte_count
     uint8_t function_code, byte_count;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bb", &function_code, &byte_count);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -129,7 +129,7 @@ ptk_err client_recv_read_discrete_inputs_resp(modbus_connection *conn, modbus_bo
     // Read packed boolean values
     for(size_t byte_idx = 0; byte_idx < byte_count; byte_idx++) {
         uint8_t packed_byte;
-        err = ptk_buf_consume(pdu_buf, false, ">b", &packed_byte);
+        err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &packed_byte);
         if(err != PTK_OK) {
             modbus_bool_array_dispose(array);
             ptk_free(conn->allocator, array);
@@ -175,7 +175,7 @@ ptk_err server_recv_read_discrete_input_req(modbus_connection *conn, uint16_t *i
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -205,7 +205,7 @@ ptk_err server_recv_read_discrete_inputs_req(modbus_connection *conn, uint16_t *
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -234,7 +234,7 @@ ptk_err server_send_read_discrete_input_resp(modbus_connection *conn, bool input
     if(err != PTK_OK) { return err; }
 
     // Produce response PDU: function_code, byte_count, input_status
-    err = ptk_buf_produce(pdu_buf, ">bbb", MODBUS_FC_READ_DISCRETE_INPUTS,
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_DISCRETE_INPUTS,
                           (uint8_t)1,  // byte count
                           input_value ? 0x01 : 0x00);
 
@@ -263,7 +263,7 @@ ptk_err server_send_read_discrete_inputs_resp(modbus_connection *conn, const mod
     if(err != PTK_OK) { return err; }
 
     // Produce response header: function_code, byte_count
-    err = ptk_buf_produce(pdu_buf, ">bb", MODBUS_FC_READ_DISCRETE_INPUTS, (uint8_t)byte_count);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_DISCRETE_INPUTS, (uint8_t)byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -275,7 +275,7 @@ ptk_err server_send_read_discrete_inputs_resp(modbus_connection *conn, const mod
             if(input_idx < num_inputs && input_values->elements[input_idx]) { packed_byte |= (1 << bit_idx); }
         }
 
-        err = ptk_buf_produce(pdu_buf, ">b", packed_byte);
+        err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, packed_byte);
         if(err != PTK_OK) { return err; }
     }
 

@@ -24,7 +24,7 @@ ptk_err client_send_read_input_register_req(modbus_connection *conn, uint16_t re
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_INPUT_REGISTERS, register_addr, (uint16_t)1);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_INPUT_REGISTERS, register_addr, (uint16_t)1);
 
     if(err != PTK_OK) { return err; }
 
@@ -51,7 +51,7 @@ ptk_err client_send_read_input_registers_req(modbus_connection *conn, uint16_t b
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_INPUT_REGISTERS, base_register, num_registers);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_INPUT_REGISTERS, base_register, num_registers);
 
     if(err != PTK_OK) { return err; }
 
@@ -81,7 +81,7 @@ ptk_err client_recv_read_input_register_resp(modbus_connection *conn, uint16_t *
     uint8_t function_code, byte_count;
     uint16_t reg_value;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bbw", &function_code, &byte_count, &reg_value);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count, &reg_value);
 
     if(err != PTK_OK) { return err; }
 
@@ -110,7 +110,7 @@ ptk_err client_recv_read_input_registers_resp(modbus_connection *conn, modbus_re
     // Parse response header: function_code, byte_count
     uint8_t function_code, byte_count;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bb", &function_code, &byte_count);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -132,7 +132,7 @@ ptk_err client_recv_read_input_registers_resp(modbus_connection *conn, modbus_re
     // Read register values
     for(size_t i = 0; i < num_registers; i++) {
         uint16_t reg_value;
-        err = ptk_buf_consume(pdu_buf, false, ">w", &reg_value);
+        err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &reg_value);
         if(err != PTK_OK) {
             modbus_register_array_dispose(array);
             ptk_free(conn->allocator, array);
@@ -174,7 +174,7 @@ ptk_err server_recv_read_input_register_req(modbus_connection *conn, uint16_t *r
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -204,7 +204,7 @@ ptk_err server_recv_read_input_registers_req(modbus_connection *conn, uint16_t *
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -233,7 +233,7 @@ ptk_err server_send_read_input_register_resp(modbus_connection *conn, uint16_t r
     if(err != PTK_OK) { return err; }
 
     // Produce response PDU: function_code, byte_count, register_value
-    err = ptk_buf_produce(pdu_buf, ">bbw", MODBUS_FC_READ_INPUT_REGISTERS,
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_INPUT_REGISTERS,
                           (uint8_t)2,  // byte count
                           register_value);
 
@@ -259,13 +259,13 @@ ptk_err server_send_read_input_registers_resp(modbus_connection *conn, const mod
     if(err != PTK_OK) { return err; }
 
     // Produce response header: function_code, byte_count
-    err = ptk_buf_produce(pdu_buf, ">bb", MODBUS_FC_READ_INPUT_REGISTERS, (uint8_t)(num_registers * 2));
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_INPUT_REGISTERS, (uint8_t)(num_registers * 2));
 
     if(err != PTK_OK) { return err; }
 
     // Produce register values
     for(size_t i = 0; i < num_registers; i++) {
-        err = ptk_buf_produce(pdu_buf, ">w", register_values->elements[i]);
+        err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, register_values->elements[i]);
         if(err != PTK_OK) { return err; }
     }
 

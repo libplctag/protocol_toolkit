@@ -72,35 +72,35 @@ extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level
  *  @brief Logs a message at ERROR level using variadic arguments.
  */
 #define error(...) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_ERROR) \
         ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, __VA_ARGS__); } while(0)
 
 /** @def warn
  *  @brief Logs a message at WARN level using variadic arguments.
  */
 #define warn(...) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_WARN) \
         ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, __VA_ARGS__); } while(0)
 
 /** @def info
  *  @brief Logs a message at INFO level using variadic arguments.
  */
 #define info(...) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_INFO) \
         ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, __VA_ARGS__); } while(0)
 
 /** @def debug
  *  @brief Logs a message at DEBUG level using variadic arguments.
  */
 #define debug(...) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_DEBUG) \
         ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, __VA_ARGS__); } while(0)
 
 /** @def trace
  *  @brief Logs a message at TRACE level using variadic arguments.
  */
 #define trace(...) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_TRACE) \
         ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, __VA_ARGS__); } while(0)
 
 /**
@@ -117,33 +117,33 @@ extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_l
  *  @brief Logs a binary buffer at ERROR level.
  */
 #define error_buf(data) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_ERROR) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_ERROR) \
         ptk_log_buf_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, data); } while(0)
 
 /** @def warn_buf
  *  @brief Logs a binary buffer at WARN level.
  */
 #define warn_buf(data) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_WARN) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_WARN) \
         ptk_log_buf_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, data); } while(0)
 
 /** @def info_buf
  *  @brief Logs a binary buffer at INFO level.
  */
 #define info_buf(data) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_INFO) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_INFO) \
         ptk_log_buf_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, data); } while(0)
 
 /** @def debug_buf
  *  @brief Logs a binary buffer at DEBUG level.
  */
 #define debug_buf(data) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_DEBUG) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_DEBUG) \
         ptk_log_buf_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, data); } while(0)
 
 /** @def trace_buf
  *  @brief Logs a binary buffer at TRACE level.
  */
 #define trace_buf(data) \
-    do { if (ptk_log_level_get() <= PTK_LOG_LEVEL_TRACE) \
+    do { if (ptk_log_level_get() >= PTK_LOG_LEVEL_TRACE) \
         ptk_log_buf_impl(__func__, __LINE__, PTK_LOG_LEVEL_TRACE, data); } while(0)

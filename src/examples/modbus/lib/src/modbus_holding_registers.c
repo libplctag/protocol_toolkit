@@ -19,7 +19,7 @@ ptk_err client_send_read_holding_register_req(modbus_connection *conn, uint16_t 
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_HOLDING_REGISTERS, register_addr, (uint16_t)1);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_HOLDING_REGISTERS, register_addr, (uint16_t)1);
 
     if(err != PTK_OK) { return err; }
 
@@ -46,7 +46,7 @@ ptk_err client_send_read_holding_registers_req(modbus_connection *conn, uint16_t
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_READ_HOLDING_REGISTERS, base_register, num_registers);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_HOLDING_REGISTERS, base_register, num_registers);
 
     if(err != PTK_OK) { return err; }
 
@@ -77,7 +77,7 @@ ptk_err client_send_write_holding_register_req(modbus_connection *conn, uint16_t
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, register_address, register_value
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_WRITE_SINGLE_REGISTER, register_addr, register_value);
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_SINGLE_REGISTER, register_addr, register_value);
 
     if(err != PTK_OK) { return err; }
 
@@ -110,14 +110,14 @@ ptk_err client_send_write_holding_registers_req(modbus_connection *conn, uint16_
     if(err != PTK_OK) { return err; }
 
     // Produce PDU: function_code, starting_address, quantity, byte_count
-    err = ptk_buf_produce(pdu_buf, ">bwwb", MODBUS_FC_WRITE_MULTIPLE_REGISTERS, base_register, (uint16_t)num_registers,
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_MULTIPLE_REGISTERS, base_register, (uint16_t)num_registers,
                           (uint8_t)(num_registers * 2));
 
     if(err != PTK_OK) { return err; }
 
     // Produce register values
     for(size_t i = 0; i < num_registers; i++) {
-        err = ptk_buf_produce(pdu_buf, ">w", register_values->elements[i]);
+        err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, register_values->elements[i]);
         if(err != PTK_OK) { return err; }
     }
 
@@ -147,7 +147,7 @@ ptk_err client_recv_read_read_holding_register_resp(modbus_connection *conn, uin
     uint8_t function_code, byte_count;
     uint16_t reg_value;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bbw", &function_code, &byte_count, &reg_value);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count, &reg_value);
 
     if(err != PTK_OK) { return err; }
 
@@ -176,7 +176,7 @@ ptk_err client_recv_read_read_holding_registers_resp(modbus_connection *conn, mo
     // Parse response header: function_code, byte_count
     uint8_t function_code, byte_count;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bb", &function_code, &byte_count);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -198,7 +198,7 @@ ptk_err client_recv_read_read_holding_registers_resp(modbus_connection *conn, mo
     // Read register values
     for(size_t i = 0; i < num_registers; i++) {
         uint16_t reg_value;
-        err = ptk_buf_consume(pdu_buf, false, ">w", &reg_value);
+        err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &reg_value);
         if(err != PTK_OK) {
             modbus_register_array_dispose(array);
             ptk_free(conn->allocator, array);
@@ -240,7 +240,7 @@ ptk_err client_recv_write_holding_register_resp(modbus_connection *conn) {
     uint8_t function_code;
     uint16_t register_addr, register_value;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &register_addr, &register_value);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &register_addr, &register_value);
 
     if(err != PTK_OK) { return err; }
 
@@ -268,7 +268,7 @@ ptk_err client_recv_write_holding_registers_resp(modbus_connection *conn) {
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -300,7 +300,7 @@ ptk_err server_recv_read_holding_register_req(modbus_connection *conn, uint16_t 
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -330,7 +330,7 @@ ptk_err server_recv_read_holding_registers_req(modbus_connection *conn, uint16_t
     uint8_t function_code;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &starting_address, &quantity);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity);
 
     if(err != PTK_OK) { return err; }
 
@@ -365,7 +365,7 @@ ptk_err server_recv_write_holding_register_req(modbus_connection *conn, uint16_t
     uint8_t function_code;
     uint16_t reg_addr, reg_value;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bww", &function_code, &reg_addr, &reg_value);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &reg_addr, &reg_value);
 
     if(err != PTK_OK) { return err; }
 
@@ -397,7 +397,7 @@ ptk_err server_recv_write_holding_registers_req(modbus_connection *conn, uint16_
     uint8_t function_code, byte_count;
     uint16_t starting_address, quantity;
 
-    err = ptk_buf_consume(pdu_buf, false, ">bwwb", &function_code, &starting_address, &quantity, &byte_count);
+    err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &function_code, &starting_address, &quantity, &byte_count);
 
     if(err != PTK_OK) { return err; }
 
@@ -417,7 +417,7 @@ ptk_err server_recv_write_holding_registers_req(modbus_connection *conn, uint16_
     // Read register values
     for(size_t i = 0; i < quantity; i++) {
         uint16_t reg_value;
-        err = ptk_buf_consume(pdu_buf, false, ">w", &reg_value);
+        err = ptk_buf_deserialize(pdu_buf, false, PTK_BUF_BIG_ENDIAN, &reg_value);
         if(err != PTK_OK) {
             modbus_register_array_dispose(array);
             ptk_free(conn->allocator, array);
@@ -454,7 +454,7 @@ ptk_err server_send_read_holding_register_resp(modbus_connection *conn, uint16_t
     if(err != PTK_OK) { return err; }
 
     // Produce response PDU: function_code, byte_count, register_value
-    err = ptk_buf_produce(pdu_buf, ">bbw", MODBUS_FC_READ_HOLDING_REGISTERS,
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_HOLDING_REGISTERS,
                           (uint8_t)2,  // byte count
                           register_value);
 
@@ -480,13 +480,13 @@ ptk_err server_send_read_holding_registers_resp(modbus_connection *conn, const m
     if(err != PTK_OK) { return err; }
 
     // Produce response header: function_code, byte_count
-    err = ptk_buf_produce(pdu_buf, ">bb", MODBUS_FC_READ_HOLDING_REGISTERS, (uint8_t)(num_registers * 2));
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_READ_HOLDING_REGISTERS, (uint8_t)(num_registers * 2));
 
     if(err != PTK_OK) { return err; }
 
     // Produce register values
     for(size_t i = 0; i < num_registers; i++) {
-        err = ptk_buf_produce(pdu_buf, ">w", register_values->elements[i]);
+        err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, register_values->elements[i]);
         if(err != PTK_OK) { return err; }
     }
 
@@ -514,7 +514,7 @@ ptk_err server_send_write_holding_register_resp(modbus_connection *conn) {
     // Response format is identical to request for write single register
     // Note: In a real implementation, you'd store the original request values
     // For now, this is a placeholder that assumes success
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_WRITE_SINGLE_REGISTER,
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_SINGLE_REGISTER,
                           (uint16_t)0,  // register address (should be stored from request)
                           (uint16_t)0   // register value (should be stored from request)
     );
@@ -539,7 +539,7 @@ ptk_err server_send_write_holding_registers_resp(modbus_connection *conn) {
 
     // Note: In a real implementation, you'd store the original request values
     // For now, this is a placeholder that assumes success
-    err = ptk_buf_produce(pdu_buf, ">bww", MODBUS_FC_WRITE_MULTIPLE_REGISTERS,
+    err = ptk_buf_serialize(pdu_buf, PTK_BUF_BIG_ENDIAN, MODBUS_FC_WRITE_MULTIPLE_REGISTERS,
                           (uint16_t)0,  // starting address (should be stored from request)
                           (uint16_t)0   // quantity (should be stored from request)
     );

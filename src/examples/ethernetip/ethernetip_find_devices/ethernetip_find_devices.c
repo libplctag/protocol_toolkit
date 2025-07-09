@@ -57,22 +57,104 @@ static void signal_handler(void) {
 }
 
 //=============================================================================
+// TYPE-SAFE BUFFER FUNCTIONS
+//=============================================================================
+
+/**
+ * Individual type-specific functions for better type safety and performance
+ */
+static ptk_err ptk_buf_produce_u16_le(ptk_buf *buf, uint16_t value) {
+    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_produce_u32_le(ptk_buf *buf, uint32_t value) {
+    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_produce_u64_le(ptk_buf *buf, uint64_t value) {
+    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_consume_u16_le(ptk_buf *buf, bool peek, uint16_t *value) {
+    return ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_consume_u32_le(ptk_buf *buf, bool peek, uint32_t *value) {
+    return ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_consume_u64_le(ptk_buf *buf, bool peek, uint64_t *value) {
+    return ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_consume_u8(ptk_buf *buf, bool peek, uint8_t *value) {
+    return ptk_buf_deserialize(buf, peek, PTK_BUF_NATIVE_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_consume_u16_be(ptk_buf *buf, bool peek, uint16_t *value) {
+    return ptk_buf_deserialize(buf, peek, PTK_BUF_BIG_ENDIAN, value);
+}
+
+static ptk_err ptk_buf_consume_u32_be(ptk_buf *buf, bool peek, uint32_t *value) {
+    return ptk_buf_deserialize(buf, peek, PTK_BUF_BIG_ENDIAN, value);
+}
+
+/**
+ * Chained function for EIP header production
+ */
+static ptk_err build_list_identity_request_chained(ptk_buf *buffer) {
+    ptk_err err;
+    err = ptk_buf_produce_u16_le(buffer, (uint16_t)EIP_LIST_IDENTITY_CMD);
+    if(err != PTK_OK) { return err; }
+    err = ptk_buf_produce_u16_le(buffer, (uint16_t)0);  // Length
+    if(err != PTK_OK) { return err; }
+    err = ptk_buf_produce_u32_le(buffer, (uint32_t)0);  // Session Handle
+    if(err != PTK_OK) { return err; }
+    err = ptk_buf_produce_u32_le(buffer, (uint32_t)0);  // Status
+    if(err != PTK_OK) { return err; }
+    err = ptk_buf_produce_u64_le(buffer, (uint64_t)0);  // Sender Context
+    if(err != PTK_OK) { return err; }
+    err = ptk_buf_produce_u32_le(buffer, (uint32_t)0);  // Options
+    return err;
+}
+
+/**
+ * Chained function for EIP header consumption
+ */
+static ptk_err parse_eip_header_chained(ptk_buf *buffer, uint16_t *command, uint16_t *length, uint32_t *session_handle,
+                                        uint32_t *status, uint64_t *sender_context, uint32_t *options) {
+
+    ptk_err err;
+    size_t original_start = ptk_buf_get_start(buffer);
+
+    err = ptk_buf_consume_u16_le(buffer, false, command);
+    if(err != PTK_OK) { goto rollback; }
+    err = ptk_buf_consume_u16_le(buffer, false, length);
+    if(err != PTK_OK) { goto rollback; }
+    err = ptk_buf_consume_u32_le(buffer, false, session_handle);
+    if(err != PTK_OK) { goto rollback; }
+    err = ptk_buf_consume_u32_le(buffer, false, status);
+    if(err != PTK_OK) { goto rollback; }
+    err = ptk_buf_consume_u64_le(buffer, false, sender_context);
+    if(err != PTK_OK) { goto rollback; }
+    err = ptk_buf_consume_u32_le(buffer, false, options);
+    if(err != PTK_OK) { goto rollback; }
+
+    return PTK_OK;
+
+rollback:
+    ptk_buf_set_start(buffer, original_start);
+    return err;
+}
+
+//=============================================================================
 // ETHERNETIP PROTOCOL FUNCTIONS
 //=============================================================================
 
 /**
  * Build EtherNet/IP List Identity request packet
  */
-static ptk_err build_list_identity_request(ptk_buf *buffer) {
-    // EtherNet/IP Encapsulation Header (24 bytes) - all little endian
-    return ptk_buf_produce(buffer, "< w w d d q d",
-                           (uint16_t)EIP_LIST_IDENTITY_CMD,  // Command
-                           (uint16_t)0,                      // Length (0 for List Identity)
-                           (uint32_t)0,                      // Session Handle
-                           (uint32_t)0,                      // Status
-                           (uint64_t)0,                      // Sender Context (8 bytes)
-                           (uint32_t)0);                     // Options
-}
+static ptk_err build_list_identity_request(ptk_buf *buffer) { return build_list_identity_request_chained(buffer); }
 
 /**
  * Parse EtherNet/IP List Identity response
@@ -94,7 +176,7 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
     uint64_t sender_context;
     uint32_t options;
 
-    err = ptk_buf_consume(buffer, false, "< w w d d q d", &command, &length, &session_handle, &status, &sender_context, &options);
+    err = parse_eip_header_chained(buffer, &command, &length, &session_handle, &status, &sender_context, &options);
     if(err != PTK_OK) { return err; }
 
     printf("Command: 0x%04X\n", command);
@@ -113,7 +195,7 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
     // Parse CPF (Common Packet Format) data if present
     if(length > 0) {
         uint16_t item_count;
-        err = ptk_buf_consume(buffer, false, "w", &item_count);
+        err = ptk_buf_consume_u16_le(buffer, false, &item_count);
         if(err != PTK_OK) { return err; }
 
         printf("CPF Items: %u\n", item_count);
@@ -121,7 +203,9 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
         for(uint16_t i = 0; i < item_count; i++) {
             uint16_t type_id, item_length;
 
-            err = ptk_buf_consume(buffer, false, "w w", &type_id, &item_length);
+            err = ptk_buf_consume_u16_le(buffer, false, &type_id);
+            if(err != PTK_OK) { return err; }
+            err = ptk_buf_consume_u16_le(buffer, false, &item_length);
             if(err != PTK_OK) { return err; }
 
             printf("  Item %u: Type 0x%04X, Length %u\n", i + 1, type_id, item_length);
@@ -133,8 +217,21 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
                 uint32_t serial_number;
                 uint8_t major_rev, minor_rev, product_name_len;
 
-                err = ptk_buf_consume(buffer, false, "w w w b b w d b", &vendor_id, &device_type, &product_code, &major_rev,
-                                      &minor_rev, &status_word, &serial_number, &product_name_len);
+                err = ptk_buf_consume_u16_le(buffer, false, &vendor_id);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u16_le(buffer, false, &device_type);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u16_le(buffer, false, &product_code);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u8(buffer, false, &major_rev);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u8(buffer, false, &minor_rev);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u16_le(buffer, false, &status_word);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u32_le(buffer, false, &serial_number);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u8(buffer, false, &product_name_len);
                 if(err != PTK_OK) { break; }
 
                 printf("    Vendor ID: 0x%04X\n", vendor_id);
@@ -165,7 +262,18 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
                 uint32_t sin_addr;
                 uint8_t padding[8];
 
-                err = ptk_buf_consume(buffer, false, "> w w d 8*b", &sin_family, &sin_port, &sin_addr, 8, padding);
+                err = ptk_buf_consume_u16_be(buffer, false, &sin_family);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u16_be(buffer, false, &sin_port);
+                if(err != PTK_OK) { break; }
+                err = ptk_buf_consume_u32_be(buffer, false, &sin_addr);
+                if(err != PTK_OK) { break; }
+
+                // Skip 8 bytes of padding
+                for(int j = 0; j < 8; j++) {
+                    err = ptk_buf_consume_u8(buffer, false, &padding[j]);
+                    if(err != PTK_OK) { break; }
+                }
                 if(err != PTK_OK) { break; }
 
                 uint8_t *addr_bytes = (uint8_t *)&sin_addr;
@@ -303,6 +411,11 @@ static void discovery_thread(void *arg) {
 
         if(err == PTK_OK) {
             g_responses_received++;
+            char *sender_ip = ptk_address_to_string(g_allocator, &sender_addr);
+            error("Received response from %s:%d", sender_ip ? sender_ip : "unknown", ptk_address_get_port(&sender_addr));
+            if(sender_ip) { ptk_free(g_allocator, sender_ip); }
+            error_buf(response_buf);
+
             parse_list_identity_response(response_buf, &sender_addr);
         } else if(err == PTK_ERR_ABORT) {
             printf("Discovery aborted\n");
@@ -330,6 +443,8 @@ static void discovery_thread(void *arg) {
 //=============================================================================
 
 int main(int argc, char *argv[]) {
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
+
     printf("EtherNet/IP Device Discovery Tool\n");
     printf("Using Protocol Toolkit APIs\n\n");
 
