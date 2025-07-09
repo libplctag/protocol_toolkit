@@ -57,95 +57,119 @@ static void signal_handler(void) {
 }
 
 //=============================================================================
-// TYPE-SAFE BUFFER FUNCTIONS
+// IDENTITY OBJECT DECODING HELPERS
 //=============================================================================
 
 /**
- * Individual type-specific functions for better type safety and performance
+ * Get vendor name from vendor ID (partial list of common vendors)
  */
-static ptk_err ptk_buf_produce_u16_le(ptk_buf *buf, uint16_t value) {
-    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_produce_u32_le(ptk_buf *buf, uint32_t value) {
-    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_produce_u64_le(ptk_buf *buf, uint64_t value) {
-    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_consume_u16_le(ptk_buf *buf, bool peek, uint16_t *value) {
-    return ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_consume_u32_le(ptk_buf *buf, bool peek, uint32_t *value) {
-    return ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_consume_u64_le(ptk_buf *buf, bool peek, uint64_t *value) {
-    return ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_consume_u8(ptk_buf *buf, bool peek, uint8_t *value) {
-    return ptk_buf_deserialize(buf, peek, PTK_BUF_NATIVE_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_consume_u16_be(ptk_buf *buf, bool peek, uint16_t *value) {
-    return ptk_buf_deserialize(buf, peek, PTK_BUF_BIG_ENDIAN, value);
-}
-
-static ptk_err ptk_buf_consume_u32_be(ptk_buf *buf, bool peek, uint32_t *value) {
-    return ptk_buf_deserialize(buf, peek, PTK_BUF_BIG_ENDIAN, value);
+static const char *get_vendor_name(uint16_t vendor_id) {
+    switch(vendor_id) {
+        case 0x0001: return "Rockwell Automation/Allen-Bradley";
+        case 0x0002: return "Namco";
+        case 0x0003: return "Honeywell";
+        case 0x0004: return "Parker Hannifin";
+        case 0x0005: return "Rockwell Software";
+        case 0x0006: return "A-B Quality";
+        case 0x0007: return "Hayworth";
+        case 0x0008: return "Barber-Colman";
+        case 0x0009: return "Minnesota Mining & Manufacturing";
+        case 0x000A: return "Parametric Technology Corp";
+        case 0x000B: return "Control Technology Inc";
+        case 0x000C: return "Schneider Electric";
+        case 0x000D: return "Woodhead Software & Electronics";
+        case 0x000E: return "Bradshaw Electric";
+        case 0x000F: return "Adagio";
+        case 0x0010: return "Super Radiator Coils";
+        case 0x0011: return "Reserved";
+        case 0x0012: return "Watlow";
+        case 0x0013: return "SBS";
+        case 0x0014: return "Hewlett Packard";
+        case 0x0015: return "Maig";
+        case 0x0016: return "Staubli";
+        case 0x0017: return "Advantech";
+        case 0x0018: return "Inexta";
+        case 0x0019: return "Acromag";
+        case 0x001A: return "Hilscher";
+        case 0x001B: return "IXXAT";
+        case 0x001C: return "Phoenix Contact";
+        case 0x001D: return "ICP DAS";
+        case 0x001E: return "Klinkmann";
+        case 0x001F: return "Cogent ChipWare";
+        // Add more as needed...
+        default: return NULL;
+    }
 }
 
 /**
- * Chained function for EIP header production
+ * Get device type name from device type ID (partial list)
  */
-static ptk_err build_list_identity_request_chained(ptk_buf *buffer) {
-    ptk_err err;
-    err = ptk_buf_produce_u16_le(buffer, (uint16_t)EIP_LIST_IDENTITY_CMD);
-    if(err != PTK_OK) { return err; }
-    err = ptk_buf_produce_u16_le(buffer, (uint16_t)0);  // Length
-    if(err != PTK_OK) { return err; }
-    err = ptk_buf_produce_u32_le(buffer, (uint32_t)0);  // Session Handle
-    if(err != PTK_OK) { return err; }
-    err = ptk_buf_produce_u32_le(buffer, (uint32_t)0);  // Status
-    if(err != PTK_OK) { return err; }
-    err = ptk_buf_produce_u64_le(buffer, (uint64_t)0);  // Sender Context
-    if(err != PTK_OK) { return err; }
-    err = ptk_buf_produce_u32_le(buffer, (uint32_t)0);  // Options
-    return err;
+static const char *get_device_type_name(uint16_t device_type) {
+    switch(device_type) {
+        case 0x00: return "Generic Device";
+        case 0x02: return "AC Drive";
+        case 0x03: return "Motor Overload";
+        case 0x04: return "Limit Switch";
+        case 0x05: return "Inductive Proximity Switch";
+        case 0x06: return "Photoelectric Switch";
+        case 0x07: return "General Purpose Discrete I/O";
+        case 0x08: return "Resolver";
+        case 0x09: return "General Purpose Analog I/O";
+        case 0x0A: return "Generic Data Server";
+        case 0x0B: return "DeviceNet to ControlNet Gateway";
+        case 0x0C: return "Communications Adapter";
+        case 0x0D: return "Programmable Logic Controller";
+        case 0x0E: return "Position Controller";
+        case 0x10: return "DC Drive";
+        case 0x13: return "Vacuum/Pressure Switch";
+        case 0x15: return "Process Control Value";
+        case 0x16: return "Residual Gas Analyzer";
+        case 0x1A: return "DC Power Generator";
+        case 0x1B: return "RF Power Generator";
+        case 0x1C: return "Turbomolecular Vacuum Pump";
+        case 0x1D: return "Analysis Equipment";
+        case 0x22: return "Pneumatic Valve";
+        case 0x23: return "Process Instrument";
+        // Add more as needed...
+        default: return NULL;
+    }
 }
 
 /**
- * Chained function for EIP header consumption
+ * Decode device status word bits
  */
-static ptk_err parse_eip_header_chained(ptk_buf *buffer, uint16_t *command, uint16_t *length, uint32_t *session_handle,
-                                        uint32_t *status, uint64_t *sender_context, uint32_t *options) {
+static void decode_device_status(uint16_t status) {
+    printf(" (");
 
-    ptk_err err;
-    size_t original_start = ptk_buf_get_start(buffer);
+    // Bit 0: Owned
+    if(status & 0x0001) { printf("Owned "); }
 
-    err = ptk_buf_consume_u16_le(buffer, false, command);
-    if(err != PTK_OK) { goto rollback; }
-    err = ptk_buf_consume_u16_le(buffer, false, length);
-    if(err != PTK_OK) { goto rollback; }
-    err = ptk_buf_consume_u32_le(buffer, false, session_handle);
-    if(err != PTK_OK) { goto rollback; }
-    err = ptk_buf_consume_u32_le(buffer, false, status);
-    if(err != PTK_OK) { goto rollback; }
-    err = ptk_buf_consume_u64_le(buffer, false, sender_context);
-    if(err != PTK_OK) { goto rollback; }
-    err = ptk_buf_consume_u32_le(buffer, false, options);
-    if(err != PTK_OK) { goto rollback; }
+    // Bit 1: Reserved
 
-    return PTK_OK;
+    // Bit 2-3: Configured
+    uint8_t configured = (status >> 2) & 0x03;
+    switch(configured) {
+        case 0: printf("NotConfigured "); break;
+        case 1: printf("Configured "); break;
+        case 2: printf("ConfigInvalid "); break;
+        case 3: printf("ConfigReserved "); break;
+    }
 
-rollback:
-    ptk_buf_set_start(buffer, original_start);
-    return err;
+    // Bit 4-7: Extended Device Status
+    uint8_t ext_status = (status >> 4) & 0x0F;
+    if(ext_status != 0) { printf("ExtStatus:0x%X ", ext_status); }
+
+    // Bit 8-11: Minor Recoverable Fault
+    if(status & 0x0100) { printf("MinorRecoverableFault "); }
+    if(status & 0x0200) { printf("MinorUnrecoverableFault "); }
+    if(status & 0x0400) { printf("MajorRecoverableFault "); }
+    if(status & 0x0800) { printf("MajorUnrecoverableFault "); }
+
+    // Bit 12-15: Reserved
+
+    printf(")");
 }
+
 
 //=============================================================================
 // ETHERNETIP PROTOCOL FUNCTIONS
@@ -154,7 +178,15 @@ rollback:
 /**
  * Build EtherNet/IP List Identity request packet
  */
-static ptk_err build_list_identity_request(ptk_buf *buffer) { return build_list_identity_request_chained(buffer); }
+static ptk_err build_list_identity_request(ptk_buf *buffer) {
+    return ptk_buf_serialize(buffer, PTK_BUF_LITTLE_ENDIAN,
+                             (uint16_t)EIP_LIST_IDENTITY_CMD,  // Command
+                             (uint16_t)0,                      // Length
+                             (uint32_t)0,                      // Session Handle
+                             (uint32_t)0,                      // Status
+                             (uint64_t)0,                      // Sender Context
+                             (uint32_t)0);                     // Options
+}
 
 /**
  * Parse EtherNet/IP List Identity response
@@ -176,7 +208,8 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
     uint64_t sender_context;
     uint32_t options;
 
-    err = parse_eip_header_chained(buffer, &command, &length, &session_handle, &status, &sender_context, &options);
+    err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &command, &length, &session_handle, &status, &sender_context,
+                              &options);
     if(err != PTK_OK) { return err; }
 
     printf("Command: 0x%04X\n", command);
@@ -195,7 +228,7 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
     // Parse CPF (Common Packet Format) data if present
     if(length > 0) {
         uint16_t item_count;
-        err = ptk_buf_consume_u16_le(buffer, false, &item_count);
+        err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &item_count);
         if(err != PTK_OK) { return err; }
 
         printf("CPF Items: %u\n", item_count);
@@ -203,58 +236,99 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
         for(uint16_t i = 0; i < item_count; i++) {
             uint16_t type_id, item_length;
 
-            err = ptk_buf_consume_u16_le(buffer, false, &type_id);
-            if(err != PTK_OK) { return err; }
-            err = ptk_buf_consume_u16_le(buffer, false, &item_length);
+            err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &type_id, &item_length);
             if(err != PTK_OK) { return err; }
 
             printf("  Item %u: Type 0x%04X, Length %u\n", i + 1, type_id, item_length);
 
             if(type_id == CPF_TYPE_CIP_IDENTITY && item_length >= 34) {
-                // Parse CIP Identity data
+                // Parse CIP Identity data using type-safe deserialization
                 uint16_t vendor_id, device_type, product_code;
+                uint8_t major_rev, minor_rev;
                 uint16_t status_word;
                 uint32_t serial_number;
-                uint8_t major_rev, minor_rev, product_name_len;
 
-                err = ptk_buf_consume_u16_le(buffer, false, &vendor_id);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u16_le(buffer, false, &device_type);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u16_le(buffer, false, &product_code);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u8(buffer, false, &major_rev);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u8(buffer, false, &minor_rev);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u16_le(buffer, false, &status_word);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u32_le(buffer, false, &serial_number);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u8(buffer, false, &product_name_len);
-                if(err != PTK_OK) { break; }
+                // Deserialize the fixed-size fields using the new type-safe API
+                err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN,
+                                          &vendor_id,     // UINT (2 bytes) - Vendor ID
+                                          &device_type,   // UINT (2 bytes) - Device Type
+                                          &product_code,  // UINT (2 bytes) - Product Code
+                                          &major_rev,     // USINT (1 byte) - Major Revision
+                                          &minor_rev,     // USINT (1 byte) - Minor Revision
+                                          &status_word,   // WORD (2 bytes) - Status
+                                          &serial_number  // UDINT (4 bytes) - Serial Number
+                );
 
-                printf("    Vendor ID: 0x%04X\n", vendor_id);
-                printf("    Device Type: 0x%04X\n", device_type);
+                if(err != PTK_OK) {
+                    printf("    Error parsing identity data: %d\n", err);
+                    break;
+                }
+
+                // Display the decoded identity information
+                printf("    === Device Identity ===\n");
+                printf("    Vendor ID: 0x%04X", vendor_id);
+                const char *vendor_name = get_vendor_name(vendor_id);
+                if(vendor_name) { printf(" (%s)", vendor_name); }
+                printf("\n");
+
+                printf("    Device Type: 0x%04X", device_type);
+                const char *device_type_name = get_device_type_name(device_type);
+                if(device_type_name) { printf(" (%s)", device_type_name); }
+                printf("\n");
+
                 printf("    Product Code: 0x%04X\n", product_code);
                 printf("    Revision: %u.%u\n", major_rev, minor_rev);
-                printf("    Status: 0x%04X\n", status_word);
+
+                printf("    Status: 0x%04X", status_word);
+                decode_device_status(status_word);
+                printf("\n");
+
                 printf("    Serial Number: %u (0x%08X)\n", serial_number, serial_number);
 
-                if(product_name_len > 0 && product_name_len < 64) {
-                    char product_name[65] = {0};
-                    uint8_t *name_ptr = ptk_buf_get_start_ptr(buffer);
-                    size_t available = ptk_buf_len(buffer);
+                // Parse product name (SHORT_STRING) - it's located after socket address info
+                // The structure after the 14-byte identity is: SocketAddr(variable) + ProductName(SHORT_STRING)
+                size_t remaining_bytes = item_length - 14;  // 14 bytes for the fixed identity fields
 
-                    if(available >= product_name_len) {
-                        memcpy(product_name, name_ptr, product_name_len);
-                        product_name[product_name_len] = '\0';
-                        printf("    Product Name: %s\n", product_name);
+                // Search for the product name string in the remaining data
+                // Look for a length byte followed by printable ASCII characters
+                uint8_t *current_ptr = ptk_buf_get_start_ptr(buffer);
+                size_t available = ptk_buf_len(buffer);
+                bool found_name = false;
 
-                        // Skip past the product name
-                        size_t current_start = ptk_buf_get_start(buffer);
-                        ptk_buf_set_start(buffer, current_start + product_name_len);
+                for(size_t offset = 0; offset < available && offset < remaining_bytes; offset++) {
+                    uint8_t potential_len = current_ptr[offset];
+                    // Check for reasonable string length and sufficient remaining data
+                    if(potential_len > 0 && potential_len < 64 && (offset + potential_len + 1) <= available) {
+                        // Verify the following bytes look like printable ASCII
+                        bool looks_like_string = true;
+                        for(uint8_t i = 1; i <= potential_len; i++) {
+                            uint8_t c = current_ptr[offset + i];
+                            if(c < 0x20 || c > 0x7E) {
+                                looks_like_string = false;
+                                break;
+                            }
+                        }
+
+                        if(looks_like_string) {
+                            char product_name[65] = {0};
+                            memcpy(product_name, &current_ptr[offset + 1], potential_len);
+                            product_name[potential_len] = '\0';
+                            printf("    Product Name: \"%s\"\n", product_name);
+                            found_name = true;
+
+                            // Skip past the entire remaining data for this item
+                            size_t current_start = ptk_buf_get_start(buffer);
+                            ptk_buf_set_start(buffer, current_start + remaining_bytes);
+                            break;
+                        }
                     }
+                }
+
+                if(!found_name) {
+                    printf("    Product Name: <not found>\n");
+                    // Skip all remaining bytes for this item
+                    size_t current_start = ptk_buf_get_start(buffer);
+                    ptk_buf_set_start(buffer, current_start + remaining_bytes);
                 }
             } else if(type_id == CPF_TYPE_SOCKET_ADDR && item_length >= 16) {
                 // Parse Socket Address (network byte order)
@@ -262,16 +336,12 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
                 uint32_t sin_addr;
                 uint8_t padding[8];
 
-                err = ptk_buf_consume_u16_be(buffer, false, &sin_family);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u16_be(buffer, false, &sin_port);
-                if(err != PTK_OK) { break; }
-                err = ptk_buf_consume_u32_be(buffer, false, &sin_addr);
+                err = ptk_buf_deserialize(buffer, false, PTK_BUF_BIG_ENDIAN, &sin_family, &sin_port, &sin_addr);
                 if(err != PTK_OK) { break; }
 
                 // Skip 8 bytes of padding
                 for(int j = 0; j < 8; j++) {
-                    err = ptk_buf_consume_u8(buffer, false, &padding[j]);
+                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &padding[j]);
                     if(err != PTK_OK) { break; }
                 }
                 if(err != PTK_OK) { break; }

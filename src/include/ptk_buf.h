@@ -336,6 +336,16 @@ static inline u64 ptk_buf_byte_swap_u64(u64 value) {
     PTK_BUF_TYPE_OF(e), (e), \
     PTK_BUF_TYPE_OF(f), (f)
 
+// 7 arguments
+#define PTK_BUF_EXPAND_7(a, b, c, d, e, f, g) \
+    PTK_BUF_TYPE_OF(a), (a), \
+    PTK_BUF_TYPE_OF(b), (b), \
+    PTK_BUF_TYPE_OF(c), (c), \
+    PTK_BUF_TYPE_OF(d), (d), \
+    PTK_BUF_TYPE_OF(e), (e), \
+    PTK_BUF_TYPE_OF(f), (f), \
+    PTK_BUF_TYPE_OF(g), (g)
+
 // 8 arguments
 #define PTK_BUF_EXPAND_8(a, b, c, d, e, f, g, h) \
     PTK_BUF_TYPE_OF(a), (a), \
@@ -416,6 +426,27 @@ static inline u64 ptk_buf_byte_swap_u64(u64 value) {
     PTK_BUF_TYPE_OF_PTR(d), (d), \
     PTK_BUF_TYPE_OF_PTR(e), (e), \
     PTK_BUF_TYPE_OF_PTR(f), (f)
+
+// 7 pointers
+#define PTK_BUF_EXPAND_PTR_7(a, b, c, d, e, f, g) \
+    PTK_BUF_TYPE_OF_PTR(a), (a), \
+    PTK_BUF_TYPE_OF_PTR(b), (b), \
+    PTK_BUF_TYPE_OF_PTR(c), (c), \
+    PTK_BUF_TYPE_OF_PTR(d), (d), \
+    PTK_BUF_TYPE_OF_PTR(e), (e), \
+    PTK_BUF_TYPE_OF_PTR(f), (f), \
+    PTK_BUF_TYPE_OF_PTR(g), (g)
+
+// 8 pointers
+#define PTK_BUF_EXPAND_PTR_8(a, b, c, d, e, f, g, h) \
+    PTK_BUF_TYPE_OF_PTR(a), (a), \
+    PTK_BUF_TYPE_OF_PTR(b), (b), \
+    PTK_BUF_TYPE_OF_PTR(c), (c), \
+    PTK_BUF_TYPE_OF_PTR(d), (d), \
+    PTK_BUF_TYPE_OF_PTR(e), (e), \
+    PTK_BUF_TYPE_OF_PTR(f), (f), \
+    PTK_BUF_TYPE_OF_PTR(g), (g), \
+    PTK_BUF_TYPE_OF_PTR(h), (h)
 
 // Add more as needed...
 
