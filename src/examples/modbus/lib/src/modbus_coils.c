@@ -1,562 +1,424 @@
-#include "modbus_internal.h"
-#include <ptk_log.h>
+#include "../include/modbus.h"
 
 //=============================================================================
-// READ COILS REQUEST (0x01)
+// READ COILS (0x01) - REQUEST
 //=============================================================================
 
-ptk_err modbus_read_coils_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_coils_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_coils_req_t *req = (modbus_read_coils_req_t *)obj;
 
-    // Serialize in big-endian format (Modbus standard)
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, req->function_code, ptk_buf_byte_swap_u16(req->starting_address),
-                             ptk_buf_byte_swap_u16(req->quantity_of_coils));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->function_code, req->starting_address, req->quantity_of_coils);
 }
 
-ptk_err modbus_read_coils_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_coils_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_coils_req_t *req = (modbus_read_coils_req_t *)obj;
 
-    uint8_t function_code;
-    uint16_t starting_address, quantity_of_coils;
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &req->function_code, &req->starting_address,
+                               &req->quantity_of_coils);
+}
 
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &starting_address, &quantity_of_coils);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize read coils request");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    req->function_code = function_code;
-    req->starting_address = ptk_buf_byte_swap_u16(starting_address);
-    req->quantity_of_coils = ptk_buf_byte_swap_u16(quantity_of_coils);
-
-    if(req->function_code != MODBUS_FUNC_READ_COILS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", req->function_code, MODBUS_FUNC_READ_COILS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return modbus_validate_request_params(req->starting_address, req->quantity_of_coils, 0xFFFF,
-                                          2000);  // Max 2000 coils per spec
+static void modbus_read_coils_req_dispose(modbus_read_coils_req_t *req) {
+    // No special cleanup needed
+    (void)req;
 }
 
 modbus_read_coils_req_t *modbus_read_coils_req_create(void *parent) {
-    modbus_read_coils_req_t *req = ptk_alloc(parent, sizeof(modbus_read_coils_req_t), modbus_read_coils_req_destructor);
-    if(!req) {
-        error("Failed to allocate read coils request");
-        return NULL;
-    }
+    modbus_read_coils_req_t *req =
+        ptk_alloc(parent, sizeof(modbus_read_coils_req_t), (void (*)(void *))modbus_read_coils_req_dispose);
+    if(!req) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&req->base, MODBUS_READ_COILS_REQ_TYPE, modbus_read_coils_req_serialize,
-                         modbus_read_coils_req_deserialize);
-
-    // Initialize request fields
-    req->function_code = MODBUS_FUNC_READ_COILS;
+    modbus_pdu_base_init(&req->base, MODBUS_READ_COILS_REQ_TYPE);
+    req->base.buf_base.serialize = modbus_read_coils_req_serialize;
+    req->base.buf_base.deserialize = modbus_read_coils_req_deserialize;
+    req->function_code = MODBUS_FC_READ_COILS;
     req->starting_address = 0;
     req->quantity_of_coils = 0;
 
-    debug("Created read coils request");
     return req;
 }
 
-void modbus_read_coils_req_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying read coils request");
+ptk_err modbus_read_coils_req_send(modbus_connection *conn, modbus_read_coils_req_t *obj, ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
+
+    // Validate parameters
+    ptk_err err = modbus_validate_quantity(obj->quantity_of_coils, 2000);  // Max 2000 coils per spec
+    if(err != PTK_OK) { return err; }
+
+    err = modbus_validate_address_range(obj->starting_address, obj->quantity_of_coils, 0xFFFF);
+    if(err != PTK_OK) { return err; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// READ COILS RESPONSE (0x01)
+// READ COILS (0x01) - RESPONSE
 //=============================================================================
 
-ptk_err modbus_read_coils_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_coils_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_coils_resp_t *resp = (modbus_read_coils_resp_t *)obj;
 
-    // Serialize header
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, resp->function_code, resp->byte_count);
+    if(!modbus_bit_array_is_valid(resp->coil_status)) { return PTK_ERR_INVALID_PARAM; }
 
-    if(err != PTK_OK) {
-        error("Failed to serialize read coils response header");
-        return err;
-    }
+    uint8_t *bytes;
+    size_t byte_count;
+    ptk_err err = modbus_bit_array_to_bytes(resp->coil_status, &bytes, &byte_count);
+    if(err != PTK_OK) { return err; }
 
-    // Serialize coil status data
-    if(resp->coil_status && resp->byte_count > 0) {
-        for(size_t i = 0; i < resp->byte_count; i++) {
-            uint8_t byte_value;
-            err = modbus_byte_array_get(resp->coil_status, i, &byte_value);
-            if(err != PTK_OK) {
-                error("Failed to get coil status byte %zu", i);
-                return err;
-            }
+    // Serialize function code and byte count, then the coil data
+    err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, resp->function_code, (uint8_t)byte_count);
+    if(err != PTK_OK) { return err; }
 
-            err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, byte_value);
-            if(err != PTK_OK) {
-                error("Failed to serialize coil status byte %zu", i);
-                return err;
-            }
-        }
+    // Serialize the coil bytes directly
+    for(size_t i = 0; i < byte_count; i++) {
+        err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, bytes[i]);
+        if(err != PTK_OK) { return err; }
     }
 
     return PTK_OK;
 }
 
-ptk_err modbus_read_coils_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_coils_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_coils_resp_t *resp = (modbus_read_coils_resp_t *)obj;
 
-    uint8_t function_code, byte_count;
+    uint8_t byte_count;
+    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &resp->function_code, &byte_count);
+    if(err != PTK_OK) { return err; }
 
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &byte_count);
+    // Calculate number of bits based on existing coil_status array if present
+    size_t num_bits = resp->coil_status ? modbus_bit_array_len(resp->coil_status) : byte_count * 8;
 
-    if(err != PTK_OK) {
-        error("Failed to deserialize read coils response header");
-        return err;
-    }
+    // Read the coil bytes
+    uint8_t *bytes = ptk_alloc(NULL, byte_count, NULL);
+    if(!bytes) { return PTK_ERR_NO_RESOURCES; }
 
-    resp->function_code = function_code;
-    resp->byte_count = byte_count;
-
-    if(resp->function_code != MODBUS_FUNC_READ_COILS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", resp->function_code, MODBUS_FUNC_READ_COILS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Deserialize coil status data
-    if(resp->byte_count > 0) {
-        if(!resp->coil_status) {
-            error("Coil status array not initialized");
-            return PTK_ERR_INVALID_PARAM;
-        }
-
-        err = modbus_byte_array_resize(resp->coil_status, resp->byte_count);
+    for(size_t i = 0; i < byte_count; i++) {
+        err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &bytes[i]);
         if(err != PTK_OK) {
-            error("Failed to resize coil status array");
+            ptk_free(bytes);
             return err;
         }
+    }
 
-        for(size_t i = 0; i < resp->byte_count; i++) {
-            uint8_t byte_value;
-            err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &byte_value);
-            if(err != PTK_OK) {
-                error("Failed to deserialize coil status byte %zu", i);
-                return err;
-            }
-
-            err = modbus_byte_array_set(resp->coil_status, i, byte_value);
-            if(err != PTK_OK) {
-                error("Failed to set coil status byte %zu", i);
-                return err;
-            }
+    // Create or update bit array
+    if(!resp->coil_status) {
+        err = modbus_bit_array_from_bytes(resp, bytes, num_bits, &resp->coil_status);
+    } else {
+        // Update existing array
+        uint8_t *existing_bytes;
+        size_t existing_byte_count;
+        err = modbus_bit_array_to_bytes(resp->coil_status, &existing_bytes, &existing_byte_count);
+        if(err == PTK_OK && existing_byte_count >= byte_count) {
+            memcpy(existing_bytes, bytes, byte_count);
+        } else {
+            err = PTK_ERR_BUFFER_TOO_SMALL;
         }
     }
 
-    return PTK_OK;
+    ptk_free(bytes);
+    return err;
 }
 
-modbus_read_coils_resp_t *modbus_read_coils_resp_create(void *parent) {
-    modbus_read_coils_resp_t *resp = ptk_alloc(parent, sizeof(modbus_read_coils_resp_t), modbus_read_coils_resp_destructor);
-    if(!resp) {
-        error("Failed to allocate read coils response");
-        return NULL;
-    }
+static void modbus_read_coils_resp_dispose(modbus_read_coils_resp_t *resp) {
+    // coil_status will be freed automatically as child allocation
+    (void)resp;
+}
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&resp->base, MODBUS_READ_COILS_RESP_TYPE, modbus_read_coils_resp_serialize,
-                         modbus_read_coils_resp_deserialize);
+modbus_read_coils_resp_t *modbus_read_coils_resp_create(void *parent, size_t num_coils) {
+    if(num_coils == 0) { return NULL; }
 
-    // Initialize response fields
-    resp->function_code = MODBUS_FUNC_READ_COILS;
-    resp->byte_count = 0;
+    modbus_read_coils_resp_t *resp =
+        ptk_alloc(parent, sizeof(modbus_read_coils_resp_t), (void (*)(void *))modbus_read_coils_resp_dispose);
+    if(!resp) { return NULL; }
 
-    // Create coil status array as child
-    resp->coil_status = ptk_alloc(resp, sizeof(modbus_byte_array_t), NULL);
+    modbus_pdu_base_init(&resp->base, MODBUS_READ_COILS_RESP_TYPE);
+    resp->base.buf_base.serialize = modbus_read_coils_resp_serialize;
+    resp->base.buf_base.deserialize = modbus_read_coils_resp_deserialize;
+    resp->function_code = MODBUS_FC_READ_COILS;
+
+    resp->coil_status = modbus_bit_array_create(resp, num_coils);
     if(!resp->coil_status) {
-        error("Failed to allocate coil status array");
         ptk_free(resp);
         return NULL;
     }
 
-    // Initialize the array - we need to pass an allocator
-    // For now, we'll use NULL and handle this differently
-    resp->coil_status = NULL;  // Will be allocated when needed
-
-    debug("Created read coils response");
     return resp;
 }
 
-void modbus_read_coils_resp_destructor(void *ptr) {
-    if(!ptr) { return; }
+ptk_err modbus_read_coils_resp_send(modbus_connection *conn, modbus_read_coils_resp_t *obj, ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
 
-    modbus_read_coils_resp_t *resp = (modbus_read_coils_resp_t *)ptr;
-    debug("Destroying read coils response");
+    if(!modbus_bit_array_is_valid(obj->coil_status)) { return PTK_ERR_INVALID_PARAM; }
 
-    // Array cleanup is handled automatically by parent-child allocation
-    if(resp->coil_status) { modbus_byte_array_dispose(resp->coil_status); }
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// WRITE SINGLE COIL REQUEST (0x05)
+// WRITE SINGLE COIL (0x05) - REQUEST
 //=============================================================================
 
-ptk_err modbus_write_single_coil_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_coil_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_coil_req_t *req = (modbus_write_single_coil_req_t *)obj;
 
-    // Serialize in big-endian format
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, req->function_code, ptk_buf_byte_swap_u16(req->output_address),
-                             ptk_buf_byte_swap_u16(req->output_value));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->function_code, req->output_address, req->output_value);
 }
 
-ptk_err modbus_write_single_coil_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_coil_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_coil_req_t *req = (modbus_write_single_coil_req_t *)obj;
 
-    uint8_t function_code;
-    uint16_t output_address, output_value;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &output_address, &output_value);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write single coil request");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    req->function_code = function_code;
-    req->output_address = ptk_buf_byte_swap_u16(output_address);
-    req->output_value = ptk_buf_byte_swap_u16(output_value);
-
-    if(req->function_code != MODBUS_FUNC_WRITE_SINGLE_COIL) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", req->function_code, MODBUS_FUNC_WRITE_SINGLE_COIL);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Validate coil value (must be 0x0000 or 0xFF00)
-    if(req->output_value != 0x0000 && req->output_value != 0xFF00) {
-        error("Invalid coil value: 0x%04X (must be 0x0000 or 0xFF00)", req->output_value);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return PTK_OK;
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &req->function_code, &req->output_address, &req->output_value);
 }
+
+static void modbus_write_single_coil_req_dispose(modbus_write_single_coil_req_t *req) { (void)req; }
 
 modbus_write_single_coil_req_t *modbus_write_single_coil_req_create(void *parent) {
     modbus_write_single_coil_req_t *req =
-        ptk_alloc(parent, sizeof(modbus_write_single_coil_req_t), modbus_write_single_coil_req_destructor);
-    if(!req) {
-        error("Failed to allocate write single coil request");
-        return NULL;
-    }
+        ptk_alloc(parent, sizeof(modbus_write_single_coil_req_t), (void (*)(void *))modbus_write_single_coil_req_dispose);
+    if(!req) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&req->base, MODBUS_WRITE_SINGLE_COIL_REQ_TYPE, modbus_write_single_coil_req_serialize,
-                         modbus_write_single_coil_req_deserialize);
-
-    // Initialize request fields
-    req->function_code = MODBUS_FUNC_WRITE_SINGLE_COIL;
+    modbus_pdu_base_init(&req->base, MODBUS_WRITE_SINGLE_COIL_REQ_TYPE);
+    req->base.buf_base.serialize = modbus_write_single_coil_req_serialize;
+    req->base.buf_base.deserialize = modbus_write_single_coil_req_deserialize;
+    req->function_code = MODBUS_FC_WRITE_SINGLE_COIL;
     req->output_address = 0;
     req->output_value = 0x0000;  // OFF by default
 
-    debug("Created write single coil request");
     return req;
 }
 
-void modbus_write_single_coil_req_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying write single coil request");
+ptk_err modbus_write_single_coil_req_send(modbus_connection *conn, modbus_write_single_coil_req_t *obj,
+                                          ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
+
+    // Validate output value (must be 0x0000 or 0xFF00)
+    if(obj->output_value != 0x0000 && obj->output_value != 0xFF00) { return PTK_ERR_INVALID_PARAM; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// WRITE SINGLE COIL RESPONSE (0x05)
+// WRITE SINGLE COIL (0x05) - RESPONSE
 //=============================================================================
 
-ptk_err modbus_write_single_coil_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_coil_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_coil_resp_t *resp = (modbus_write_single_coil_resp_t *)obj;
 
-    // Response is identical to request format
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, resp->function_code, ptk_buf_byte_swap_u16(resp->output_address),
-                             ptk_buf_byte_swap_u16(resp->output_value));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, resp->function_code, resp->output_address, resp->output_value);
 }
 
-ptk_err modbus_write_single_coil_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_coil_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_coil_resp_t *resp = (modbus_write_single_coil_resp_t *)obj;
 
-    uint8_t function_code;
-    uint16_t output_address, output_value;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &output_address, &output_value);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write single coil response");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    resp->function_code = function_code;
-    resp->output_address = ptk_buf_byte_swap_u16(output_address);
-    resp->output_value = ptk_buf_byte_swap_u16(output_value);
-
-    if(resp->function_code != MODBUS_FUNC_WRITE_SINGLE_COIL) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", resp->function_code, MODBUS_FUNC_WRITE_SINGLE_COIL);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Validate coil value
-    if(resp->output_value != 0x0000 && resp->output_value != 0xFF00) {
-        error("Invalid coil value: 0x%04X (must be 0x0000 or 0xFF00)", resp->output_value);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return PTK_OK;
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &resp->function_code, &resp->output_address, &resp->output_value);
 }
+
+static void modbus_write_single_coil_resp_dispose(modbus_write_single_coil_resp_t *resp) { (void)resp; }
 
 modbus_write_single_coil_resp_t *modbus_write_single_coil_resp_create(void *parent) {
     modbus_write_single_coil_resp_t *resp =
-        ptk_alloc(parent, sizeof(modbus_write_single_coil_resp_t), modbus_write_single_coil_resp_destructor);
-    if(!resp) {
-        error("Failed to allocate write single coil response");
-        return NULL;
-    }
+        ptk_alloc(parent, sizeof(modbus_write_single_coil_resp_t), (void (*)(void *))modbus_write_single_coil_resp_dispose);
+    if(!resp) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_SINGLE_COIL_RESP_TYPE, modbus_write_single_coil_resp_serialize,
-                         modbus_write_single_coil_resp_deserialize);
-
-    // Initialize response fields
-    resp->function_code = MODBUS_FUNC_WRITE_SINGLE_COIL;
+    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_SINGLE_COIL_RESP_TYPE);
+    resp->base.buf_base.serialize = modbus_write_single_coil_resp_serialize;
+    resp->base.buf_base.deserialize = modbus_write_single_coil_resp_deserialize;
+    resp->function_code = MODBUS_FC_WRITE_SINGLE_COIL;
     resp->output_address = 0;
     resp->output_value = 0x0000;
 
-    debug("Created write single coil response");
     return resp;
 }
 
-void modbus_write_single_coil_resp_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying write single coil response");
-}
+ptk_err modbus_write_single_coil_resp_send(modbus_connection *conn, modbus_write_single_coil_resp_t *obj,
+                                           ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
 
-//=============================================================================
-// WRITE MULTIPLE COILS REQUEST (0x0F)
-//=============================================================================
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
 
-ptk_err modbus_write_multiple_coils_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
-    modbus_write_multiple_coils_req_t *req = (modbus_write_multiple_coils_req_t *)obj;
-
-    // Serialize header
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, req->function_code, ptk_buf_byte_swap_u16(req->starting_address),
-                                    ptk_buf_byte_swap_u16(req->quantity_of_outputs), req->byte_count);
-
-    if(err != PTK_OK) {
-        error("Failed to serialize write multiple coils request header");
-        return err;
-    }
-
-    // Serialize output values
-    if(req->output_values && req->byte_count > 0) {
-        for(size_t i = 0; i < req->byte_count; i++) {
-            uint8_t byte_value;
-            err = modbus_byte_array_get(req->output_values, i, &byte_value);
-            if(err != PTK_OK) {
-                error("Failed to get output value byte %zu", i);
-                return err;
-            }
-
-            err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, byte_value);
-            if(err != PTK_OK) {
-                error("Failed to serialize output value byte %zu", i);
-                return err;
-            }
-        }
-    }
-
-    return PTK_OK;
-}
-
-ptk_err modbus_write_multiple_coils_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
-    modbus_write_multiple_coils_req_t *req = (modbus_write_multiple_coils_req_t *)obj;
-
-    uint8_t function_code, byte_count;
-    uint16_t starting_address, quantity_of_outputs;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &starting_address, &quantity_of_outputs,
-                                      &byte_count);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write multiple coils request header");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    req->function_code = function_code;
-    req->starting_address = ptk_buf_byte_swap_u16(starting_address);
-    req->quantity_of_outputs = ptk_buf_byte_swap_u16(quantity_of_outputs);
-    req->byte_count = byte_count;
-
-    if(req->function_code != MODBUS_FUNC_WRITE_MULTIPLE_COILS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", req->function_code, MODBUS_FUNC_WRITE_MULTIPLE_COILS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Validate parameters
-    err =
-        modbus_validate_request_params(req->starting_address, req->quantity_of_outputs, 0xFFFF, 1968);  // Max 1968 coils per spec
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
     if(err != PTK_OK) { return err; }
 
-    // Validate byte count
-    size_t expected_bytes = (req->quantity_of_outputs + 7) / 8;
-    if(req->byte_count != expected_bytes) {
-        error("Invalid byte count: %u (expected %zu)", req->byte_count, expected_bytes);
-        return PTK_ERR_INVALID_PARAM;
-    }
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
+}
 
-    // Deserialize output values
-    if(req->byte_count > 0) {
-        if(!req->output_values) {
-            error("Output values array not initialized");
-            return PTK_ERR_INVALID_PARAM;
-        }
+//=============================================================================
+// WRITE MULTIPLE COILS (0x0F) - REQUEST
+//=============================================================================
 
-        err = modbus_byte_array_resize(req->output_values, req->byte_count);
-        if(err != PTK_OK) {
-            error("Failed to resize output values array");
-            return err;
-        }
+static ptk_err modbus_write_multiple_coils_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    modbus_write_multiple_coils_req_t *req = (modbus_write_multiple_coils_req_t *)obj;
 
-        for(size_t i = 0; i < req->byte_count; i++) {
-            uint8_t byte_value;
-            err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &byte_value);
-            if(err != PTK_OK) {
-                error("Failed to deserialize output value byte %zu", i);
-                return err;
-            }
+    if(!modbus_bit_array_is_valid(req->output_values)) { return PTK_ERR_INVALID_PARAM; }
 
-            err = modbus_byte_array_set(req->output_values, i, byte_value);
-            if(err != PTK_OK) {
-                error("Failed to set output value byte %zu", i);
-                return err;
-            }
-        }
+    uint16_t quantity = (uint16_t)modbus_bit_array_len(req->output_values);
+    uint8_t *bytes;
+    size_t byte_count;
+    ptk_err err = modbus_bit_array_to_bytes(req->output_values, &bytes, &byte_count);
+    if(err != PTK_OK) { return err; }
+
+    // Serialize function code, address, quantity, byte count
+    err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->function_code, req->starting_address, quantity, (uint8_t)byte_count);
+    if(err != PTK_OK) { return err; }
+
+    // Serialize the coil bytes
+    for(size_t i = 0; i < byte_count; i++) {
+        err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, bytes[i]);
+        if(err != PTK_OK) { return err; }
     }
 
     return PTK_OK;
 }
 
-modbus_write_multiple_coils_req_t *modbus_write_multiple_coils_req_create(void *parent) {
+static ptk_err modbus_write_multiple_coils_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    modbus_write_multiple_coils_req_t *req = (modbus_write_multiple_coils_req_t *)obj;
+
+    uint16_t quantity;
+    uint8_t byte_count;
+    ptk_err err =
+        ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &req->function_code, &req->starting_address, &quantity, &byte_count);
+    if(err != PTK_OK) { return err; }
+
+    // Read the coil bytes
+    uint8_t *bytes = ptk_alloc(NULL, byte_count, NULL);
+    if(!bytes) { return PTK_ERR_NO_RESOURCES; }
+
+    for(size_t i = 0; i < byte_count; i++) {
+        err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &bytes[i]);
+        if(err != PTK_OK) {
+            ptk_free(bytes);
+            return err;
+        }
+    }
+
+    // Create bit array from received data
+    err = modbus_bit_array_from_bytes(req, bytes, quantity, &req->output_values);
+    ptk_free(bytes);
+
+    return err;
+}
+
+static void modbus_write_multiple_coils_req_dispose(modbus_write_multiple_coils_req_t *req) { (void)req; }
+
+modbus_write_multiple_coils_req_t *modbus_write_multiple_coils_req_create(void *parent, size_t num_coils) {
+    if(num_coils == 0) { return NULL; }
+
     modbus_write_multiple_coils_req_t *req =
-        ptk_alloc(parent, sizeof(modbus_write_multiple_coils_req_t), modbus_write_multiple_coils_req_destructor);
-    if(!req) {
-        error("Failed to allocate write multiple coils request");
+        ptk_alloc(parent, sizeof(modbus_write_multiple_coils_req_t), (void (*)(void *))modbus_write_multiple_coils_req_dispose);
+    if(!req) { return NULL; }
+
+    modbus_pdu_base_init(&req->base, MODBUS_WRITE_MULTIPLE_COILS_REQ_TYPE);
+    req->base.buf_base.serialize = modbus_write_multiple_coils_req_serialize;
+    req->base.buf_base.deserialize = modbus_write_multiple_coils_req_deserialize;
+    req->function_code = MODBUS_FC_WRITE_MULTIPLE_COILS;
+    req->starting_address = 0;
+
+    req->output_values = modbus_bit_array_create(req, num_coils);
+    if(!req->output_values) {
+        ptk_free(req);
         return NULL;
     }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&req->base, MODBUS_WRITE_MULTIPLE_COILS_REQ_TYPE, modbus_write_multiple_coils_req_serialize,
-                         modbus_write_multiple_coils_req_deserialize);
-
-    // Initialize request fields
-    req->function_code = MODBUS_FUNC_WRITE_MULTIPLE_COILS;
-    req->starting_address = 0;
-    req->quantity_of_outputs = 0;
-    req->byte_count = 0;
-    req->output_values = NULL;  // Will be allocated when needed
-
-    debug("Created write multiple coils request");
     return req;
 }
 
-void modbus_write_multiple_coils_req_destructor(void *ptr) {
-    if(!ptr) { return; }
+ptk_err modbus_write_multiple_coils_req_send(modbus_connection *conn, modbus_write_multiple_coils_req_t *obj,
+                                             ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
 
-    modbus_write_multiple_coils_req_t *req = (modbus_write_multiple_coils_req_t *)ptr;
-    debug("Destroying write multiple coils request");
+    if(!modbus_bit_array_is_valid(obj->output_values)) { return PTK_ERR_INVALID_PARAM; }
 
-    // Array cleanup is handled automatically by parent-child allocation
-    if(req->output_values) { modbus_byte_array_dispose(req->output_values); }
+    size_t quantity = modbus_bit_array_len(obj->output_values);
+    ptk_err err = modbus_validate_quantity((uint16_t)quantity, 1968);  // Max 1968 coils per spec
+    if(err != PTK_OK) { return err; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// WRITE MULTIPLE COILS RESPONSE (0x0F)
+// WRITE MULTIPLE COILS (0x0F) - RESPONSE
 //=============================================================================
 
-ptk_err modbus_write_multiple_coils_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_multiple_coils_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_multiple_coils_resp_t *resp = (modbus_write_multiple_coils_resp_t *)obj;
 
-    // Serialize response (echo of request parameters)
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, resp->function_code, ptk_buf_byte_swap_u16(resp->starting_address),
-                             ptk_buf_byte_swap_u16(resp->quantity_of_outputs));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, resp->function_code, resp->starting_address, resp->quantity_of_outputs);
 }
 
-ptk_err modbus_write_multiple_coils_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_multiple_coils_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_multiple_coils_resp_t *resp = (modbus_write_multiple_coils_resp_t *)obj;
 
-    uint8_t function_code;
-    uint16_t starting_address, quantity_of_outputs;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &starting_address, &quantity_of_outputs);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write multiple coils response");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    resp->function_code = function_code;
-    resp->starting_address = ptk_buf_byte_swap_u16(starting_address);
-    resp->quantity_of_outputs = ptk_buf_byte_swap_u16(quantity_of_outputs);
-
-    if(resp->function_code != MODBUS_FUNC_WRITE_MULTIPLE_COILS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", resp->function_code, MODBUS_FUNC_WRITE_MULTIPLE_COILS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return modbus_validate_request_params(resp->starting_address, resp->quantity_of_outputs, 0xFFFF, 1968);
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &resp->function_code, &resp->starting_address,
+                               &resp->quantity_of_outputs);
 }
+
+static void modbus_write_multiple_coils_resp_dispose(modbus_write_multiple_coils_resp_t *resp) { (void)resp; }
 
 modbus_write_multiple_coils_resp_t *modbus_write_multiple_coils_resp_create(void *parent) {
     modbus_write_multiple_coils_resp_t *resp =
-        ptk_alloc(parent, sizeof(modbus_write_multiple_coils_resp_t), modbus_write_multiple_coils_resp_destructor);
-    if(!resp) {
-        error("Failed to allocate write multiple coils response");
-        return NULL;
-    }
+        ptk_alloc(parent, sizeof(modbus_write_multiple_coils_resp_t), (void (*)(void *))modbus_write_multiple_coils_resp_dispose);
+    if(!resp) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_MULTIPLE_COILS_RESP_TYPE, modbus_write_multiple_coils_resp_serialize,
-                         modbus_write_multiple_coils_resp_deserialize);
-
-    // Initialize response fields
-    resp->function_code = MODBUS_FUNC_WRITE_MULTIPLE_COILS;
+    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_MULTIPLE_COILS_RESP_TYPE);
+    resp->base.buf_base.serialize = modbus_write_multiple_coils_resp_serialize;
+    resp->base.buf_base.deserialize = modbus_write_multiple_coils_resp_deserialize;
+    resp->function_code = MODBUS_FC_WRITE_MULTIPLE_COILS;
     resp->starting_address = 0;
     resp->quantity_of_outputs = 0;
 
-    debug("Created write multiple coils response");
     return resp;
 }
 
-void modbus_write_multiple_coils_resp_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying write multiple coils response");
+ptk_err modbus_write_multiple_coils_resp_send(modbus_connection *conn, modbus_write_multiple_coils_resp_t *obj,
+                                              ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }

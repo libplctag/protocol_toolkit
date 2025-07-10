@@ -1,194 +1,170 @@
-#include "modbus_internal.h"
-#include <ptk_log.h>
+#include "../include/modbus.h"
 
 //=============================================================================
-// READ DISCRETE INPUTS REQUEST (0x02)
+// READ DISCRETE INPUTS (0x02) - REQUEST
 //=============================================================================
 
-ptk_err modbus_read_discrete_inputs_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_discrete_inputs_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_discrete_inputs_req_t *req = (modbus_read_discrete_inputs_req_t *)obj;
 
-    // Serialize in big-endian format (Modbus standard)
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, req->function_code, ptk_buf_byte_swap_u16(req->starting_address),
-                             ptk_buf_byte_swap_u16(req->quantity_of_inputs));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->function_code, req->starting_address, req->quantity_of_inputs);
 }
 
-ptk_err modbus_read_discrete_inputs_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_discrete_inputs_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_discrete_inputs_req_t *req = (modbus_read_discrete_inputs_req_t *)obj;
 
-    uint8_t function_code;
-    uint16_t starting_address, quantity_of_inputs;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &starting_address, &quantity_of_inputs);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize read discrete inputs request");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    req->function_code = function_code;
-    req->starting_address = ptk_buf_byte_swap_u16(starting_address);
-    req->quantity_of_inputs = ptk_buf_byte_swap_u16(quantity_of_inputs);
-
-    if(req->function_code != MODBUS_FUNC_READ_DISCRETE_INPUTS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", req->function_code, MODBUS_FUNC_READ_DISCRETE_INPUTS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return modbus_validate_request_params(req->starting_address, req->quantity_of_inputs, 0xFFFF,
-                                          2000);  // Max 2000 inputs per spec
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &req->function_code, &req->starting_address,
+                               &req->quantity_of_inputs);
 }
+
+static void modbus_read_discrete_inputs_req_dispose(modbus_read_discrete_inputs_req_t *req) { (void)req; }
 
 modbus_read_discrete_inputs_req_t *modbus_read_discrete_inputs_req_create(void *parent) {
     modbus_read_discrete_inputs_req_t *req =
-        ptk_alloc(parent, sizeof(modbus_read_discrete_inputs_req_t), modbus_read_discrete_inputs_req_destructor);
-    if(!req) {
-        error("Failed to allocate read discrete inputs request");
-        return NULL;
-    }
+        ptk_alloc(parent, sizeof(modbus_read_discrete_inputs_req_t), (void (*)(void *))modbus_read_discrete_inputs_req_dispose);
+    if(!req) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&req->base, MODBUS_READ_DISCRETE_INPUTS_REQ_TYPE, modbus_read_discrete_inputs_req_serialize,
-                         modbus_read_discrete_inputs_req_deserialize);
-
-    // Initialize request fields
-    req->function_code = MODBUS_FUNC_READ_DISCRETE_INPUTS;
+    modbus_pdu_base_init(&req->base, MODBUS_READ_DISCRETE_INPUTS_REQ_TYPE);
+    req->base.buf_base.serialize = modbus_read_discrete_inputs_req_serialize;
+    req->base.buf_base.deserialize = modbus_read_discrete_inputs_req_deserialize;
+    req->function_code = MODBUS_FC_READ_DISCRETE_INPUTS;
     req->starting_address = 0;
     req->quantity_of_inputs = 0;
 
-    debug("Created read discrete inputs request");
     return req;
 }
 
-void modbus_read_discrete_inputs_req_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying read discrete inputs request");
+ptk_err modbus_read_discrete_inputs_req_send(modbus_connection *conn, modbus_read_discrete_inputs_req_t *obj,
+                                             ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
+
+    // Validate parameters
+    ptk_err err = modbus_validate_quantity(obj->quantity_of_inputs, 2000);  // Max 2000 inputs per spec
+    if(err != PTK_OK) { return err; }
+
+    err = modbus_validate_address_range(obj->starting_address, obj->quantity_of_inputs, 0xFFFF);
+    if(err != PTK_OK) { return err; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// READ DISCRETE INPUTS RESPONSE (0x02)
+// READ DISCRETE INPUTS (0x02) - RESPONSE
 //=============================================================================
 
-ptk_err modbus_read_discrete_inputs_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_discrete_inputs_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_discrete_inputs_resp_t *resp = (modbus_read_discrete_inputs_resp_t *)obj;
 
-    // Serialize header
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, resp->function_code, resp->byte_count);
+    if(!modbus_bit_array_is_valid(resp->input_status)) { return PTK_ERR_INVALID_PARAM; }
 
-    if(err != PTK_OK) {
-        error("Failed to serialize read discrete inputs response header");
-        return err;
-    }
+    uint8_t *bytes;
+    size_t byte_count;
+    ptk_err err = modbus_bit_array_to_bytes(resp->input_status, &bytes, &byte_count);
+    if(err != PTK_OK) { return err; }
 
-    // Serialize input status data
-    if(resp->input_status && resp->byte_count > 0) {
-        for(size_t i = 0; i < resp->byte_count; i++) {
-            uint8_t byte_value;
-            err = modbus_byte_array_get(resp->input_status, i, &byte_value);
-            if(err != PTK_OK) {
-                error("Failed to get input status byte %zu", i);
-                return err;
-            }
+    // Serialize function code and byte count, then the input data
+    err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, resp->function_code, (uint8_t)byte_count);
+    if(err != PTK_OK) { return err; }
 
-            err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, byte_value);
-            if(err != PTK_OK) {
-                error("Failed to serialize input status byte %zu", i);
-                return err;
-            }
-        }
+    // Serialize the input bytes directly
+    for(size_t i = 0; i < byte_count; i++) {
+        err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, bytes[i]);
+        if(err != PTK_OK) { return err; }
     }
 
     return PTK_OK;
 }
 
-ptk_err modbus_read_discrete_inputs_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_discrete_inputs_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_discrete_inputs_resp_t *resp = (modbus_read_discrete_inputs_resp_t *)obj;
 
-    uint8_t function_code, byte_count;
+    uint8_t byte_count;
+    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &resp->function_code, &byte_count);
+    if(err != PTK_OK) { return err; }
 
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &byte_count);
+    // Calculate number of bits based on existing input_status array if present
+    size_t num_bits = resp->input_status ? modbus_bit_array_len(resp->input_status) : byte_count * 8;
 
-    if(err != PTK_OK) {
-        error("Failed to deserialize read discrete inputs response header");
-        return err;
-    }
+    // Read the input bytes
+    uint8_t *bytes = ptk_alloc(NULL, byte_count, NULL);
+    if(!bytes) { return PTK_ERR_NO_RESOURCES; }
 
-    resp->function_code = function_code;
-    resp->byte_count = byte_count;
-
-    if(resp->function_code != MODBUS_FUNC_READ_DISCRETE_INPUTS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", resp->function_code, MODBUS_FUNC_READ_DISCRETE_INPUTS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Deserialize input status data
-    if(resp->byte_count > 0) {
-        if(!resp->input_status) {
-            error("Input status array not initialized");
-            return PTK_ERR_INVALID_PARAM;
-        }
-
-        err = modbus_byte_array_resize(resp->input_status, resp->byte_count);
+    for(size_t i = 0; i < byte_count; i++) {
+        err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &bytes[i]);
         if(err != PTK_OK) {
-            error("Failed to resize input status array");
+            ptk_free(bytes);
             return err;
         }
+    }
 
-        for(size_t i = 0; i < resp->byte_count; i++) {
-            uint8_t byte_value;
-            err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &byte_value);
-            if(err != PTK_OK) {
-                error("Failed to deserialize input status byte %zu", i);
-                return err;
-            }
-
-            err = modbus_byte_array_set(resp->input_status, i, byte_value);
-            if(err != PTK_OK) {
-                error("Failed to set input status byte %zu", i);
-                return err;
-            }
+    // Create or update bit array
+    if(!resp->input_status) {
+        err = modbus_bit_array_from_bytes(resp, bytes, num_bits, &resp->input_status);
+    } else {
+        // Update existing array
+        uint8_t *existing_bytes;
+        size_t existing_byte_count;
+        err = modbus_bit_array_to_bytes(resp->input_status, &existing_bytes, &existing_byte_count);
+        if(err == PTK_OK && existing_byte_count >= byte_count) {
+            memcpy(existing_bytes, bytes, byte_count);
+        } else {
+            err = PTK_ERR_BUFFER_TOO_SMALL;
         }
     }
 
-    return PTK_OK;
+    ptk_free(bytes);
+    return err;
 }
 
-modbus_read_discrete_inputs_resp_t *modbus_read_discrete_inputs_resp_create(void *parent) {
+static void modbus_read_discrete_inputs_resp_dispose(modbus_read_discrete_inputs_resp_t *resp) {
+    // input_status will be freed automatically as child allocation
+    (void)resp;
+}
+
+modbus_read_discrete_inputs_resp_t *modbus_read_discrete_inputs_resp_create(void *parent, size_t num_inputs) {
+    if(num_inputs == 0) { return NULL; }
+
     modbus_read_discrete_inputs_resp_t *resp =
-        ptk_alloc(parent, sizeof(modbus_read_discrete_inputs_resp_t), modbus_read_discrete_inputs_resp_destructor);
-    if(!resp) {
-        error("Failed to allocate read discrete inputs response");
+        ptk_alloc(parent, sizeof(modbus_read_discrete_inputs_resp_t), (void (*)(void *))modbus_read_discrete_inputs_resp_dispose);
+    if(!resp) { return NULL; }
+
+    modbus_pdu_base_init(&resp->base, MODBUS_READ_DISCRETE_INPUTS_RESP_TYPE);
+    resp->base.buf_base.serialize = modbus_read_discrete_inputs_resp_serialize;
+    resp->base.buf_base.deserialize = modbus_read_discrete_inputs_resp_deserialize;
+    resp->function_code = MODBUS_FC_READ_DISCRETE_INPUTS;
+
+    resp->input_status = modbus_bit_array_create(resp, num_inputs);
+    if(!resp->input_status) {
+        ptk_free(resp);
         return NULL;
     }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&resp->base, MODBUS_READ_DISCRETE_INPUTS_RESP_TYPE, modbus_read_discrete_inputs_resp_serialize,
-                         modbus_read_discrete_inputs_resp_deserialize);
-
-    // Initialize response fields
-    resp->function_code = MODBUS_FUNC_READ_DISCRETE_INPUTS;
-    resp->byte_count = 0;
-    resp->input_status = NULL;  // Will be allocated when needed
-
-    debug("Created read discrete inputs response");
     return resp;
 }
 
-void modbus_read_discrete_inputs_resp_destructor(void *ptr) {
-    if(!ptr) { return; }
+ptk_err modbus_read_discrete_inputs_resp_send(modbus_connection *conn, modbus_read_discrete_inputs_resp_t *obj,
+                                              ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
 
-    modbus_read_discrete_inputs_resp_t *resp = (modbus_read_discrete_inputs_resp_t *)ptr;
-    debug("Destroying read discrete inputs response");
+    if(!modbus_bit_array_is_valid(obj->input_status)) { return PTK_ERR_INVALID_PARAM; }
 
-    // Array cleanup is handled automatically by parent-child allocation
-    if(resp->input_status) { modbus_byte_array_dispose(resp->input_status); }
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }

@@ -1,559 +1,414 @@
-#include "modbus_internal.h"
-#include <ptk_log.h>
+#include "../include/modbus.h"
 
 //=============================================================================
-// READ HOLDING REGISTERS REQUEST (0x03)
+// READ HOLDING REGISTERS (0x03) - REQUEST
 //=============================================================================
 
-ptk_err modbus_read_holding_registers_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_holding_registers_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_holding_registers_req_t *req = (modbus_read_holding_registers_req_t *)obj;
 
-    // Serialize in big-endian format (Modbus standard)
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, req->function_code, ptk_buf_byte_swap_u16(req->starting_address),
-                             ptk_buf_byte_swap_u16(req->quantity_of_registers));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->function_code, req->starting_address, req->quantity_of_registers);
 }
 
-ptk_err modbus_read_holding_registers_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_holding_registers_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_holding_registers_req_t *req = (modbus_read_holding_registers_req_t *)obj;
 
-    uint8_t function_code;
-    uint16_t starting_address, quantity_of_registers;
-
-    ptk_err err =
-        ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &starting_address, &quantity_of_registers);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize read holding registers request");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    req->function_code = function_code;
-    req->starting_address = ptk_buf_byte_swap_u16(starting_address);
-    req->quantity_of_registers = ptk_buf_byte_swap_u16(quantity_of_registers);
-
-    if(req->function_code != MODBUS_FUNC_READ_HOLDING_REGISTERS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", req->function_code, MODBUS_FUNC_READ_HOLDING_REGISTERS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return modbus_validate_request_params(req->starting_address, req->quantity_of_registers, 0xFFFF,
-                                          125);  // Max 125 registers per spec
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &req->function_code, &req->starting_address,
+                               &req->quantity_of_registers);
 }
+
+static void modbus_read_holding_registers_req_dispose(modbus_read_holding_registers_req_t *req) { (void)req; }
 
 modbus_read_holding_registers_req_t *modbus_read_holding_registers_req_create(void *parent) {
-    modbus_read_holding_registers_req_t *req =
-        ptk_alloc(parent, sizeof(modbus_read_holding_registers_req_t), modbus_read_holding_registers_req_destructor);
-    if(!req) {
-        error("Failed to allocate read holding registers request");
-        return NULL;
-    }
+    modbus_read_holding_registers_req_t *req = ptk_alloc(parent, sizeof(modbus_read_holding_registers_req_t),
+                                                         (void (*)(void *))modbus_read_holding_registers_req_dispose);
+    if(!req) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&req->base, MODBUS_READ_HOLDING_REGISTERS_REQ_TYPE, modbus_read_holding_registers_req_serialize,
-                         modbus_read_holding_registers_req_deserialize);
-
-    // Initialize request fields
-    req->function_code = MODBUS_FUNC_READ_HOLDING_REGISTERS;
+    modbus_pdu_base_init(&req->base, MODBUS_READ_HOLDING_REGISTERS_REQ_TYPE);
+    req->base.buf_base.serialize = modbus_read_holding_registers_req_serialize;
+    req->base.buf_base.deserialize = modbus_read_holding_registers_req_deserialize;
+    req->function_code = MODBUS_FC_READ_HOLDING_REGISTERS;
     req->starting_address = 0;
     req->quantity_of_registers = 0;
 
-    debug("Created read holding registers request");
     return req;
 }
 
-void modbus_read_holding_registers_req_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying read holding registers request");
+ptk_err modbus_read_holding_registers_req_send(modbus_connection *conn, modbus_read_holding_registers_req_t *obj,
+                                               ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
+
+    // Validate parameters
+    ptk_err err = modbus_validate_quantity(obj->quantity_of_registers, 125);  // Max 125 registers per spec
+    if(err != PTK_OK) { return err; }
+
+    err = modbus_validate_address_range(obj->starting_address, obj->quantity_of_registers, 0xFFFF);
+    if(err != PTK_OK) { return err; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// READ HOLDING REGISTERS RESPONSE (0x03)
+// READ HOLDING REGISTERS (0x03) - RESPONSE
 //=============================================================================
 
-ptk_err modbus_read_holding_registers_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_holding_registers_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_holding_registers_resp_t *resp = (modbus_read_holding_registers_resp_t *)obj;
 
-    // Serialize header
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, resp->function_code, resp->byte_count);
+    if(!modbus_register_array_is_valid(resp->register_values)) { return PTK_ERR_INVALID_PARAM; }
 
-    if(err != PTK_OK) {
-        error("Failed to serialize read holding registers response header");
-        return err;
-    }
+    size_t register_count = modbus_register_array_len(resp->register_values);
+    uint8_t byte_count = (uint8_t)(register_count * 2);
 
-    // Serialize register values (each register is 2 bytes, big-endian)
-    if(resp->register_values && resp->byte_count > 0) {
-        size_t num_registers = resp->byte_count / 2;
-        for(size_t i = 0; i < num_registers; i++) {
-            uint16_t register_value;
-            err = modbus_register_array_get(resp->register_values, i, &register_value);
-            if(err != PTK_OK) {
-                error("Failed to get register value %zu", i);
-                return err;
-            }
+    // Serialize function code and byte count
+    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, resp->function_code, byte_count);
+    if(err != PTK_OK) { return err; }
 
-            // Convert to big-endian and serialize
-            err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, ptk_buf_byte_swap_u16(register_value));
-            if(err != PTK_OK) {
-                error("Failed to serialize register value %zu", i);
-                return err;
-            }
-        }
+    // Serialize each register value (16-bit big-endian)
+    for(size_t i = 0; i < register_count; i++) {
+        uint16_t value;
+        err = modbus_register_array_get(resp->register_values, i, &value);
+        if(err != PTK_OK) { return err; }
+
+        err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, value);
+        if(err != PTK_OK) { return err; }
     }
 
     return PTK_OK;
 }
 
-ptk_err modbus_read_holding_registers_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_read_holding_registers_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_read_holding_registers_resp_t *resp = (modbus_read_holding_registers_resp_t *)obj;
 
-    uint8_t function_code, byte_count;
+    uint8_t byte_count;
+    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &resp->function_code, &byte_count);
+    if(err != PTK_OK) { return err; }
 
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &byte_count);
+    size_t register_count = byte_count / 2;
 
-    if(err != PTK_OK) {
-        error("Failed to deserialize read holding registers response header");
-        return err;
+    // Create register array if it doesn't exist
+    if(!resp->register_values) {
+        resp->register_values = modbus_register_array_create(register_count, NULL);
+        if(!resp->register_values) { return PTK_ERR_NO_RESOURCES; }
+    } else {
+        // Resize existing array if needed
+        err = modbus_register_array_resize(resp->register_values, register_count);
+        if(err != PTK_OK) { return err; }
     }
 
-    resp->function_code = function_code;
-    resp->byte_count = byte_count;
+    // Read register values
+    for(size_t i = 0; i < register_count; i++) {
+        uint16_t value;
+        err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &value);
+        if(err != PTK_OK) { return err; }
 
-    if(resp->function_code != MODBUS_FUNC_READ_HOLDING_REGISTERS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", resp->function_code, MODBUS_FUNC_READ_HOLDING_REGISTERS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Validate byte count (must be even for 16-bit registers)
-    if(resp->byte_count % 2 != 0) {
-        error("Invalid byte count: %u (must be even for 16-bit registers)", resp->byte_count);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Deserialize register values
-    if(resp->byte_count > 0) {
-        if(!resp->register_values) {
-            error("Register values array not initialized");
-            return PTK_ERR_INVALID_PARAM;
-        }
-
-        size_t num_registers = resp->byte_count / 2;
-        err = modbus_register_array_resize(resp->register_values, num_registers);
-        if(err != PTK_OK) {
-            error("Failed to resize register values array");
-            return err;
-        }
-
-        for(size_t i = 0; i < num_registers; i++) {
-            uint16_t register_value;
-            err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &register_value);
-            if(err != PTK_OK) {
-                error("Failed to deserialize register value %zu", i);
-                return err;
-            }
-
-            // Convert from big-endian
-            register_value = ptk_buf_byte_swap_u16(register_value);
-
-            err = modbus_register_array_set(resp->register_values, i, register_value);
-            if(err != PTK_OK) {
-                error("Failed to set register value %zu", i);
-                return err;
-            }
-        }
+        err = modbus_register_array_set(resp->register_values, i, value);
+        if(err != PTK_OK) { return err; }
     }
 
     return PTK_OK;
 }
 
-modbus_read_holding_registers_resp_t *modbus_read_holding_registers_resp_create(void *parent) {
-    modbus_read_holding_registers_resp_t *resp =
-        ptk_alloc(parent, sizeof(modbus_read_holding_registers_resp_t), modbus_read_holding_registers_resp_destructor);
-    if(!resp) {
-        error("Failed to allocate read holding registers response");
+static void modbus_read_holding_registers_resp_dispose(modbus_read_holding_registers_resp_t *resp) {
+    // register_values will be freed automatically as child allocation
+    (void)resp;
+}
+
+modbus_read_holding_registers_resp_t *modbus_read_holding_registers_resp_create(void *parent, size_t num_registers) {
+    if(num_registers == 0) { return NULL; }
+
+    modbus_read_holding_registers_resp_t *resp = ptk_alloc(parent, sizeof(modbus_read_holding_registers_resp_t),
+                                                           (void (*)(void *))modbus_read_holding_registers_resp_dispose);
+    if(!resp) { return NULL; }
+
+    modbus_pdu_base_init(&resp->base, MODBUS_READ_HOLDING_REGISTERS_RESP_TYPE);
+    resp->base.buf_base.serialize = modbus_read_holding_registers_resp_serialize;
+    resp->base.buf_base.deserialize = modbus_read_holding_registers_resp_deserialize;
+    resp->function_code = MODBUS_FC_READ_HOLDING_REGISTERS;
+
+    resp->register_values = modbus_register_array_create(num_registers, NULL);
+    if(!resp->register_values) {
+        ptk_free(resp);
         return NULL;
     }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&resp->base, MODBUS_READ_HOLDING_REGISTERS_RESP_TYPE, modbus_read_holding_registers_resp_serialize,
-                         modbus_read_holding_registers_resp_deserialize);
-
-    // Initialize response fields
-    resp->function_code = MODBUS_FUNC_READ_HOLDING_REGISTERS;
-    resp->byte_count = 0;
-    resp->register_values = NULL;  // Will be allocated when needed
-
-    debug("Created read holding registers response");
     return resp;
 }
 
-void modbus_read_holding_registers_resp_destructor(void *ptr) {
-    if(!ptr) { return; }
+ptk_err modbus_read_holding_registers_resp_send(modbus_connection *conn, modbus_read_holding_registers_resp_t *obj,
+                                                ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
 
-    modbus_read_holding_registers_resp_t *resp = (modbus_read_holding_registers_resp_t *)ptr;
-    debug("Destroying read holding registers response");
+    if(!modbus_register_array_is_valid(obj->register_values)) { return PTK_ERR_INVALID_PARAM; }
 
-    // Array cleanup is handled automatically by parent-child allocation
-    if(resp->register_values) { modbus_register_array_dispose(resp->register_values); }
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// WRITE SINGLE REGISTER REQUEST (0x06)
+// WRITE SINGLE REGISTER (0x06) - REQUEST
 //=============================================================================
 
-ptk_err modbus_write_single_register_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_register_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_register_req_t *req = (modbus_write_single_register_req_t *)obj;
 
-    // Serialize in big-endian format
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, req->function_code, ptk_buf_byte_swap_u16(req->register_address),
-                             ptk_buf_byte_swap_u16(req->register_value));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->function_code, req->register_address, req->register_value);
 }
 
-ptk_err modbus_write_single_register_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_register_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_register_req_t *req = (modbus_write_single_register_req_t *)obj;
 
-    uint8_t function_code;
-    uint16_t register_address, register_value;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &register_address, &register_value);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write single register request");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    req->function_code = function_code;
-    req->register_address = ptk_buf_byte_swap_u16(register_address);
-    req->register_value = ptk_buf_byte_swap_u16(register_value);
-
-    if(req->function_code != MODBUS_FUNC_WRITE_SINGLE_REGISTER) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", req->function_code, MODBUS_FUNC_WRITE_SINGLE_REGISTER);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return PTK_OK;
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &req->function_code, &req->register_address, &req->register_value);
 }
+
+static void modbus_write_single_register_req_dispose(modbus_write_single_register_req_t *req) { (void)req; }
 
 modbus_write_single_register_req_t *modbus_write_single_register_req_create(void *parent) {
     modbus_write_single_register_req_t *req =
-        ptk_alloc(parent, sizeof(modbus_write_single_register_req_t), modbus_write_single_register_req_destructor);
-    if(!req) {
-        error("Failed to allocate write single register request");
-        return NULL;
-    }
+        ptk_alloc(parent, sizeof(modbus_write_single_register_req_t), (void (*)(void *))modbus_write_single_register_req_dispose);
+    if(!req) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&req->base, MODBUS_WRITE_SINGLE_REGISTER_REQ_TYPE, modbus_write_single_register_req_serialize,
-                         modbus_write_single_register_req_deserialize);
-
-    // Initialize request fields
-    req->function_code = MODBUS_FUNC_WRITE_SINGLE_REGISTER;
+    modbus_pdu_base_init(&req->base, MODBUS_WRITE_SINGLE_REGISTER_REQ_TYPE);
+    req->base.buf_base.serialize = modbus_write_single_register_req_serialize;
+    req->base.buf_base.deserialize = modbus_write_single_register_req_deserialize;
+    req->function_code = MODBUS_FC_WRITE_SINGLE_REGISTER;
     req->register_address = 0;
     req->register_value = 0;
 
-    debug("Created write single register request");
     return req;
 }
 
-void modbus_write_single_register_req_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying write single register request");
+ptk_err modbus_write_single_register_req_send(modbus_connection *conn, modbus_write_single_register_req_t *obj,
+                                              ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// WRITE SINGLE REGISTER RESPONSE (0x06)
+// WRITE SINGLE REGISTER (0x06) - RESPONSE
 //=============================================================================
 
-ptk_err modbus_write_single_register_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_register_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_register_resp_t *resp = (modbus_write_single_register_resp_t *)obj;
 
-    // Response is identical to request format (echo)
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, resp->function_code, ptk_buf_byte_swap_u16(resp->register_address),
-                             ptk_buf_byte_swap_u16(resp->register_value));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, resp->function_code, resp->register_address, resp->register_value);
 }
 
-ptk_err modbus_write_single_register_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_single_register_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_single_register_resp_t *resp = (modbus_write_single_register_resp_t *)obj;
 
-    uint8_t function_code;
-    uint16_t register_address, register_value;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &register_address, &register_value);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write single register response");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    resp->function_code = function_code;
-    resp->register_address = ptk_buf_byte_swap_u16(register_address);
-    resp->register_value = ptk_buf_byte_swap_u16(register_value);
-
-    if(resp->function_code != MODBUS_FUNC_WRITE_SINGLE_REGISTER) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", resp->function_code, MODBUS_FUNC_WRITE_SINGLE_REGISTER);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return PTK_OK;
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &resp->function_code, &resp->register_address,
+                               &resp->register_value);
 }
+
+static void modbus_write_single_register_resp_dispose(modbus_write_single_register_resp_t *resp) { (void)resp; }
 
 modbus_write_single_register_resp_t *modbus_write_single_register_resp_create(void *parent) {
-    modbus_write_single_register_resp_t *resp =
-        ptk_alloc(parent, sizeof(modbus_write_single_register_resp_t), modbus_write_single_register_resp_destructor);
-    if(!resp) {
-        error("Failed to allocate write single register response");
-        return NULL;
-    }
+    modbus_write_single_register_resp_t *resp = ptk_alloc(parent, sizeof(modbus_write_single_register_resp_t),
+                                                          (void (*)(void *))modbus_write_single_register_resp_dispose);
+    if(!resp) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_SINGLE_REGISTER_RESP_TYPE, modbus_write_single_register_resp_serialize,
-                         modbus_write_single_register_resp_deserialize);
-
-    // Initialize response fields
-    resp->function_code = MODBUS_FUNC_WRITE_SINGLE_REGISTER;
+    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_SINGLE_REGISTER_RESP_TYPE);
+    resp->base.buf_base.serialize = modbus_write_single_register_resp_serialize;
+    resp->base.buf_base.deserialize = modbus_write_single_register_resp_deserialize;
+    resp->function_code = MODBUS_FC_WRITE_SINGLE_REGISTER;
     resp->register_address = 0;
     resp->register_value = 0;
 
-    debug("Created write single register response");
     return resp;
 }
 
-void modbus_write_single_register_resp_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying write single register response");
-}
+ptk_err modbus_write_single_register_resp_send(modbus_connection *conn, modbus_write_single_register_resp_t *obj,
+                                               ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
 
-//=============================================================================
-// WRITE MULTIPLE REGISTERS REQUEST (0x10)
-//=============================================================================
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
 
-ptk_err modbus_write_multiple_registers_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
-    modbus_write_multiple_registers_req_t *req = (modbus_write_multiple_registers_req_t *)obj;
-
-    // Serialize header
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, req->function_code, ptk_buf_byte_swap_u16(req->starting_address),
-                                    ptk_buf_byte_swap_u16(req->quantity_of_registers), req->byte_count);
-
-    if(err != PTK_OK) {
-        error("Failed to serialize write multiple registers request header");
-        return err;
-    }
-
-    // Serialize register values (each register is 2 bytes, big-endian)
-    if(req->register_values && req->quantity_of_registers > 0) {
-        for(size_t i = 0; i < req->quantity_of_registers; i++) {
-            uint16_t register_value;
-            err = modbus_register_array_get(req->register_values, i, &register_value);
-            if(err != PTK_OK) {
-                error("Failed to get register value %zu", i);
-                return err;
-            }
-
-            // Convert to big-endian and serialize
-            err = ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, ptk_buf_byte_swap_u16(register_value));
-            if(err != PTK_OK) {
-                error("Failed to serialize register value %zu", i);
-                return err;
-            }
-        }
-    }
-
-    return PTK_OK;
-}
-
-ptk_err modbus_write_multiple_registers_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
-    modbus_write_multiple_registers_req_t *req = (modbus_write_multiple_registers_req_t *)obj;
-
-    uint8_t function_code, byte_count;
-    uint16_t starting_address, quantity_of_registers;
-
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &starting_address,
-                                      &quantity_of_registers, &byte_count);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write multiple registers request header");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    req->function_code = function_code;
-    req->starting_address = ptk_buf_byte_swap_u16(starting_address);
-    req->quantity_of_registers = ptk_buf_byte_swap_u16(quantity_of_registers);
-    req->byte_count = byte_count;
-
-    if(req->function_code != MODBUS_FUNC_WRITE_MULTIPLE_REGISTERS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", req->function_code, MODBUS_FUNC_WRITE_MULTIPLE_REGISTERS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Validate parameters
-    err = modbus_validate_request_params(req->starting_address, req->quantity_of_registers, 0xFFFF,
-                                         123);  // Max 123 registers per spec
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
     if(err != PTK_OK) { return err; }
 
-    // Validate byte count
-    size_t expected_bytes = req->quantity_of_registers * 2;
-    if(req->byte_count != expected_bytes) {
-        error("Invalid byte count: %u (expected %zu)", req->byte_count, expected_bytes);
-        return PTK_ERR_INVALID_PARAM;
-    }
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
+}
 
-    // Deserialize register values
-    if(req->quantity_of_registers > 0) {
-        if(!req->register_values) {
-            error("Register values array not initialized");
-            return PTK_ERR_INVALID_PARAM;
-        }
+//=============================================================================
+// WRITE MULTIPLE REGISTERS (0x10) - REQUEST
+//=============================================================================
 
-        err = modbus_register_array_resize(req->register_values, req->quantity_of_registers);
-        if(err != PTK_OK) {
-            error("Failed to resize register values array");
-            return err;
-        }
+static ptk_err modbus_write_multiple_registers_req_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    modbus_write_multiple_registers_req_t *req = (modbus_write_multiple_registers_req_t *)obj;
 
-        for(size_t i = 0; i < req->quantity_of_registers; i++) {
-            uint16_t register_value;
-            err = ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &register_value);
-            if(err != PTK_OK) {
-                error("Failed to deserialize register value %zu", i);
-                return err;
-            }
+    if(!modbus_register_array_is_valid(req->register_values)) { return PTK_ERR_INVALID_PARAM; }
 
-            // Convert from big-endian
-            register_value = ptk_buf_byte_swap_u16(register_value);
+    size_t register_count = modbus_register_array_len(req->register_values);
+    uint16_t quantity = (uint16_t)register_count;
+    uint8_t byte_count = (uint8_t)(register_count * 2);
 
-            err = modbus_register_array_set(req->register_values, i, register_value);
-            if(err != PTK_OK) {
-                error("Failed to set register value %zu", i);
-                return err;
-            }
-        }
+    // Serialize function code, address, quantity, byte count
+    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->function_code, req->starting_address, quantity, byte_count);
+    if(err != PTK_OK) { return err; }
+
+    // Serialize the register values
+    for(size_t i = 0; i < register_count; i++) {
+        uint16_t value;
+        err = modbus_register_array_get(req->register_values, i, &value);
+        if(err != PTK_OK) { return err; }
+
+        err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, value);
+        if(err != PTK_OK) { return err; }
     }
 
     return PTK_OK;
 }
 
-modbus_write_multiple_registers_req_t *modbus_write_multiple_registers_req_create(void *parent) {
-    modbus_write_multiple_registers_req_t *req =
-        ptk_alloc(parent, sizeof(modbus_write_multiple_registers_req_t), modbus_write_multiple_registers_req_destructor);
-    if(!req) {
-        error("Failed to allocate write multiple registers request");
+static ptk_err modbus_write_multiple_registers_req_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    modbus_write_multiple_registers_req_t *req = (modbus_write_multiple_registers_req_t *)obj;
+
+    uint16_t quantity;
+    uint8_t byte_count;
+    ptk_err err =
+        ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &req->function_code, &req->starting_address, &quantity, &byte_count);
+    if(err != PTK_OK) { return err; }
+
+    // Create register array
+    req->register_values = modbus_register_array_create(quantity, NULL);
+    if(!req->register_values) { return PTK_ERR_NO_RESOURCES; }
+
+    // Read register values
+    for(size_t i = 0; i < quantity; i++) {
+        uint16_t value;
+        err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &value);
+        if(err != PTK_OK) { return err; }
+
+        err = modbus_register_array_set(req->register_values, i, value);
+        if(err != PTK_OK) { return err; }
+    }
+
+    return PTK_OK;
+}
+
+static void modbus_write_multiple_registers_req_dispose(modbus_write_multiple_registers_req_t *req) { (void)req; }
+
+modbus_write_multiple_registers_req_t *modbus_write_multiple_registers_req_create(void *parent, size_t num_registers) {
+    if(num_registers == 0) { return NULL; }
+
+    modbus_write_multiple_registers_req_t *req = ptk_alloc(parent, sizeof(modbus_write_multiple_registers_req_t),
+                                                           (void (*)(void *))modbus_write_multiple_registers_req_dispose);
+    if(!req) { return NULL; }
+
+    modbus_pdu_base_init(&req->base, MODBUS_WRITE_MULTIPLE_REGISTERS_REQ_TYPE);
+    req->base.buf_base.serialize = modbus_write_multiple_registers_req_serialize;
+    req->base.buf_base.deserialize = modbus_write_multiple_registers_req_deserialize;
+    req->function_code = MODBUS_FC_WRITE_MULTIPLE_REGISTERS;
+    req->starting_address = 0;
+
+    req->register_values = modbus_register_array_create(num_registers, NULL);
+    if(!req->register_values) {
+        ptk_free(req);
         return NULL;
     }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&req->base, MODBUS_WRITE_MULTIPLE_REGISTERS_REQ_TYPE, modbus_write_multiple_registers_req_serialize,
-                         modbus_write_multiple_registers_req_deserialize);
-
-    // Initialize request fields
-    req->function_code = MODBUS_FUNC_WRITE_MULTIPLE_REGISTERS;
-    req->starting_address = 0;
-    req->quantity_of_registers = 0;
-    req->byte_count = 0;
-    req->register_values = NULL;  // Will be allocated when needed
-
-    debug("Created write multiple registers request");
     return req;
 }
 
-void modbus_write_multiple_registers_req_destructor(void *ptr) {
-    if(!ptr) { return; }
+ptk_err modbus_write_multiple_registers_req_send(modbus_connection *conn, modbus_write_multiple_registers_req_t *obj,
+                                                 ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
 
-    modbus_write_multiple_registers_req_t *req = (modbus_write_multiple_registers_req_t *)ptr;
-    debug("Destroying write multiple registers request");
+    if(!modbus_register_array_is_valid(obj->register_values)) { return PTK_ERR_INVALID_PARAM; }
 
-    // Array cleanup is handled automatically by parent-child allocation
-    if(req->register_values) { modbus_register_array_dispose(req->register_values); }
+    size_t quantity = modbus_register_array_len(obj->register_values);
+    ptk_err err = modbus_validate_quantity((uint16_t)quantity, 123);  // Max 123 registers per spec
+    if(err != PTK_OK) { return err; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
 
 //=============================================================================
-// WRITE MULTIPLE REGISTERS RESPONSE (0x10)
+// WRITE MULTIPLE REGISTERS (0x10) - RESPONSE
 //=============================================================================
 
-ptk_err modbus_write_multiple_registers_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_multiple_registers_resp_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_multiple_registers_resp_t *resp = (modbus_write_multiple_registers_resp_t *)obj;
 
-    // Serialize response (echo of request parameters)
-    return ptk_buf_serialize(buf, PTK_BUF_NATIVE_ENDIAN, resp->function_code, ptk_buf_byte_swap_u16(resp->starting_address),
-                             ptk_buf_byte_swap_u16(resp->quantity_of_registers));
+    return ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, resp->function_code, resp->starting_address, resp->quantity_of_registers);
 }
 
-ptk_err modbus_write_multiple_registers_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
-    if(!buf || !obj) { return PTK_ERR_NULL_PTR; }
-
+static ptk_err modbus_write_multiple_registers_resp_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     modbus_write_multiple_registers_resp_t *resp = (modbus_write_multiple_registers_resp_t *)obj;
 
-    uint8_t function_code;
-    uint16_t starting_address, quantity_of_registers;
-
-    ptk_err err =
-        ptk_buf_deserialize(buf, false, PTK_BUF_NATIVE_ENDIAN, &function_code, &starting_address, &quantity_of_registers);
-
-    if(err != PTK_OK) {
-        error("Failed to deserialize write multiple registers response");
-        return err;
-    }
-
-    // Convert from big-endian and validate
-    resp->function_code = function_code;
-    resp->starting_address = ptk_buf_byte_swap_u16(starting_address);
-    resp->quantity_of_registers = ptk_buf_byte_swap_u16(quantity_of_registers);
-
-    if(resp->function_code != MODBUS_FUNC_WRITE_MULTIPLE_REGISTERS) {
-        error("Invalid function code: 0x%02X (expected 0x%02X)", resp->function_code, MODBUS_FUNC_WRITE_MULTIPLE_REGISTERS);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    return modbus_validate_request_params(resp->starting_address, resp->quantity_of_registers, 0xFFFF, 123);
+    return ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN, &resp->function_code, &resp->starting_address,
+                               &resp->quantity_of_registers);
 }
+
+static void modbus_write_multiple_registers_resp_dispose(modbus_write_multiple_registers_resp_t *resp) { (void)resp; }
 
 modbus_write_multiple_registers_resp_t *modbus_write_multiple_registers_resp_create(void *parent) {
-    modbus_write_multiple_registers_resp_t *resp =
-        ptk_alloc(parent, sizeof(modbus_write_multiple_registers_resp_t), modbus_write_multiple_registers_resp_destructor);
-    if(!resp) {
-        error("Failed to allocate write multiple registers response");
-        return NULL;
-    }
+    modbus_write_multiple_registers_resp_t *resp = ptk_alloc(parent, sizeof(modbus_write_multiple_registers_resp_t),
+                                                             (void (*)(void *))modbus_write_multiple_registers_resp_dispose);
+    if(!resp) { return NULL; }
 
-    // Initialize the base structure
-    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_MULTIPLE_REGISTERS_RESP_TYPE, modbus_write_multiple_registers_resp_serialize,
-                         modbus_write_multiple_registers_resp_deserialize);
-
-    // Initialize response fields
-    resp->function_code = MODBUS_FUNC_WRITE_MULTIPLE_REGISTERS;
+    modbus_pdu_base_init(&resp->base, MODBUS_WRITE_MULTIPLE_REGISTERS_RESP_TYPE);
+    resp->base.buf_base.serialize = modbus_write_multiple_registers_resp_serialize;
+    resp->base.buf_base.deserialize = modbus_write_multiple_registers_resp_deserialize;
+    resp->function_code = MODBUS_FC_WRITE_MULTIPLE_REGISTERS;
     resp->starting_address = 0;
     resp->quantity_of_registers = 0;
 
-    debug("Created write multiple registers response");
     return resp;
 }
 
-void modbus_write_multiple_registers_resp_destructor(void *ptr) {
-    if(!ptr) { return; }
-    debug("Destroying write multiple registers response");
+ptk_err modbus_write_multiple_registers_resp_send(modbus_connection *conn, modbus_write_multiple_registers_resp_t *obj,
+                                                  ptk_duration_ms timeout_ms) {
+    if(!conn || !obj) { return PTK_ERR_NULL_PTR; }
+
+    // Serialize to connection's TX buffer
+    ptk_buf_set_start(conn->tx_buffer, 0);
+    ptk_buf_set_end(conn->tx_buffer, 0);
+
+    ptk_err err = obj->base.buf_base.serialize(conn->tx_buffer, &obj->base.buf_base);
+    if(err != PTK_OK) { return err; }
+
+    // TODO: Send via socket when transport layer is implemented
+    (void)timeout_ms;
+    return PTK_ERR_UNSUPPORTED;
 }
