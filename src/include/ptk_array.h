@@ -30,14 +30,13 @@
  * @param PREFIX Name prefix for the array type and functions
  * @param T Element type for the array
  *
- * Creates public functions:
+ * Creates public definitions:
  * - PREFIX_array_t struct type
  * - PREFIX_array_create() function
  * - PREFIX_array_resize() function
  * - PREFIX_array_append() function
  * - PREFIX_array_get() function
  * - PREFIX_array_set() function
- * - PREFIX_array_clear() function
  * - PREFIX_array_copy() function
  */
 #define PTK_ARRAY_DECLARE(PREFIX, T) \
@@ -54,8 +53,6 @@
                 arr->element_destructor(&arr->elements[i]); \
             } \
         } \
-        /* This works because the element array is a child of the array struct. */ \
-        ptk_free(arr); \
     } \
     \
     static inline PREFIX##_array_t * PREFIX##_array_create(size_t initial_size, void (*element_destructor)(T *element)) { \
