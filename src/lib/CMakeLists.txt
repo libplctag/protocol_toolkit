@@ -10,8 +10,8 @@ add_library(protocol_toolkit
     # ptk_codec.c
     ptk_err.c
     ptk_log.c
-    ptk_socket.c
-    ptk_thread.c
+    # ptk_socket.c  # Temporarily disabled - uses old allocator
+    # ptk_thread.c  # Temporarily disabled - uses old allocator
     ptk_utils.c
 )
 

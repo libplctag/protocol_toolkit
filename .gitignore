@@ -16,3 +16,6 @@ build
 venv
 __pycache__
 .vscode
+external_docs
+copilot
+claude

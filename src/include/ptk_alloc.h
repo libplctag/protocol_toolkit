@@ -2,10 +2,88 @@
 
 /**
  * @file ptk_alloc.h
- * @brief Pluggable allocator interface for protocol toolkit
+ * @brief Parent-Child Memory Allocation System for Protocol Toolkit
  *
- * Provides a v-table based allocator interface enabling custom memory management
- * strategies including arena allocation, pool allocation, and debug tracking.
+ * This module provides a hierarchical memory management system where allocations
+ * can be organized into parent-child relationships. This enables automatic cleanup
+ * of related resources and provides robust debug tracking.
+ *
+ * ## Key Features
+ *
+ * - **Parent-Child Relationships**: Allocations can be organized hierarchically
+ * - **Automatic Cleanup**: Freeing a parent automatically frees all its children
+ * - **LIFO Destruction**: Children are freed in reverse order of addition
+ * - **Debug Tracking**: All allocations track file/line information
+ * - **Destructors**: Optional cleanup functions for custom resource management
+ * - **Minimal Overhead**: 44 bytes per allocation for metadata
+ * - **Memory Alignment**: All allocations are rounded up to 16-byte alignment
+ *
+ * ## Basic Usage
+ *
+ * ```c
+ * // Create a parent allocation
+ * void *parent = ptk_alloc(NULL, 1024, NULL);
+ *
+ * // Create children - they will be automatically freed when parent is freed
+ * void *child1 = ptk_alloc(parent, 256, NULL);
+ * void *child2 = ptk_alloc(parent, 512, my_destructor);
+ *
+ * // Add an existing allocation as a child
+ * void *existing = ptk_alloc(NULL, 128, NULL);
+ * ptk_add_child(parent, existing);
+ *
+ * // Free parent - automatically frees child1, child2, and existing
+ * ptk_free(parent);
+ * ```
+ *
+ * ## Parent-Child Semantics
+ *
+ * - **Parent Allocation**: Created with `ptk_alloc(NULL, size, destructor)`
+ * - **Child Allocation**: Created with `ptk_alloc(parent, size, destructor)`
+ * - **Adding Children**: Use `ptk_add_child(parent, child)` to adopt existing allocations
+ * - **Freeing Parents**: Automatically frees all children in LIFO order
+ * - **Freeing Children**: Calling `ptk_free()` on a child has no effect (safe but ignored)
+ * - **Destructors**: Called in LIFO order during cleanup (children first, then parent)
+ *
+ * ## Complex Hierarchies
+ *
+ * You can create complex parent-child relationships, including adding parents
+ * as children of other parents:
+ *
+ * ```c
+ * // Create two separate hierarchies
+ * void *parent1 = ptk_alloc(NULL, 1024, NULL);
+ * void *child1a = ptk_alloc(parent1, 256, NULL);
+ * void *child1b = ptk_alloc(parent1, 256, NULL);
+ *
+ * void *parent2 = ptk_alloc(NULL, 2048, NULL);
+ * void *child2a = ptk_alloc(parent2, 512, NULL);
+ * void *child2b = ptk_alloc(parent2, 512, NULL);
+ *
+ * // Add parent2 as a child of parent1
+ * ptk_add_child(parent1, parent2);
+ *
+ * // Now freeing parent1 will free: child1b, child1a, child2b, child2a, parent2
+ * ptk_free(parent1);
+ * ```
+ *
+ * ## Safety Considerations
+ *
+ * - **Cycles**: Avoid creating cycles in parent-child relationships
+ * - **Double-Free**: Safe - attempting to free a child is ignored
+ * - **Use-After-Free**: Be careful with pointers after parent is freed
+ * - **Reallocation**: `ptk_realloc()` on children may leave stale parent references
+ *
+ * ## Debug Information
+ *
+ * All allocations automatically track:
+ * - File name and line number where allocated
+ * - Size of allocation
+ * - Parent-child relationships
+ * - Destructor functions
+ *
+ * Debug information is logged during allocation and deallocation when debug
+ * logging is enabled.
  */
 
 #include <stdint.h>
@@ -13,175 +91,128 @@
 #include <stdbool.h>
 #include "ptk_err.h"
 
-// Forward declarations
-typedef struct ptk_allocator ptk_allocator_t;
-typedef struct ptk_alloc_stats ptk_alloc_stats_t;
-
 /**
- * @brief Destructor function type for automatic cleanup
- */
-typedef void (*ptk_destructor_fn)(void *ptr);
-
-/**
- * @brief Allocator function types
- */
-typedef void* (*ptk_alloc_fn)(struct ptk_allocator *allocator, size_t size, ptk_destructor_fn destructor);
-typedef void* (*ptk_realloc_fn)(struct ptk_allocator *allocator, void *ptr, size_t new_size);
-typedef void (*ptk_free_fn)(struct ptk_allocator *allocator, void *ptr);
-typedef void (*ptk_reset_fn)(struct ptk_allocator *allocator);
-typedef void (*ptk_get_stats_fn)(struct ptk_allocator *allocator, ptk_alloc_stats_t *stats);
-typedef void (*ptk_destroy_fn)(struct ptk_allocator *allocator);
-
-/**
- * @brief Allocator statistics structure
- */
-struct ptk_alloc_stats {
-    size_t total_allocated;      ///< Total bytes currently allocated
-    size_t peak_allocated;       ///< High water mark of allocated bytes
-    size_t total_allocations;    ///< Total number of allocations made
-    size_t total_frees;          ///< Total number of frees made
-    size_t active_allocations;   ///< Number of currently active allocations
-    size_t total_bytes_allocated; ///< Cumulative bytes allocated (lifetime)
-    size_t total_bytes_freed;    ///< Cumulative bytes freed (lifetime)
-};
-
-/**
- * @brief Generic allocator interface
+ * @brief Allocate memory with optional parent and destructor
  *
- * All allocators use this same structure. Allocator-specific data
- * follows this structure in memory.
+ * Creates a new memory allocation. If a parent is provided, the allocation
+ * becomes a child of that parent and will be automatically freed when the
+ * parent is freed.
+ *
+ * @param parent Parent allocation (NULL for root allocation)
+ * @param size Size of memory to allocate in bytes
+ * @param destructor Optional cleanup function called during deallocation
+ * @return Pointer to allocated memory, or NULL on failure
+ *
+ * @note This is a macro that automatically captures file/line information
+ * @note Children are added to parent's child chain at the end (tail insertion)
+ * @note If parent is provided and ptk_add_child() fails, allocation is freed
+ *
+ * @example
+ * ```c
+ * // Create parent allocation
+ * void *parent = ptk_alloc(NULL, 1024, NULL);
+ *
+ * // Create child allocation
+ * void *child = ptk_alloc(parent, 256, my_destructor);
+ * ```
  */
-struct ptk_allocator {
-    ptk_alloc_fn alloc;        ///< Allocate memory with optional destructor
-    ptk_realloc_fn realloc;    ///< Reallocate memory
-    ptk_free_fn free;          ///< Free memory
-    ptk_reset_fn reset;        ///< Reset/free all allocations (may be NULL)
-    ptk_get_stats_fn get_stats; ///< Get allocator statistics (may be NULL)
-    ptk_destroy_fn destroy;    ///< Destroy allocator and free all resources
-    size_t default_alignment;  ///< Default alignment for allocations
-};
+#define ptk_alloc(parent, size, destructor) \
+    ptk_alloc_impl(__FILE__, __LINE__, parent, size, destructor)
+extern void *ptk_alloc_impl(const char *file, int line, void *parent, size_t size, void (*destructor)(void *ptr));
 
 /**
- * @brief Create default system allocator
+ * @brief Resize an allocated memory block
  *
- * Creates a system allocator that uses malloc/realloc/free with no debug tracking.
- * Reset function is a no-op for system allocator.
+ * Changes the size of an existing allocation. The allocation retains its
+ * parent-child relationships and other metadata.
  *
- * @param default_alignment Default alignment for allocations
- * @return Pointer to allocator or NULL on failure
+ * This fails if called on a NULL pointer or if the new size is 0 or if the memory is
+ * already marked as free.
+ *
+ * @param ptr Pointer to memory block to resize
+ * @param new_size New size in bytes
+ * @return Pointer to resized memory block, or NULL on failure
+ *
+ * @note This is a macro that automatically captures file/line information
+ * @note Contents are preserved up to the minimum of old and new sizes
+ * @note If ptr is NULL, behaves like ptk_alloc(NULL, new_size, NULL)
+ * @note If new_size is 0, behaves like ptk_free(ptr) and returns NULL
+ * @note Reallocation may change the memory address
+ * @warning Reallocating child allocations may leave stale parent references
+ *
+ * @example
+ * ```c
+ * void *ptr = ptk_alloc(NULL, 1024, NULL);
+ * ptr = ptk_realloc(ptr, 2048);  // Resize to 2048 bytes
+ * ```
  */
-ptk_allocator_t *allocator_default_create(size_t default_alignment);
+#define ptk_realloc(ptr, new_size) \
+    ptk_realloc_impl(__FILE__, __LINE__, ptr, new_size)
+extern void *ptk_realloc_impl(const char *file, int line, void *ptr, size_t new_size);
 
 /**
- * @brief Create debug allocator
+ * @brief Add an existing allocation as a child of another allocation
  *
- * Creates a debug allocator that tracks all allocations and can detect leaks.
+ * Adopts an existing allocation as a child. The child will be automatically
+ * freed when the parent is freed. This is useful for transferring ownership
+ * of allocations or building complex hierarchies.
  *
- * @param default_alignment Default alignment for allocations
- * @return Pointer to allocator or NULL on failure
+ * @param parent Parent allocation to adopt the child
+ * @param child Child allocation to be adopted
+ * @return PTK_OK on success, error code on failure
+ *
+ * @note This is a macro that automatically captures file/line information
+ * @note Child is added at the end of the parent's child chain (tail insertion)
+ * @note The child must not already be a child of another allocation
+ * @note Both parent and child must be valid allocations from this allocator
+ * @note Returns PTK_ERR_INVALID_PARAM if child is already adopted by another parent
+ *
+ * @example
+ * ```c
+ * void *parent = ptk_alloc(NULL, 1024, NULL);
+ * void *child = ptk_alloc(NULL, 256, NULL);  // Independent allocation
+ * ptk_add_child(parent, child);              // Now child belongs to parent
+ * ```
  */
-ptk_allocator_t *allocator_debug_create(size_t default_alignment);
+#define ptk_add_child(parent, child) \
+    ptk_add_child_impl(__FILE__, __LINE__, parent, child)
+extern ptk_err ptk_add_child_impl(const char *file, int line, void *parent, void *child);
 
 /**
- * @brief Create arena allocator
+ * @brief Free an allocated memory block and all its children
  *
- * Creates an arena allocator from a pre-allocated memory pool.
- * No individual frees - all memory is reclaimed when the arena is reset.
+ * Frees a memory block and all of its children in LIFO order (reverse order
+ * of addition). Destructors are called for each allocation before freeing.
  *
- * @param pool_size Size of memory pool to allocate
- * @param default_alignment Default alignment for allocations
- * @return Pointer to allocator or NULL on failure
- */
-ptk_allocator_t *allocator_arena_create(size_t pool_size, size_t default_alignment);
-
-
-/**
- * @brief Print debug allocator report
+ * @param ptr Pointer to memory block to free
  *
- * Prints detailed information about current allocations and statistics.
- * Useful for debugging memory leaks. Only works with debug allocators.
+ * @note This is a macro that automatically captures file/line information
+ * @note If ptr is a child allocation, a warning is logged and the call returns early
+ * @note Children are freed in LIFO order (last added, first freed)
+ * @note Destructors are called before freeing each allocation
+ * @note It is safe to call ptk_free(NULL)
+ * @warning Attempting to free a child allocation will log a warning and be ignored
+ * @warning After a parent is freed, child pointers become invalid
+ * @warning Calling ptk_free() on a child after parent is freed is undefined behavior
  *
- * @param allocator Debug allocator
- */
-void ptk_debug_allocator_report(const ptk_allocator_t *allocator);
-
-/**
- * @brief Check for memory leaks
+ * If the parent is A->B->C and the child is D->E->F->G and you call ptk_add_child(A, D), the
+ * child will be added to the parent's child list. The result will be A->B->C->D->E->F->G.
+ * If you then free A, all of its children (B, C, D, E, F, G) will be freed as well.
  *
- * @param allocator Debug allocator
- * @return true if leaks detected (active allocations > 0), false otherwise
+ * It is an error to add a new child chain to a parent that already contains one or more of the children.
+ *
+ * @example
+ * ```c
+ * void *parent = ptk_alloc(NULL, 1024, NULL);
+ * void *child1 = ptk_alloc(parent, 256, NULL);
+ * void *child2 = ptk_alloc(parent, 256, NULL);
+ *
+ * ptk_free(child1);  // Safe no-op - child1 remains allocated
+ * ptk_free(parent);  // Frees child2, then child1, then parent
+ * // child1 and child2 pointers are now invalid
+ * // ptk_free(child1);  // UNDEFINED BEHAVIOR - don't do this!
+ * ```
  */
-bool ptk_debug_allocator_has_leaks(const ptk_allocator_t *allocator);
-
-/**
- * @brief Simple convenience macros for allocator operations
- */
-#define ptk_alloc(allocator, size) (allocator)->alloc(allocator, size, NULL)
-#define ptk_alloc_with_destructor(allocator, size, destructor) (allocator)->alloc(allocator, size, destructor)
-#define ptk_realloc(allocator, ptr, new_size) (allocator)->realloc(allocator, ptr, new_size)
-#define ptk_free(allocator, ptr) (allocator)->free(allocator, ptr)
-#define ptk_reset(allocator) do { if ((allocator)->reset) (allocator)->reset(allocator); } while(0)
-#define ptk_get_stats(allocator, stats) do { if ((allocator)->get_stats) (allocator)->get_stats(allocator, stats); } while(0)
-#define ptk_allocator_destroy(allocator) do { if (allocator) { (allocator)->destroy(allocator); allocator = NULL; } } while(0)
-
-/**
- * @brief Convenience macro for allocating structures with destructors
- */
-#define ptk_alloc_auto(allocator, type, destructor) \
-    (type*)ptk_alloc_with_destructor(allocator, sizeof(type), (ptk_destructor_fn)(destructor))
-
-/**
- * @brief Allocation alignment helpers
- */
-#define PTK_ALIGN_SIZE(size, alignment) (((size) + (alignment) - 1) & ~((alignment) - 1))
-#define PTK_ALIGN_PTR(ptr, alignment) ((void*)PTK_ALIGN_SIZE((uintptr_t)(ptr), alignment))
-
-/**
- * @brief Example usage patterns
- */
-#if 0
-// Example 1: Using system allocator
-void example_system_alloc() {
-    ptk_allocator_t *alloc = allocator_default_create(8);
-    void *ptr = ptk_alloc(alloc, 1024);
-    // ... use ptr ...
-    ptk_free(alloc, ptr);
-    ptk_allocator_destroy(alloc);
-}
-
-// Example 2: Using debug allocator
-void example_debug_alloc() {
-    ptk_allocator_t *alloc = allocator_debug_create(8);
-
-    void *ptr1 = ptk_alloc(alloc, 1024);
-    void *ptr2 = ptk_alloc(alloc, 512);
-
-    ptk_free(alloc, ptr1);
-    // ptr2 intentionally not freed to test leak detection
-
-    if (ptk_debug_allocator_has_leaks(alloc)) {
-        ptk_debug_allocator_report(alloc);  // Will show ptr2 leak
-    }
-
-    ptk_allocator_destroy(alloc);  // Clean up remaining allocations
-}
-
-// Example 3: Using arena allocator for Modbus
-void example_arena_modbus() {
-    // Allocate arena for up to 2000 coils + overhead
-    ptk_allocator_t *alloc = allocator_arena_create(8192, 8);
-
-    // Decode Modbus message - all arrays allocated from arena
-    modbus_tcp_request_t request;
-    ptk_err err = modbus_tcp_request_decode(alloc, &request, buffer, context);
-
-    if (err == PTK_OK) {
-        // Process the request - arrays are in arena memory
-        process_modbus_request(&request);
-    }
-
-    // Simple cleanup - reset arena (no individual frees needed)
-    ptk_reset(alloc);
-    ptk_allocator_destroy(alloc);
-}
-#endif
+#define ptk_free(ptr) \
+    ptk_free_impl(__FILE__, __LINE__, ptr)
+extern void ptk_free_impl(const char *file, int line, void *ptr);

@@ -17,16 +17,22 @@
 #include "ptk_err.h"
 #include "ptk_log.h"
 
+/*
+ Invariants that must be maintained:
+    * - The array must always have a valid length (>= 0).
+    * - The elements pointer must always point to a valid memory block.
+    * - The element destructor must be called for each element before freeing the array.
+*/
+
 /**
  * @brief Declare a type-safe array type with custom name prefix and element type
  *
  * @param PREFIX Name prefix for the array type and functions
  * @param T Element type for the array
  *
- * Creates:
+ * Creates public functions:
  * - PREFIX_array_t struct type
  * - PREFIX_array_create() function
- * - PREFIX_array_dispose() function
  * - PREFIX_array_resize() function
  * - PREFIX_array_append() function
  * - PREFIX_array_get() function
@@ -36,44 +42,56 @@
  */
 #define PTK_ARRAY_DECLARE(PREFIX, T) \
     typedef struct PREFIX##_array { \
-        size_t len; \
-        ptk_allocator_t *allocator; \
         T *elements; \
+        void (*element_destructor)(T *element); \
+        size_t len; \
     } PREFIX##_array_t; \
     \
-    static inline ptk_err PREFIX##_array_create(ptk_allocator_t *allocator, PREFIX##_array_t *arr) { \
-        if (!arr) return PTK_ERR_NULL_PTR; \
-        arr->len = 0; \
-        arr->allocator = allocator; \
-        arr->elements = NULL; \
-        return PTK_OK; \
+    static inline void PREFIX##_PRIVATE_array_dispose(PREFIX##_array_t *arr) { \
+        if (!arr) return; \
+        if (arr->element_destructor && arr->elements) { \
+            for (size_t i = 0; i < arr->len; i++) { \
+                arr->element_destructor(&arr->elements[i]); \
+            } \
+        } \
+        /* This works because the element array is a child of the array struct. */ \
+        ptk_free(arr); \
     } \
     \
-    static inline void PREFIX##_array_dispose(PREFIX##_array_t *arr) { \
-        if (arr && arr->elements) { \
-            debug("Disposing " #PREFIX "_array with %zu elements", arr->len); \
-            ptk_free(arr->allocator, arr->elements); \
-            arr->elements = NULL; \
-            arr->len = 0; \
+    static inline PREFIX##_array_t * PREFIX##_array_create(size_t initial_size, void (*element_destructor)(T *element)) { \
+        if (initial_size == 0) return NULL; \
+        \
+        PREFIX##_array_t *arr = ptk_alloc(NULL, sizeof(PREFIX##_array_t), PREFIX##_PRIVATE_array_dispose); \
+        if (!arr) return NULL; \
+        \
+        arr->len = initial_size; \
+        arr->element_destructor = element_destructor; \
+        arr->elements = ptk_alloc(arr, initial_size * sizeof(T), NULL); \
+        if (!arr->elements) { \
+            ptk_free(arr); \
+            return NULL; \
         } \
+        \
+        /* initialize elements to zero */ \
+        memset(arr->elements, 0, initial_size * sizeof(T)); \
+        /* add the elements array as a child of the array struct */ \
+        ptk_add_child(arr, arr->elements); \
+        \
+        trace("Created " #PREFIX "_array with %zu initial elements", initial_size);\
     } \
     \
     static inline ptk_err PREFIX##_array_resize(PREFIX##_array_t *arr, size_t new_len) { \
         if (!arr) return PTK_ERR_NULL_PTR; \
+        if (new_len == 0) return PTK_ERR_INVALID_PARAM; \
         \
-        if (new_len == 0) { \
-            PREFIX##_array_dispose(arr); \
-            return PTK_OK; \
-        } \
-        \
-        T *new_elements = arr->allocator->realloc(arr->allocator, arr->elements, new_len * sizeof(T)); \
+        T *new_elements = ptk_realloc(arr->elements, new_len * sizeof(T)); \
         if (!new_elements) { \
             error("Failed to allocate %zu bytes for " #PREFIX "_array", new_len * sizeof(T)); \
             return PTK_ERR_NO_RESOURCES; \
         } \
         \
-        /* Initialize new elements to zero */ \
-        if (new_len > arr->len) { \
+        if(new_len > arr->len) { \
+            // Initialize new elements to zero if expanding
             memset(new_elements + arr->len, 0, (new_len - arr->len) * sizeof(T)); \
         } \
         \
@@ -114,48 +132,35 @@
         return PTK_OK; \
     } \
     \
-    static inline ptk_err PREFIX##_array_copy(PREFIX##_array_t *dst, const PREFIX##_array_t *src) { \
-        if (!dst || !src) return PTK_ERR_NULL_PTR; \
+    static inline PREFIX##_array_t *PREFIX##_array_copy(const PREFIX##_array_t *src) { \
+        if (!src || src->len == 0) return NULL; \
         \
-        PREFIX##_array_dispose(dst); \
-        \
-        if (src->len == 0) { \
-            return PREFIX##_array_create(src->allocator, dst); \
-        } \
-        \
-        ptk_err err = PREFIX##_array_resize(dst, src->len); \
-        if (err != PTK_OK) return err; \
+        PREFIX##_array_t *dst = PREFIX##_array_create(src->len, src->element_destructor); \
+        if (!dst) return NULL; \
         \
         memcpy(dst->elements, src->elements, src->len * sizeof(T)); \
         debug("Copied " #PREFIX "_array: %zu elements", src->len); \
-        return PTK_OK; \
+        return dst; \
     } \
     \
     static inline bool PREFIX##_array_is_valid(const PREFIX##_array_t *arr) { \
         if (!arr) return false; \
-        if (arr->len == 0) return arr->elements == NULL; \
-        return arr->elements != NULL; \
+        return (arr->len > 0 && arr->elements != NULL); \
     } \
     \
-    static inline ptk_err PREFIX##_array_from_raw(ptk_allocator_t *allocator, PREFIX##_array_t *arr, const T *raw_data, size_t count) { \
-        if (!arr) return PTK_ERR_NULL_PTR; \
-        if (count > 0 && !raw_data) return PTK_ERR_NULL_PTR; \
+    static inline PREFIX##_array_t *PREFIX##_array_from_raw(const T *raw_data, size_t count, void (*element_destructor)(T *element)) { \
+        if (!raw_data || count == 0) return NULL; \
         \
-        PREFIX##_array_dispose(arr); \
+        PREFIX##_array_t *arr = PREFIX##_array_create(count, element_destructor); \
+        if (!arr) return NULL; \
         \
-        if (count == 0) { \
-            return PREFIX##_array_create(allocator, arr); \
-        } \
-        \
-        ptk_err err = PREFIX##_array_resize(arr, count); \
-        if (err != PTK_OK) return err; \
-        \
+        /* copy the elements into the new array */ \
         memcpy(arr->elements, raw_data, count * sizeof(T)); \
-        trace("Created " #PREFIX "_array from raw data: %zu elements", count); \
-        return PTK_OK; \
+        \
+        return arr; \
     } \
     \
     \
     static inline size_t PREFIX##_array_len(const PREFIX##_array_t *arr) { \
-        return (arr && arr->elements) ? arr->len : 0; \
+        return (arr && arr->elements && arr->len > 0) ? arr->len : 0; \
     }

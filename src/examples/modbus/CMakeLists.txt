@@ -1,11 +1,13 @@
 # Modbus TCP Implementation Test
 
 add_library(modbus STATIC
-    lib/src/modbus_core.c
+    lib/src/modbus_common.c
     lib/src/modbus_holding_registers.c
     lib/src/modbus_input_registers.c
     lib/src/modbus_discrete_inputs.c
     lib/src/modbus_coils.c
+    lib/src/modbus_exceptions.c
+    lib/src/modbus_connection.c
 )
 
 target_include_directories(modbus PUBLIC
@@ -19,5 +21,5 @@ target_link_libraries(modbus
 )
 
 # Add subdirectories
-add_subdirectory(client)
-add_subdirectory(server)
+# add_subdirectory(client)
+# add_subdirectory(server)

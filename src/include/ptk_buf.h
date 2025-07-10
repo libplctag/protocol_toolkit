@@ -35,11 +35,25 @@ typedef float f32;
 typedef double f64;
 
 //=============================================================================
+// SERIALIZABLE INTERFACE
+//=============================================================================
+
+/**
+ * @brief Interface for objects that can serialize/deserialize themselves
+ */
+struct ptk_serializable {
+    ptk_err (*serialize)(ptk_buf *buf, struct ptk_serializable *obj);
+    ptk_err (*deserialize)(ptk_buf *buf, struct ptk_serializable *obj);
+};
+
+typedef struct ptk_serializable ptk_serializable_t;
+
+//=============================================================================
 // BUFFER STRUCTURE
 //=============================================================================
 
 typedef struct ptk_buf {
-    ptk_allocator_t *allocator;
+    void *parent;      // Parent allocation for cleanup
     u8 *data;
     size_t capacity;
     size_t start;  // Start position for reading
@@ -49,25 +63,126 @@ typedef struct ptk_buf {
 
 
 //=============================================================================
+// BUFFER MEMORY MANAGEMENT
+//=============================================================================
+
+/**
+ * @section buffer_memory Buffer Memory Management
+ *
+ * Buffers in Protocol Toolkit use the parent-child allocation system for
+ * automatic memory management. The buffer structure and its data are managed
+ * as a parent-child hierarchy.
+ *
+ * @subsection buffer_hierarchy Buffer Hierarchy
+ *
+ * When you create a buffer with `ptk_buf_create(parent, size)`:
+ * 1. The `ptk_buf` structure is allocated as a child of `parent`
+ * 2. The buffer's data array is allocated as a child of the buffer
+ * 3. Freeing the parent automatically frees the buffer and its data
+ *
+ * @code{.c}
+ * // Memory hierarchy:
+ * // parent
+ * //   └── buf (ptk_buf structure)
+ * //       └── buf->data (byte array)
+ *
+ * void *parent = ptk_alloc(NULL, 1, NULL);
+ * ptk_buf *buf = ptk_buf_create(parent, 1024);
+ * // buf->data is automatically allocated as child of buf
+ *
+ * ptk_free(parent);  // Frees buf and buf->data automatically
+ * @endcode
+ *
+ * @subsection buffer_patterns Common Buffer Patterns
+ *
+ * **1. Session with Multiple Buffers**
+ * @code{.c}
+ * void *session = ptk_alloc(NULL, 1, NULL);
+ * ptk_buf *in_buf = ptk_buf_create(session, 4096);
+ * ptk_buf *out_buf = ptk_buf_create(session, 4096);
+ *
+ * // Process data...
+ *
+ * ptk_free(session);  // Cleans up both buffers
+ * @endcode
+ *
+ * **2. Nested Protocol Parsing**
+ * @code{.c}
+ * void *parser = ptk_alloc(NULL, 1, NULL);
+ * ptk_buf *packet = ptk_buf_create(parser, 1500);
+ *
+ * // Parse sub-messages into child buffers
+ * ptk_buf *header = ptk_buf_create(packet, 20);
+ * ptk_buf *payload = ptk_buf_create(packet, 1480);
+ *
+ * ptk_free(parser);  // Cleans up entire parsing hierarchy
+ * @endcode
+ *
+ * **3. Buffer Pools**
+ * @code{.c}
+ * void *pool = ptk_alloc(NULL, 1, NULL);
+ * ptk_buf *buffers[10];
+ *
+ * for(int i = 0; i < 10; i++) {
+ *     buffers[i] = ptk_buf_create(pool, 1024);
+ * }
+ *
+ * ptk_free(pool);  // Frees all buffers in pool
+ * @endcode
+ *
+ * @subsection buffer_lifecycle Buffer Lifecycle
+ *
+ * - **Creation**: `ptk_buf_create()` establishes parent-child relationship
+ * - **Usage**: Normal buffer operations (read/write/serialize)
+ * - **Cleanup**: `ptk_free()` on parent automatically cleans up buffer
+ * - **No Manual Disposal**: Don't call `ptk_buf_dispose()` if using parent-child
+ *
+ * @subsection buffer_migration Buffer Migration Examples
+ *
+ * **Old Pattern (with allocator):**
+ * @code{.c}
+ * ptk_allocator_t *alloc = ptk_allocator_create();
+ * ptk_buf *buf = ptk_buf_create(alloc, 1024);
+ * // ... use buffer ...
+ * ptk_buf_dispose(buf);
+ * ptk_allocator_destroy(alloc);
+ * @endcode
+ *
+ * **New Pattern (parent-child):**
+ * @code{.c}
+ * void *parent = ptk_alloc(NULL, 1, NULL);
+ * ptk_buf *buf = ptk_buf_create(parent, 1024);
+ * // ... use buffer ...
+ * ptk_free(parent);  // Automatically frees buf and buf->data
+ * @endcode
+ *
+ * @subsection buffer_debugging Buffer Debugging
+ *
+ * - Each buffer allocation shows file/line where created
+ * - Buffer data allocation shows file/line from `ptk_buf_create()`
+ * - Automatic leak detection for unfreed buffers
+ * - LIFO destruction order visible in debug output
+ */
+
+
+//=============================================================================
 // BUFFER OPERATIONS
 //=============================================================================
 
-static inline ptk_buf *ptk_buf_create(ptk_allocator_t *alloc, size_t size) {
+static inline ptk_buf *ptk_buf_create(void *parent, size_t size) {
     ptk_buf *buf = NULL;
 
-    if(!alloc) { return NULL; }
-
-    buf = ptk_alloc(alloc, sizeof(ptk_buf));
+    buf = ptk_alloc(parent, sizeof(ptk_buf), NULL);
     if(!buf) { return NULL; }
 
-    buf->data = ptk_alloc(alloc, size);
+    buf->data = ptk_alloc(buf, size, NULL);
     if(!buf->data) {
-        ptk_free(alloc, buf);
+        ptk_free(buf);
         return NULL;
     }
 
-    /* store the allocator for later. */
-    buf->allocator = alloc;
+    /* store the parent for later. */
+    buf->parent = parent;
     buf->capacity = size;
     buf->start = 0;
     buf->end = 0;
@@ -79,16 +194,8 @@ static inline ptk_buf *ptk_buf_create(ptk_allocator_t *alloc, size_t size) {
 static inline ptk_err ptk_buf_dispose(ptk_buf *buf) {
     if(!buf) { return PTK_ERR_NULL_PTR; }
 
-    if(buf->allocator) {
-        if(buf->data) {
-            ptk_free(buf->allocator, buf->data);
-            buf->data = NULL;
-        }
-
-        ptk_free(buf->allocator, buf);
-    } else {
-        return PTK_ERR_NULL_PTR;
-    }
+    // With the new system, just free the buffer and children will be freed automatically
+    ptk_free(buf);
 
     return PTK_OK;
 }
@@ -182,6 +289,7 @@ typedef enum {
     PTK_BUF_TYPE_S64,        // int64_t
     PTK_BUF_TYPE_FLOAT,      // float
     PTK_BUF_TYPE_DOUBLE,     // double
+    PTK_BUF_TYPE_SERIALIZABLE, // struct ptk_serializable*
 } ptk_buf_type_t;
 
 typedef enum {
@@ -257,13 +365,17 @@ static inline u64 ptk_buf_byte_swap_u64(u64 value) {
     int64_t:  PTK_BUF_TYPE_S64, \
     float:    PTK_BUF_TYPE_FLOAT, \
     double:   PTK_BUF_TYPE_DOUBLE, \
+    ptk_serializable_t*: PTK_BUF_TYPE_SERIALIZABLE, \
     default:  0 \
 )
 
 /**
- * For pointers, dereference to get the type
+ * For pointers, handle serializable objects specially, dereference others
  */
-#define PTK_BUF_TYPE_OF_PTR(ptr) PTK_BUF_TYPE_OF(*(ptr))
+#define PTK_BUF_TYPE_OF_PTR(ptr) _Generic((ptr), \
+    ptk_serializable_t**: PTK_BUF_TYPE_SERIALIZABLE, \
+    default: PTK_BUF_TYPE_OF(*(ptr)) \
+)
 
 //=============================================================================
 // ARGUMENT COUNTING MACROS
@@ -483,7 +595,9 @@ static inline u64 ptk_buf_byte_swap_u64(u64 value) {
 
 #if 0  // Example usage (commented out)
 
+// Example PDU that implements ptk_serializable
 typedef struct {
+    ptk_serializable_t base;  // Must be first member for casting
     uint16_t command;          // EIP command type
     uint16_t length;           // Length of data following header
     uint32_t session_handle;   // Session identifier
@@ -492,19 +606,49 @@ typedef struct {
     uint32_t options;          // Command options
 } eip_header_t;
 
+// Implementation of serialize method
+static ptk_err eip_header_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    eip_header_t *header = (eip_header_t*)obj;
+    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
+        header->command, header->length, header->session_handle,
+        header->status, header->sender_context, header->options);
+}
+
+// Implementation of deserialize method
+static ptk_err eip_header_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    eip_header_t *header = (eip_header_t*)obj;
+    return ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
+        &header->command, &header->length, &header->session_handle,
+        &header->status, &header->sender_context, &header->options);
+}
+
+// Initialize the PDU with its vtable
+void eip_header_init(eip_header_t *header) {
+    header->base.serialize = eip_header_serialize;
+    header->base.deserialize = eip_header_deserialize;
+    // Initialize other fields as needed
+}
+
 void example_usage(ptk_buf *buffer) {
-    eip_header_t header = {0x0065, 4, 0, 0, 0x123456789ABCDEF0, 0};
+    // Traditional field-by-field approach
+    eip_header_t header = {0};
+    eip_header_init(&header);
 
-    // Explicit serialization with endianness specification
+    // Direct PDU serialization - just pass the PDU to ptk_buf_serialize
     ptk_err err = ptk_buf_serialize(buffer, PTK_BUF_LITTLE_ENDIAN,
-        header.command, header.length, header.session_handle,
-        header.status, header.sender_context, header.options);
+        (ptk_serializable_t*)&header);
 
-    // Deserialization with explicit endianness and peek control
+    // Direct PDU deserialization - just pass the PDU to ptk_buf_deserialize
     eip_header_t received = {0};
+    eip_header_init(&received);
     err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN,
-        &received.command, &received.length, &received.session_handle,
-        &received.status, &received.sender_context, &received.options);
+        (ptk_serializable_t*)&received);
+
+    // Mixed usage - combine PDUs with primitive types
+    uint8_t preamble = 0xAA;
+    uint16_t checksum = 0x1234;
+    err = ptk_buf_serialize(buffer, PTK_BUF_LITTLE_ENDIAN,
+        preamble, (ptk_serializable_t*)&header, checksum);
 }
 
 #endif

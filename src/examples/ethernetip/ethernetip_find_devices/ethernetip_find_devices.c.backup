@@ -34,30 +34,30 @@
 
 // EtherNet/IP Encapsulation Header
 typedef struct __attribute__((packed)) {
-    uint16_t command;         // EIP command (ListIdentity=0x0063)
-    uint16_t length;          // Length of data following this header
-    uint32_t session_handle;  // Session identifier (0 for unregistered)
-    uint32_t status;          // Status code (0 = success)
-    uint64_t sender_context;  // Echo data for request/response matching
-    uint32_t options;         // Options flags (typically 0)
+    uint16_t command;           // EIP command (ListIdentity=0x0063)
+    uint16_t length;            // Length of data following this header
+    uint32_t session_handle;    // Session identifier (0 for unregistered)
+    uint32_t status;            // Status code (0 = success)
+    uint64_t sender_context;    // Echo data for request/response matching
+    uint32_t options;           // Options flags (typically 0)
 } eip_encap_header_t;
 
 // CIP Identity Item Structure
 typedef struct __attribute__((packed)) {
-    uint16_t item_type;      // 0x000C for CIP Identity
-    uint16_t item_length;    // Length of following data
-    uint16_t encap_version;  // Encapsulation protocol version
-    int16_t sin_family;      // Address family (big-endian)
-    uint16_t sin_port;       // Port number (big-endian)
-    uint8_t sin_addr[4];     // IP address (network byte order)
-    uint8_t sin_zero[8];     // Padding
-    uint16_t vendor_id;      // Vendor ID (little-endian)
-    uint16_t device_type;    // Device type (little-endian)
-    uint16_t product_code;   // Product code (little-endian)
-    uint8_t revision_major;  // Major revision
-    uint8_t revision_minor;  // Minor revision
-    uint16_t status;         // Device status
-    uint32_t serial_number;  // Serial number
+    uint16_t item_type;         // 0x000C for CIP Identity
+    uint16_t item_length;       // Length of following data
+    uint16_t encap_version;     // Encapsulation protocol version
+    int16_t  sin_family;        // Address family (big-endian)
+    uint16_t sin_port;          // Port number (big-endian)
+    uint8_t  sin_addr[4];       // IP address (network byte order)
+    uint8_t  sin_zero[8];       // Padding
+    uint16_t vendor_id;         // Vendor ID (little-endian)
+    uint16_t device_type;       // Device type (little-endian)
+    uint16_t product_code;      // Product code (little-endian)
+    uint8_t  revision_major;    // Major revision
+    uint8_t  revision_minor;    // Minor revision
+    uint16_t status;            // Device status
+    uint32_t serial_number;     // Serial number
     // Variable length product name and state follow
 } cip_identity_item_t;
 
@@ -71,11 +71,10 @@ typedef struct {
 } discovery_config_t;
 
 // Error handling macro
-#define CHECK_PTK_ERR(call)             \
-    do {                                \
-        ptk_err _err = (call);          \
-        if(_err != PTK_OK) return _err; \
-    } while(0)
+#define CHECK_PTK_ERR(call) do { \
+    ptk_err _err = (call); \
+    if(_err != PTK_OK) return _err; \
+} while(0)
 
 //=============================================================================
 // GLOBAL STATE
@@ -85,11 +84,14 @@ static volatile bool g_running = true;
 static int g_responses_received = 0;
 static ptk_sock *g_udp_socket = NULL;
 static ptk_thread *g_discovery_thread = NULL;
-static discovery_config_t g_config = {.discovery_time_seconds = 30,
-                                      .broadcast_interval_ms = 5000,
-                                      .response_timeout_ms = 500,
-                                      .eip_port = EIP_PORT,
-                                      .verbose_output = false};
+static ptk_allocator_t *g_allocator = NULL;
+static discovery_config_t g_config = {
+    .discovery_time_seconds = 30,
+    .broadcast_interval_ms = 5000,
+    .response_timeout_ms = 500,
+    .eip_port = EIP_PORT,
+    .verbose_output = false
+};
 
 //=============================================================================
 // SIGNAL HANDLING
@@ -138,9 +140,16 @@ typedef struct {
 } cip_device_type_t;
 
 static const cip_device_type_t CIP_DEVICE_TYPES[] = {
-    {0x00, "Generic Device"},      {0x02, "AC Drive"}, {0x0C, "Communications Adapter"},  {0x0E, "Programmable Logic Controller"},
-    {0x10, "Position Controller"}, {0x13, "DC Drive"}, {0x18, "Human-Machine Interface"}, {0x25, "CIP Motion Drive"},
-    {0x2C, "Managed Switch"},      {0, NULL}  // End marker
+    {0x00, "Generic Device"},
+    {0x02, "AC Drive"},
+    {0x0C, "Communications Adapter"},
+    {0x0E, "Programmable Logic Controller"},
+    {0x10, "Position Controller"},
+    {0x13, "DC Drive"},
+    {0x18, "Human-Machine Interface"},
+    {0x25, "CIP Motion Drive"},
+    {0x2C, "Managed Switch"},
+    {0, NULL}  // End marker
 };
 
 // Device Status Bits
@@ -198,12 +207,14 @@ static const char *cip_get_device_state_name(uint8_t state) {
 static ptk_err parse_short_string(ptk_buf *buffer, char *output, size_t max_len) {
     uint8_t length;
     CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &length));
-
-    if(length >= max_len) { return PTK_ERR_BUFFER_TOO_SMALL; }
-
-    for(uint8_t i = 0; i < length; i++) { CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &output[i])); }
+    
+    if(length >= max_len) return PTK_ERR_BUFFER_TOO_SMALL;
+    
+    for(uint8_t i = 0; i < length; i++) {
+        CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &output[i]));
+    }
     output[length] = '\0';
-
+    
     return PTK_OK;
 }
 
@@ -233,8 +244,13 @@ static ptk_err build_list_identity_request(ptk_buf *buffer) {
  * Parse EIP encapsulation header
  */
 static ptk_err parse_eip_header(ptk_buf *buffer, eip_encap_header_t *header) {
-    return ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &header->command, &header->length, &header->session_handle,
-                               &header->status, &header->sender_context, &header->options);
+    return ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN,
+                               &header->command,
+                               &header->length,
+                               &header->session_handle,
+                               &header->status,
+                               &header->sender_context,
+                               &header->options);
 }
 
 /**
@@ -255,61 +271,71 @@ static ptk_err parse_cip_identity_item(ptk_buf *buffer, cip_identity_item_t *ide
     // Parse fixed-size fields
     CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &identity->encap_version));
     CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_BIG_ENDIAN, &identity->sin_family, &identity->sin_port));
-
+    
     // Parse IP address bytes
     for(int i = 0; i < 4; i++) {
         CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &identity->sin_addr[i]));
     }
-
+    
     // Parse padding
     for(int i = 0; i < 8; i++) {
         CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &identity->sin_zero[i]));
     }
-
+    
     // Parse device identity fields
-    CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &identity->vendor_id, &identity->device_type,
-                                      &identity->product_code, &identity->revision_major, &identity->revision_minor));
-
+    CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN,
+                                      &identity->vendor_id,
+                                      &identity->device_type,
+                                      &identity->product_code,
+                                      &identity->revision_major,
+                                      &identity->revision_minor));
+    
     // Parse optional fields if present
     size_t remaining = item_length - 34;
     if(remaining >= 6) {
-        CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &identity->status, &identity->serial_number));
+        CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN,
+                                          &identity->status,
+                                          &identity->serial_number));
     }
-
+    
     return PTK_OK;
 }
 
 /**
  * Display device information in a formatted way
  */
-static void display_device_info(const cip_identity_item_t *identity, const char *product_name, const char *sender_ip,
-                                uint16_t sender_port, uint8_t device_state) {
+static void display_device_info(const cip_identity_item_t *identity, const char *product_name, 
+                                const char *sender_ip, uint16_t sender_port, uint8_t device_state) {
     printf("\n=== EtherNet/IP Device Found ===\n");
     printf("From: %s:%d\n", sender_ip ? sender_ip : "unknown", sender_port);
-
+    
     // Socket address info
-    printf("Socket Address: %u.%u.%u.%u:%u\n", identity->sin_addr[0], identity->sin_addr[1], identity->sin_addr[2],
-           identity->sin_addr[3], identity->sin_port);
-
+    printf("Socket Address: %u.%u.%u.%u:%u\n", 
+           identity->sin_addr[0], identity->sin_addr[1], 
+           identity->sin_addr[2], identity->sin_addr[3], 
+           identity->sin_port);
+    
     // Device identity
     printf("=== Device Identity ===\n");
     printf("Vendor ID: 0x%04X", identity->vendor_id);
     const char *vendor_name = cip_get_vendor_name(identity->vendor_id);
-    if(vendor_name) { printf(" (%s)", vendor_name); }
+    if(vendor_name) printf(" (%s)", vendor_name);
     printf("\n");
-
+    
     printf("Device Type: 0x%04X", identity->device_type);
     const char *device_type_name = cip_get_device_type_name(identity->device_type);
-    if(device_type_name) { printf(" (%s)", device_type_name); }
+    if(device_type_name) printf(" (%s)", device_type_name);
     printf("\n");
-
+    
     printf("Product Code: 0x%04X\n", identity->product_code);
     printf("Revision: %u.%u\n", identity->revision_major, identity->revision_minor);
     printf("Status: 0x%04X\n", identity->status);
     printf("Serial Number: 0x%08X\n", identity->serial_number);
-
-    if(product_name && strlen(product_name) > 0) { printf("Product Name: \"%s\"\n", product_name); }
-
+    
+    if(product_name && strlen(product_name) > 0) {
+        printf("Product Name: \"%s\"\n", product_name);
+    }
+    
     printf("Device State: %s\n", cip_get_device_state_name(device_state));
     printf("================================\n");
 }
@@ -320,7 +346,7 @@ static void display_device_info(const cip_identity_item_t *identity, const char 
 static ptk_err broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf, ptk_network_info *networks) {
     size_t num_networks = ptk_socket_network_info_count(networks);
     bool broadcast_sent = false;
-
+    
     for(size_t i = 0; i < num_networks; i++) {
         const ptk_network_info_entry *entry = ptk_socket_network_info_get(networks, i);
         if(entry && entry->broadcast) {
@@ -328,12 +354,14 @@ static ptk_err broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf,
             if(ptk_address_create(&broadcast_addr, entry->broadcast, g_config.eip_port) == PTK_OK) {
                 if(ptk_udp_socket_send_to(socket, request_buf, &broadcast_addr, true) == PTK_OK) {
                     broadcast_sent = true;
-                    if(g_config.verbose_output) { printf("Broadcast sent to %s\n", entry->broadcast); }
+                    if(g_config.verbose_output) {
+                        printf("Broadcast sent to %s\n", entry->broadcast);
+                    }
                 }
             }
         }
     }
-
+    
     return broadcast_sent ? PTK_OK : PTK_ERR_NETWORK_ERROR;
 }
 
@@ -342,223 +370,215 @@ static ptk_err broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf,
  */
 static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t *sender_addr) {
     ptk_err err;
-    void *dummy_parent = ptk_alloc(NULL, 1, NULL);  // Dummy parent fo
 
-    char *sender_ip = ptk_address_to_string(sender_addr);
+    char *sender_ip = ptk_address_to_string(g_allocator, sender_addr);
     uint16_t sender_port = ptk_address_get_port(sender_addr);
 
     printf("\n=== EtherNet/IP Device Found ===\n");
     printf("From: %s:%d\n", sender_ip ? sender_ip : "unknown", sender_port);
 
-    ptk_add_child(dummy_parent, sender_ip);
+    if(sender_ip) { ptk_free(g_allocator, sender_ip); }
 
-    do {
-        // Parse Encapsulation Header (all little endian)
-        uint16_t command, length;
-        uint32_t session_handle, status;
-        uint64_t sender_context;
-        uint32_t options;
+    // Parse Encapsulation Header (all little endian)
+    uint16_t command, length;
+    uint32_t session_handle, status;
+    uint64_t sender_context;
+    uint32_t options;
 
-        err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &command, &length, &session_handle, &status,
-                                  &sender_context, &options);
-        if(err != PTK_OK) { break; }
+    err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &command, &length, &session_handle, &status, &sender_context,
+                              &options);
+    if(err != PTK_OK) { return err; }
 
-        printf("Command: ListIdentity (0x%04X)\n", command);
-        printf("Status: 0x%08X\n", status);
+    printf("Command: ListIdentity (0x%04X)\n", command);
+    printf("Status: 0x%08X\n", status);
 
+    if(command != EIP_LIST_IDENTITY_CMD) {
+        printf("Warning: Unexpected command 0x%04X (expected ListIdentity 0x%04X)\n", command, EIP_LIST_IDENTITY_CMD);
+        return PTK_ERR_PROTOCOL_ERROR;
+    }
 
-        if(command != EIP_LIST_IDENTITY_CMD) {
-            printf("Warning: Unexpected command 0x%04X (expected ListIdentity 0x%04X)\n", command, EIP_LIST_IDENTITY_CMD);
-            err = PTK_ERR_PROTOCOL_ERROR;
-            break;
-        }
+    if(status != 0) {
+        printf("Error: Non-zero status 0x%08X\n", status);
+        return PTK_ERR_PROTOCOL_ERROR;
+    }
 
-        if(status != 0) {
-            printf("Error: Non-zero status 0x%08X\n", status);
-            err = PTK_ERR_PROTOCOL_ERROR;
-            break;
-        }
+    // Parse CPF (Common Packet Format) data if present
+    if(length > 0) {
+        uint16_t item_count;
+        err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &item_count);
+        if(err != PTK_OK) { return err; }
 
-        // Parse CPF (Common Packet Format) data if present
-        if(length > 0) {
-            uint16_t item_count;
-            err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &item_count);
-            if(err != PTK_OK) { break; }
+        printf("CPF Items: %u\n", item_count);
 
-            printf("CPF Items: %u\n", item_count);
+        for(uint16_t i = 0; i < item_count; i++) {
+            uint16_t type_id, item_length;
 
-            for(uint16_t i = 0; i < item_count; i++) {
-                uint16_t type_id, item_length;
+            err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &type_id, &item_length);
+            if(err != PTK_OK) {
+                printf("  Error parsing CPF item %u header: %s\n", i + 1, ptk_err_to_string(err));
+                return err;
+            }
 
-                err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &type_id, &item_length);
+            printf("  Item %u: Type 0x%04X", i + 1, type_id);
+
+            // Describe the item type
+            switch(type_id) {
+                case CPF_TYPE_NULL: printf(" (Null Address)"); break;
+                case CPF_TYPE_CIP_IDENTITY: printf(" (CIP Identity)"); break;
+                case CPF_TYPE_SOCKET_ADDR: printf(" (Socket Address)"); break;
+                default: printf(" (Unknown)"); break;
+            }
+
+            printf(", Length %u bytes\n", item_length);
+
+            if(type_id == CPF_TYPE_CIP_IDENTITY && item_length >= 34) {
+                // Parse CIP Identity data according to the correct structure
+                uint16_t encapsulation_protocol_version;
+                int16_t sin_family;
+                uint16_t sin_port;
+                uint8_t sin_addr[4];
+                uint8_t sin_zero[8];
+                uint16_t vendor_id, device_type, product_code;
+                uint8_t revision[2];
+
+                // First parse the encapsulation protocol version (little endian)
+                err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &encapsulation_protocol_version);
                 if(err != PTK_OK) {
-                    printf("  Error parsing CPF item %u header: %s\n", i + 1, ptk_err_to_string(err));
+                    printf("    Error parsing encapsulation protocol version: %d\n", err);
                     break;
                 }
 
-                printf("  Item %u: Type 0x%04X", i + 1, type_id);
-
-                // Describe the item type
-                switch(type_id) {
-                    case CPF_TYPE_NULL: printf(" (Null Address)"); break;
-                    case CPF_TYPE_CIP_IDENTITY: printf(" (CIP Identity)"); break;
-                    case CPF_TYPE_SOCKET_ADDR: printf(" (Socket Address)"); break;
-                    default: printf(" (Unknown)"); break;
+                // Parse socket address fields (big endian)
+                err = ptk_buf_deserialize(buffer, false, PTK_BUF_BIG_ENDIAN, &sin_family, &sin_port);
+                if(err != PTK_OK) {
+                    printf("    Error parsing socket address: %d\n", err);
+                    break;
                 }
 
-                printf(", Length %u bytes\n", item_length);
-
-                if(type_id == CPF_TYPE_CIP_IDENTITY && item_length >= 34) {
-                    // Parse CIP Identity data according to the correct structure
-                    uint16_t encapsulation_protocol_version;
-                    int16_t sin_family;
-                    uint16_t sin_port;
-                    uint8_t sin_addr[4];
-                    uint8_t sin_zero[8];
-                    uint16_t vendor_id, device_type, product_code;
-                    uint8_t revision[2];
-
-                    // First parse the encapsulation protocol version (little endian)
-                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &encapsulation_protocol_version);
+                // Parse IP address bytes (network byte order)
+                for(int j = 0; j < 4; j++) {
+                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &sin_addr[j]);
                     if(err != PTK_OK) {
-                        printf("    Error parsing encapsulation protocol version: %d\n", err);
+                        printf("    Error parsing IP address: %d\n", err);
                         break;
                     }
+                }
+                if(err != PTK_OK) { break; }
 
-                    // Parse socket address fields (big endian)
-                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_BIG_ENDIAN, &sin_family, &sin_port);
+                // Parse sin_zero padding (8 bytes)
+                for(int j = 0; j < 8; j++) {
+                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &sin_zero[j]);
                     if(err != PTK_OK) {
-                        printf("    Error parsing socket address: %d\n", err);
+                        printf("    Error parsing sin_zero padding: %d\n", err);
                         break;
                     }
+                }
+                if(err != PTK_OK) { break; }
 
-                    // Parse IP address bytes (network byte order)
-                    for(int j = 0; j < 4; j++) {
-                        err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &sin_addr[j]);
-                        if(err != PTK_OK) {
-                            printf("    Error parsing IP address: %d\n", err);
-                            break;
-                        }
+                // Parse device identity fields (little endian)
+                err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN,
+                                          &vendor_id,     // UINT (2 bytes) - Vendor ID
+                                          &device_type,   // UINT (2 bytes) - Device Type
+                                          &product_code,  // UINT (2 bytes) - Product Code
+                                          &revision[0],   // USINT (1 byte) - Major Revision
+                                          &revision[1]    // USINT (1 byte) - Minor Revision
+                );
+
+                if(err != PTK_OK) {
+                    printf("    Error parsing identity data: %d\n", err);
+                    break;
+                }
+
+                // Display the socket address information
+                printf("    === Socket Address ===\n");
+                printf("    Encapsulation Protocol Version: %u\n", encapsulation_protocol_version);
+                printf("    Address Family: %d (0x%04X)\n", sin_family, sin_family);
+
+                // Convert IP address to dotted decimal notation
+                printf("    Socket Address: %u.%u.%u.%u:%u\n", sin_addr[0], sin_addr[1], sin_addr[2], sin_addr[3], sin_port);
+
+                // Display the decoded identity information
+                printf("    === Device Identity ===\n");
+                printf("    Vendor ID: 0x%04X", vendor_id);
+                const char *vendor_name = get_vendor_name(vendor_id);
+                if(vendor_name) { printf(" (%s)", vendor_name); }
+                printf("\n");
+
+                printf("    Device Type: 0x%04X", device_type);
+                const char *device_type_name = get_device_type_name(device_type);
+                if(device_type_name) { printf(" (%s)", device_type_name); }
+                printf("\n");
+
+                printf("    Product Code: 0x%04X\n", product_code);
+                printf("    Revision: %u.%u\n", revision[0], revision[1]);
+
+                // Calculate remaining bytes for additional fields (status, serial number, product name, device state)
+                size_t parsed_bytes =
+                    2 + 2 + 4 + 8 + 2 + 2 + 2 + 2;  // encap_ver + socket(16) + vendor + device + product + revision
+                size_t remaining_bytes = item_length - parsed_bytes;
+
+                if(remaining_bytes >= 6) {  // At least status (2) + serial (4) bytes remaining
+                    uint16_t status_word;
+                    uint32_t serial_number;
+
+                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &status_word, &serial_number);
+                    if(err == PTK_OK) {
+                        printf("    Status: 0x%04X", status_word);
+                        decode_device_status(status_word);
+                        printf("\n");
+                        printf("    Serial Number: %u (0x%08X)\n", serial_number, serial_number);
+
+                        remaining_bytes -= 6;  // Subtract status + serial number bytes
                     }
-                    if(err != PTK_OK) { break; }
+                }
 
-                    // Parse sin_zero padding (8 bytes)
-                    for(int j = 0; j < 8; j++) {
-                        err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &sin_zero[j]);
-                        if(err != PTK_OK) {
-                            printf("    Error parsing sin_zero padding: %d\n", err);
-                            break;
-                        }
-                    }
-                    if(err != PTK_OK) { break; }
+                // Parse product name (SHORT_STRING) if present
+                char product_name[256] = {0};
+                bool found_name = false;
+                if(remaining_bytes > 0) {
+                    uint8_t name_length;
+                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &name_length);
+                    if(err == PTK_OK && name_length > 0 && name_length < remaining_bytes) {
+                        // Read the product name string
+                        for(uint8_t i = 0; i < name_length && i < 255; i++) {
+                            uint8_t c;
+                            err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &c);
+                            if(err != PTK_OK) { break; }
 
-                    // Parse device identity fields (little endian)
-                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN,
-                                              &vendor_id,     // UINT (2 bytes) - Vendor ID
-                                              &device_type,   // UINT (2 bytes) - Device Type
-                                              &product_code,  // UINT (2 bytes) - Product Code
-                                              &revision[0],   // USINT (1 byte) - Major Revision
-                                              &revision[1]    // USINT (1 byte) - Minor Revision
-                    );
-
-                    if(err != PTK_OK) {
-                        printf("    Error parsing identity data: %d\n", err);
-                        break;
-                    }
-
-                    // Display the socket address information
-                    printf("    === Socket Address ===\n");
-                    printf("    Encapsulation Protocol Version: %u\n", encapsulation_protocol_version);
-                    printf("    Address Family: %d (0x%04X)\n", sin_family, sin_family);
-
-                    // Convert IP address to dotted decimal notation
-                    printf("    Socket Address: %u.%u.%u.%u:%u\n", sin_addr[0], sin_addr[1], sin_addr[2], sin_addr[3], sin_port);
-
-                    // Display the decoded identity information
-                    printf("    === Device Identity ===\n");
-                    printf("    Vendor ID: 0x%04X", vendor_id);
-                    const char *vendor_name = get_vendor_name(vendor_id);
-                    if(vendor_name) { printf(" (%s)", vendor_name); }
-                    printf("\n");
-
-                    printf("    Device Type: 0x%04X", device_type);
-                    const char *device_type_name = get_device_type_name(device_type);
-                    if(device_type_name) { printf(" (%s)", device_type_name); }
-                    printf("\n");
-
-                    printf("    Product Code: 0x%04X\n", product_code);
-                    printf("    Revision: %u.%u\n", revision[0], revision[1]);
-
-                    // Calculate remaining bytes for additional fields (status, serial number, product name, device state)
-                    size_t parsed_bytes =
-                        2 + 2 + 4 + 8 + 2 + 2 + 2 + 2;  // encap_ver + socket(16) + vendor + device + product + revision
-                    size_t remaining_bytes = item_length - parsed_bytes;
-
-                    if(remaining_bytes >= 6) {  // At least status (2) + serial (4) bytes remaining
-                        uint16_t status_word;
-                        uint32_t serial_number;
-
-                        err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &status_word, &serial_number);
-                        if(err == PTK_OK) {
-                            printf("    Status: 0x%04X", status_word);
-                            decode_device_status(status_word);
-                            printf("\n");
-                            printf("    Serial Number: %u (0x%08X)\n", serial_number, serial_number);
-
-                            remaining_bytes -= 6;  // Subtract status + serial number bytes
-                        }
-                    }
-
-                    // Parse product name (SHORT_STRING) if present
-                    char product_name[256] = {0};
-                    bool found_name = false;
-                    if(remaining_bytes > 0) {
-                        uint8_t name_length;
-                        err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &name_length);
-                        if(err == PTK_OK && name_length > 0 && name_length < remaining_bytes) {
-                            // Read the product name string
-                            for(uint8_t i = 0; i < name_length && i < 255; i++) {
-                                uint8_t c;
-                                err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &c);
-                                if(err != PTK_OK) { break; }
-
-                                // Validate printable ASCII
-                                if(c >= 0x20 && c <= 0x7E) {
-                                    product_name[i] = (char)c;
-                                } else {
-                                    product_name[i] = '?';  // Replace non-printable characters
-                                }
+                            // Validate printable ASCII
+                            if(c >= 0x20 && c <= 0x7E) {
+                                product_name[i] = (char)c;
+                            } else {
+                                product_name[i] = '?';  // Replace non-printable characters
                             }
-                            product_name[name_length] = '\0';
-                            found_name = true;
-                            remaining_bytes -= (name_length + 1);
                         }
+                        product_name[name_length] = '\0';
+                        found_name = true;
+                        remaining_bytes -= (name_length + 1);
                     }
-
-                    if(found_name) {
-                        printf("    Product Name: \"%s\"\n", product_name);
-                    } else {
-                        printf("    Product Name: <not found>\n");
-                    }
-
-                    // Parse device state if present (last byte)
-                    if(remaining_bytes >= 1) {
-                        uint8_t device_state;
-                        err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &device_state);
-                        if(err == PTK_OK) {
-                            printf("    Device State: 0x%02X (%s)\n", device_state, get_device_state_name(device_state));
-                        }
-                    }
-                } else {
-                    // Skip unknown item type
-                    size_t current_start = ptk_buf_get_start(buffer);
-                    ptk_buf_set_start(buffer, current_start + item_length);
                 }
+
+                if(found_name) {
+                    printf("    Product Name: \"%s\"\n", product_name);
+                } else {
+                    printf("    Product Name: <not found>\n");
+                }
+
+                // Parse device state if present (last byte)
+                if(remaining_bytes >= 1) {
+                    uint8_t device_state;
+                    err = ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &device_state);
+                    if(err == PTK_OK) {
+                        printf("    Device State: 0x%02X (%s)\n", device_state, get_device_state_name(device_state));
+                    }
+                }
+            } else {
+                // Skip unknown item type
+                size_t current_start = ptk_buf_get_start(buffer);
+                ptk_buf_set_start(buffer, current_start + item_length);
             }
         }
-    } while(0);
-
-    ptk_free(dummy_parent);
+    }
 
     printf("================================\n");
     return PTK_OK;
@@ -739,10 +759,14 @@ int main(int argc, char *argv[]) {
     // Parse command line arguments
     if(argc > 1) {
         g_config.discovery_time_seconds = atoi(argv[1]);
-        if(g_config.discovery_time_seconds < 1) { g_config.discovery_time_seconds = 30; }
+        if(g_config.discovery_time_seconds < 1) { 
+            g_config.discovery_time_seconds = 30; 
+        }
     }
-
-    if(argc > 2) { g_config.verbose_output = (strcmp(argv[2], "-v") == 0); }
+    
+    if(argc > 2) {
+        g_config.verbose_output = (strcmp(argv[2], "-v") == 0);
+    }
 
     printf("Configuration:\n");
     printf("  Discovery time: %d seconds\n", g_config.discovery_time_seconds);

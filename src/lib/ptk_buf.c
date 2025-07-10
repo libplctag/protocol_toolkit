@@ -62,6 +62,7 @@ static size_t ptk_buf_type_size(ptk_buf_type_t type) {
         case PTK_BUF_TYPE_U64:
         case PTK_BUF_TYPE_S64:
         case PTK_BUF_TYPE_DOUBLE: return 8;
+        case PTK_BUF_TYPE_SERIALIZABLE: return 0;  // Variable size, handled by object's serialize method
         default: return 0;
     }
 }
@@ -71,6 +72,26 @@ static size_t ptk_buf_type_size(ptk_buf_type_t type) {
  */
 static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
     if(!buf || !args) { return PTK_ERR_NULL_PTR; }
+
+    // Handle serializable objects separately
+    if(type == PTK_BUF_TYPE_SERIALIZABLE) {
+        ptk_serializable_t *obj = va_arg(*args, ptk_serializable_t *);
+        if(!obj) {
+            error("ptk_buf_write_typed_value: NULL serializable object");
+            return PTK_ERR_NULL_PTR;
+        }
+        if(!obj->serialize) {
+            error("ptk_buf_write_typed_value: Serializable object has NULL serialize method");
+            return PTK_ERR_INVALID_PARAM;
+        }
+
+        // Call the object's serialize method
+        ptk_err result = obj->serialize(buf, obj);
+        if(result != PTK_OK) {
+            error("ptk_buf_write_typed_value: Serializable object serialize failed: %s", ptk_err_to_string(result));
+        }
+        return result;
+    }
 
     size_t type_size = ptk_buf_type_size(type);
     if(type_size == 0) {
@@ -160,6 +181,31 @@ static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_
  */
 static ptk_err ptk_buf_read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
     if(!buf || !args) { return PTK_ERR_NULL_PTR; }
+
+    // Handle serializable objects separately
+    if(type == PTK_BUF_TYPE_SERIALIZABLE) {
+        ptk_serializable_t *obj = va_arg(*args, ptk_serializable_t *);
+        if(!obj) {
+            error("ptk_buf_read_typed_value: NULL serializable object");
+            return PTK_ERR_NULL_PTR;
+        }
+        if(!obj->deserialize) {
+            error("ptk_buf_read_typed_value: Serializable object has NULL deserialize method");
+            return PTK_ERR_INVALID_PARAM;
+        }
+
+        // For peek operations with serializable objects, we need to save and restore buffer position
+        size_t original_start = buf->start;
+        ptk_err result = obj->deserialize(buf, obj);
+        if(result != PTK_OK) {
+            error("ptk_buf_read_typed_value: Serializable object deserialize failed: %s", ptk_err_to_string(result));
+        }
+
+        // Restore position if peeking
+        if(peek && result == PTK_OK) { buf->start = original_start; }
+
+        return result;
+    }
 
     size_t type_size = ptk_buf_type_size(type);
     if(type_size == 0) {
@@ -285,7 +331,7 @@ ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, size_t cou
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
 
         // Validate type
-        if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_DOUBLE) {
+        if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
             error("ptk_buf_serialize_impl: Invalid type %d at field %zu", type, i);
             result = PTK_ERR_INVALID_PARAM;
             break;
@@ -341,7 +387,7 @@ ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endia
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
 
         // Validate type
-        if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_DOUBLE) {
+        if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
             error("ptk_buf_deserialize_impl: Invalid type %d at field %zu", type, i);
             result = PTK_ERR_INVALID_PARAM;
             break;

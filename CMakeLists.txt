@@ -60,7 +60,7 @@ add_subdirectory(src/lib)
 # EXAMPLES
 #=============================================================================
 
-# Add examples
+# Add examples - temporarily disabled (use old allocator)
 # Add examples
 add_subdirectory(src/examples)
 # add_subdirectory(tools/gen_codec/examples)

@@ -15,13 +15,33 @@ typedef struct {
     uint32_t options;         // Command options
 } eip_header_t;
 
+// Test PDU structure for serializable interface test
+typedef struct {
+    ptk_serializable_t base;  // Must be first member
+    uint16_t command;
+    uint32_t length;
+    uint16_t checksum;
+} test_pdu_t;
+
+// Forward declarations for test PDU functions
+ptk_err test_pdu_serialize(ptk_buf *buf, ptk_serializable_t *obj);
+ptk_err test_pdu_deserialize(ptk_buf *buf, ptk_serializable_t *obj);
+
+// Test PDU serialization functions
+ptk_err test_pdu_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    test_pdu_t *pdu = (test_pdu_t *)obj;
+    return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, pdu->command, pdu->length, pdu->checksum);
+}
+
+ptk_err test_pdu_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+    test_pdu_t *pdu = (test_pdu_t *)obj;
+    return ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN, &pdu->command, &pdu->length, &pdu->checksum);
+}
+
 void test_basic_serialization() {
     printf("\n=== Test Basic Serialization ===\n");
 
-    ptk_allocator_t *alloc = allocator_arena_create(1024, 8);
-    assert(alloc != NULL);
-
-    ptk_buf *buf = ptk_buf_create(alloc, 256);
+    ptk_buf *buf = ptk_buf_create(NULL, 256);
     assert(buf != NULL);
 
     // Test data
@@ -73,16 +93,12 @@ void test_basic_serialization() {
     printf("✓ Basic serialization test passed\n");
 
     ptk_buf_dispose(buf);
-    ptk_allocator_destroy(alloc);
 }
 
 void test_struct_serialization() {
     printf("\n=== Test Struct Serialization ===\n");
 
-    ptk_allocator_t *alloc = allocator_arena_create(1024, 8);
-    assert(alloc != NULL);
-
-    ptk_buf *buf = ptk_buf_create(alloc, 256);
+    ptk_buf *buf = ptk_buf_create(NULL, 256);
     assert(buf != NULL);
 
     // Test data
@@ -125,17 +141,13 @@ void test_struct_serialization() {
     printf("✓ Struct serialization test passed\n");
 
     ptk_buf_dispose(buf);
-    ptk_allocator_destroy(alloc);
 }
 
 void test_endianness() {
     printf("\n=== Test Endianness ===\n");
 
-    ptk_allocator_t *alloc = allocator_arena_create(1024, 8);
-    assert(alloc != NULL);
-
-    ptk_buf *buf1 = ptk_buf_create(alloc, 256);
-    ptk_buf *buf2 = ptk_buf_create(alloc, 256);
+    ptk_buf *buf1 = ptk_buf_create(NULL, 256);
+    ptk_buf *buf2 = ptk_buf_create(NULL, 256);
     assert(buf1 != NULL && buf2 != NULL);
 
     uint32_t test_value = 0x12345678;
@@ -180,16 +192,12 @@ void test_endianness() {
 
     ptk_buf_dispose(buf1);
     ptk_buf_dispose(buf2);
-    ptk_allocator_destroy(alloc);
 }
 
 void test_peek_functionality() {
     printf("\n=== Test Peek Functionality ===\n");
 
-    ptk_allocator_t *alloc = allocator_arena_create(1024, 8);
-    assert(alloc != NULL);
-
-    ptk_buf *buf = ptk_buf_create(alloc, 256);
+    ptk_buf *buf = ptk_buf_create(NULL, 256);
     assert(buf != NULL);
 
     uint16_t val1 = 0x1234;
@@ -233,16 +241,12 @@ void test_peek_functionality() {
     printf("✓ Peek functionality test passed\n");
 
     ptk_buf_dispose(buf);
-    ptk_allocator_destroy(alloc);
 }
 
 void test_error_handling() {
     printf("\n=== Test Error Handling ===\n");
 
-    ptk_allocator_t *alloc = allocator_arena_create(1024, 8);
-    assert(alloc != NULL);
-
-    ptk_buf *buf = ptk_buf_create(alloc, 8);  // Small buffer for overflow test
+    ptk_buf *buf = ptk_buf_create(NULL, 8);  // Small buffer for overflow test
     assert(buf != NULL);
 
     // Test buffer overflow during serialization
@@ -275,7 +279,76 @@ void test_error_handling() {
     printf("✓ Error handling test passed\n");
 
     ptk_buf_dispose(buf);
-    ptk_allocator_destroy(alloc);
+}
+
+void test_serializable_interface() {
+    printf("\n=== Test Serializable Interface ===\n");
+
+    ptk_buf *buf = ptk_buf_create(NULL, 256);
+    assert(buf != NULL);
+
+    // Initialize test PDU
+    test_pdu_t pdu = {.base = {.serialize = test_pdu_serialize, .deserialize = test_pdu_deserialize},
+                      .command = 0x1234,
+                      .length = 0x56789ABC,
+                      .checksum = 0xDEAD};
+
+    printf("Original PDU: cmd=0x%04x, len=0x%08x, checksum=0x%04x\n", pdu.command, pdu.length, pdu.checksum);
+
+    // Test direct PDU serialization
+    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, (ptk_serializable_t *)&pdu);
+    assert(err == PTK_OK);
+
+    printf("Serialized PDU: %zu bytes\n", ptk_buf_len(buf));
+    assert(ptk_buf_len(buf) == 8);  // 2+4+2 = 8 bytes
+
+    // Test direct PDU deserialization
+    test_pdu_t received_pdu = {.base = {.serialize = test_pdu_serialize, .deserialize = test_pdu_deserialize}};
+
+    err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN, (ptk_serializable_t *)&received_pdu);
+    assert(err == PTK_OK);
+
+    printf("Received PDU: cmd=0x%04x, len=0x%08x, checksum=0x%04x\n", received_pdu.command, received_pdu.length,
+           received_pdu.checksum);
+
+    // Verify values match
+    assert(received_pdu.command == pdu.command);
+    assert(received_pdu.length == pdu.length);
+    assert(received_pdu.checksum == pdu.checksum);
+
+    // Test mixed serialization (primitives + serializable)
+    ptk_buf_set_start(buf, 0);
+    ptk_buf_set_end(buf, 0);
+
+    uint8_t preamble = 0xAA;
+    uint16_t trailer = 0xBBCC;
+
+    err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, preamble, (ptk_serializable_t *)&pdu, trailer);
+    assert(err == PTK_OK);
+
+    printf("Mixed serialization: %zu bytes\n", ptk_buf_len(buf));
+    assert(ptk_buf_len(buf) == 11);  // 1 + 8 + 2 = 11 bytes
+
+    // Test mixed deserialization
+    uint8_t recv_preamble;
+    uint16_t recv_trailer;
+    test_pdu_t recv_mixed_pdu = {.base = {.serialize = test_pdu_serialize, .deserialize = test_pdu_deserialize}};
+
+    err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN, &recv_preamble, (ptk_serializable_t *)&recv_mixed_pdu,
+                              &recv_trailer);
+    assert(err == PTK_OK);
+
+    printf("Mixed deserialization: preamble=0x%02x, trailer=0x%04x\n", recv_preamble, recv_trailer);
+
+    assert(recv_preamble == preamble);
+    assert(recv_trailer == trailer);
+    assert(recv_mixed_pdu.command == pdu.command);
+    assert(recv_mixed_pdu.length == pdu.length);
+    assert(recv_mixed_pdu.checksum == pdu.checksum);
+
+    printf("✓ Serializable interface test passed\n");
+
+    ptk_buf_dispose(buf);
 }
 
 int main() {
@@ -286,6 +359,7 @@ int main() {
 
     test_basic_serialization();
     test_struct_serialization();
+    test_serializable_interface();
     test_endianness();
     test_peek_functionality();
     test_error_handling();

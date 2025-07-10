@@ -1,66 +1,63 @@
-#pragma once
+#ifndef MODBUS_INTERNAL_H
+#define MODBUS_INTERNAL_H
 
 #include "modbus.h"
-#include <arpa/inet.h>
-#include <ptk_buf.h>
-#include <ptk_log.h>
-#include <ptk_socket.h>
-#include <string.h>
-
-//=============================================================================
-// MODBUS TCP PROTOCOL CONSTANTS
-//=============================================================================
-
-#define MODBUS_TCP_PORT 502
-#define MODBUS_HEADER_SIZE 7  // 6 bytes TCP header + 1 byte unit ID
-#define MODBUS_MAX_PDU_SIZE 253
-#define MODBUS_MAX_ADU_SIZE (MODBUS_HEADER_SIZE + MODBUS_MAX_PDU_SIZE)
-
-// Function codes
-#define MODBUS_FC_READ_COILS 0x01
-#define MODBUS_FC_READ_DISCRETE_INPUTS 0x02
-#define MODBUS_FC_READ_HOLDING_REGISTERS 0x03
-#define MODBUS_FC_READ_INPUT_REGISTERS 0x04
-#define MODBUS_FC_WRITE_SINGLE_COIL 0x05
-#define MODBUS_FC_WRITE_SINGLE_REGISTER 0x06
-#define MODBUS_FC_WRITE_MULTIPLE_COILS 0x0F
-#define MODBUS_FC_WRITE_MULTIPLE_REGISTERS 0x10
-
-// Exception codes
-#define MODBUS_EXCEPTION_ILLEGAL_FUNCTION 0x01
-#define MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS 0x02
-#define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
-
-//=============================================================================
-// CONNECTION STRUCTURE
-//=============================================================================
-
-struct modbus_connection {
-    ptk_allocator_t *allocator;
-    ptk_sock *socket;
-    ptk_address_t address;
-    uint8_t unit_id;
-    uint16_t transaction_id;
-    bool is_server;
-    bool is_connected;
-    ptk_buf *buffer;  // Shared buffer for send/receive operations
-};
 
 //=============================================================================
 // INTERNAL HELPER FUNCTIONS
 //=============================================================================
 
 /**
- * @brief Increment transaction ID for the connection
+ * @brief Initialize the base PDU structure
+ * @param base Base PDU structure to initialize
+ * @param pdu_type Type identifier for this PDU
+ * @param serialize_fn Serialization function pointer
+ * @param deserialize_fn Deserialization function pointer
  */
-uint16_t modbus_next_transaction_id(modbus_connection *conn);
+void modbus_pdu_base_init(modbus_pdu_base_t *base,
+                         size_t pdu_type,
+                         ptk_err (*serialize_fn)(ptk_buf *buf, ptk_serializable_t *obj),
+                         ptk_err (*deserialize_fn)(ptk_buf *buf, ptk_serializable_t *obj));
 
 /**
- * @brief Send Modbus TCP frame with header and PDU
+ * @brief Dispatch PDU deserialization based on function code
+ * @param buf Buffer to deserialize from (uses peek to examine function code)
+ * @param mbap MBAP header to populate with the correct PDU
+ * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_send_frame(modbus_connection *conn, ptk_buf *pdu_buf);
+ptk_err modbus_dispatch_pdu_deserializer(ptk_buf *buf, modbus_mbap_t *mbap);
 
 /**
- * @brief Receive Modbus TCP frame and extract PDU
+ * @brief Get PDU type constant from function code and request/response flag
+ * @param function_code Modbus function code
+ * @param is_request True for request PDUs, false for responses
+ * @return PDU type constant, or 0 if invalid
  */
-ptk_err modbus_recv_frame(modbus_connection *conn, ptk_buf *pdu_buf);
+size_t modbus_get_pdu_type_from_function_code(uint8_t function_code, bool is_request);
+
+/**
+ * @brief Validate Modbus address and quantity ranges
+ * @param address Starting address
+ * @param quantity Number of items
+ * @param max_address Maximum valid address
+ * @param max_quantity Maximum valid quantity
+ * @return PTK_OK if valid, PTK_ERR_INVALID_PARAM if invalid
+ */
+ptk_err modbus_validate_request_params(uint16_t address, uint16_t quantity,
+                                      uint16_t max_address, uint16_t max_quantity);
+
+/**
+ * @brief Convert boolean value to Modbus coil format (0x0000 or 0xFF00)
+ * @param value Boolean value
+ * @return Modbus coil value
+ */
+uint16_t modbus_bool_to_coil_value(bool value);
+
+/**
+ * @brief Convert Modbus coil format to boolean
+ * @param coil_value Modbus coil value
+ * @return Boolean value (true for 0xFF00, false for 0x0000)
+ */
+bool modbus_coil_value_to_bool(uint16_t coil_value);
+
+#endif // MODBUS_INTERNAL_H

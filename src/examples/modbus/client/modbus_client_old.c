@@ -9,7 +9,6 @@
 #include <modbus.h>
 #include <ptk_alloc.h>
 #include <ptk_buf.h>
-#include <ptk_config.h>
 #include <ptk_err.h>
 #include <ptk_log.h>
 #include <ptk_socket.h>
@@ -578,7 +577,7 @@ ptk_err execute_write_holding_register(modbus_connection *conn, const client_con
         printf("Successfully wrote %d to holding register %d\n", config->write_values[0], config->start_address);
     } else {
         // Multiple registers write
-        modbus_register_array_t *values = ptk_alloc(allocator, sizeof(modbus_register_array_t));
+        modbus_register_array_t *values = ptk_alloc(allocator, sizeof(modbus_register_array_t), NULL);
         if(!values) {
             error("Failed to allocate register array");
             return PTK_ERR_NO_RESOURCES;
