@@ -62,11 +62,28 @@
 #include <stdint.h>
 
 //=============================================================================
+// FORWARD DECLARATIONS
+//=============================================================================
+
+typedef struct eip_apu_base_t eip_apu_base_t;
+typedef struct eip_connection eip_connection;
+typedef union cip_segment_u cip_segment_u;
+
+//=============================================================================
 // ARRAY TYPE DECLARATIONS
 //=============================================================================
 
 PTK_ARRAY_DECLARE(eip_identity, struct eip_identity_response_t);
-PTK_ARRAY_DECLARE(cip_ioi_path, struct cip_segment_base_t*);
+PTK_ARRAY_DECLARE(cip_segment, cip_segment_u);
+
+//=============================================================================
+// BASE APU STRUCTURE
+//=============================================================================
+
+typedef struct eip_apu_base_t {
+    ptk_serializable_t buf_base;  // Inherits serialization interface
+    size_t apu_type;             // Unique type identifier from #defines
+} eip_apu_base_t;
 
 //=============================================================================
 // CIP IOI PATH STRUCTURE AND UTILITIES
@@ -96,20 +113,11 @@ typedef enum {
 } cip_logical_subtype_t;
 
 /**
- * Base Segment Structure
- * All segment types inherit from this base
- */
-typedef struct cip_segment_base {
-    ptk_serializable_t serializable;    // Inherits serialization interface
-    cip_segment_type_t segment_type;    // Type of this segment
-} cip_segment_base_t;
-
-/**
  * Port Segment
  * Routes to a specific port (backplane slot, etc.)
  */
 typedef struct cip_port_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_PORT
     uint8_t port_number;                // Port number (1-255)
 } cip_port_segment_t;
 
@@ -118,7 +126,7 @@ typedef struct cip_port_segment {
  * Identifies a CIP object class
  */
 typedef struct cip_class_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_LOGICAL
     uint32_t class_id;                  // CIP class identifier
 } cip_class_segment_t;
 
@@ -127,7 +135,7 @@ typedef struct cip_class_segment {
  * Identifies a specific instance of a class
  */
 typedef struct cip_instance_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_LOGICAL
     uint32_t instance_id;               // Instance identifier
 } cip_instance_segment_t;
 
@@ -136,7 +144,7 @@ typedef struct cip_instance_segment {
  * Identifies a member (attribute) of an instance
  */
 typedef struct cip_member_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_LOGICAL
     uint32_t member_id;                 // Member/attribute identifier
 } cip_member_segment_t;
 
@@ -145,7 +153,7 @@ typedef struct cip_member_segment {
  * Identifies a connection point for connected messaging
  */
 typedef struct cip_connection_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_LOGICAL
     uint32_t connection_point;          // Connection point identifier
 } cip_connection_segment_t;
 
@@ -154,7 +162,7 @@ typedef struct cip_connection_segment {
  * Identifies an array element
  */
 typedef struct cip_element_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_LOGICAL
     uint32_t element_index;             // Array element index
 } cip_element_segment_t;
 
@@ -163,7 +171,7 @@ typedef struct cip_element_segment {
  * Variable-length symbolic name (tag name, etc.)
  */
 typedef struct cip_symbolic_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_SYMBOLIC
     char *symbol_name;                  // Symbolic name (child allocation)
     size_t symbol_length;               // Length of symbol name
 } cip_symbolic_segment_t;
@@ -173,48 +181,65 @@ typedef struct cip_symbolic_segment {
  * Variable-length raw data
  */
 typedef struct cip_data_segment {
-    cip_segment_base_t base;
+    cip_segment_type_t segment_type;    // CIP_SEGMENT_TYPE_DATA
     uint8_t *data;                      // Raw data bytes (child allocation)
     size_t data_length;                 // Length of data
 } cip_data_segment_t;
 
-// Declare IOI path as array of segment base pointers
-PTK_ARRAY_DECLARE(cip_ioi_path, cip_segment_base_t*);
+/**
+ * Generic Segment Union
+ * Used for type-safe access to different segment types
+ */
+typedef union cip_segment_u {
+    cip_segment_type_t segment_type;    // Common type field for all segments
+    cip_port_segment_t port;
+    cip_class_segment_t class;
+    cip_instance_segment_t instance;
+    cip_member_segment_t member;
+    cip_connection_segment_t connection;
+    cip_element_segment_t element;
+    cip_symbolic_segment_t symbolic;
+    cip_data_segment_t data;
+} cip_segment_u;
 
-// IOI Path creation and manipulation
-ptk_err eip_cip_ioi_path_create_from_string(void *parent, const char *path_string, cip_ioi_path_array_t **path);
-cip_ioi_path_array_t *eip_cip_ioi_path_create(void *parent);
+// Declare segment array
+PTK_ARRAY_DECLARE(cip_segment, cip_segment_u);
 
-// Segment addition functions - directly add segments to existing path
-ptk_err eip_cip_ioi_path_add_port(cip_ioi_path_array_t *path, uint8_t port_number);
-ptk_err eip_cip_ioi_path_add_class(cip_ioi_path_array_t *path, uint32_t class_id);
-ptk_err eip_cip_ioi_path_add_instance(cip_ioi_path_array_t *path, uint32_t instance_id);
-ptk_err eip_cip_ioi_path_add_member(cip_ioi_path_array_t *path, uint32_t member_id);
-ptk_err eip_cip_ioi_path_add_connection(cip_ioi_path_array_t *path, uint32_t connection_point);
-ptk_err eip_cip_ioi_path_add_element(cip_ioi_path_array_t *path, uint32_t element_index);
-ptk_err eip_cip_ioi_path_add_symbolic(cip_ioi_path_array_t *path, const char *symbol_name);
-ptk_err eip_cip_ioi_path_add_data(cip_ioi_path_array_t *path, const uint8_t *data, size_t data_length);
+/**
+ * CIP IOI Path PDU
+ * Represents a complete CIP path with multiple segments
+ */
+#define CIP_IOI_PATH_TYPE (__LINE__)
+typedef struct cip_ioi_path_pdu {
+    eip_apu_base_t base;                // Base PDU structure
+    cip_segment_array_t *segments;      // Array of segments (child allocation)
+} cip_ioi_path_pdu_t;
 
-// IOI Path utility functions
-size_t eip_cip_ioi_path_get_segment_count(const cip_ioi_path_array_t *path);
-cip_segment_base_t *eip_cip_ioi_path_get_segment(const cip_ioi_path_array_t *path, size_t index);
-size_t eip_cip_ioi_path_get_wire_length(const cip_ioi_path_array_t *path);
-ptk_err eip_cip_ioi_path_serialize(ptk_buf *buf, const cip_ioi_path_array_t *path);
-ptk_err eip_cip_ioi_path_deserialize(ptk_buf *buf, void *parent, cip_ioi_path_array_t **path);
-bool eip_cip_ioi_path_is_valid(const cip_ioi_path_array_t *path);
+// CIP Path PDU functions
+ptk_err cip_ioi_path_pdu_create_from_string(void *parent, const char *path_string, cip_ioi_path_pdu_t **path);
+cip_ioi_path_pdu_t *cip_ioi_path_pdu_create(void *parent);
+
+// Segment addition functions - directly add segments to existing path PDU
+ptk_err cip_ioi_path_pdu_add_port(cip_ioi_path_pdu_t *path, uint8_t port_number);
+ptk_err cip_ioi_path_pdu_add_class(cip_ioi_path_pdu_t *path, uint32_t class_id);
+ptk_err cip_ioi_path_pdu_add_instance(cip_ioi_path_pdu_t *path, uint32_t instance_id);
+ptk_err cip_ioi_path_pdu_add_member(cip_ioi_path_pdu_t *path, uint32_t member_id);
+ptk_err cip_ioi_path_pdu_add_connection(cip_ioi_path_pdu_t *path, uint32_t connection_point);
+ptk_err cip_ioi_path_pdu_add_element(cip_ioi_path_pdu_t *path, uint32_t element_index);
+ptk_err cip_ioi_path_pdu_add_symbolic(cip_ioi_path_pdu_t *path, const char *symbol_name);
+ptk_err cip_ioi_path_pdu_add_data(cip_ioi_path_pdu_t *path, const uint8_t *data, size_t data_length);
+
+// CIP Path PDU utility functions
+size_t cip_ioi_path_pdu_get_segment_count(const cip_ioi_path_pdu_t *path);
+cip_segment_u *cip_ioi_path_pdu_get_segment(const cip_ioi_path_pdu_t *path, size_t index);
+size_t cip_ioi_path_pdu_get_wire_length(const cip_ioi_path_pdu_t *path);
+ptk_err cip_ioi_path_pdu_serialize(ptk_buf *buf, const cip_ioi_path_pdu_t *path);
+ptk_err cip_ioi_path_pdu_deserialize(ptk_buf *buf, void *parent, cip_ioi_path_pdu_t **path);
+bool cip_ioi_path_pdu_is_valid(const cip_ioi_path_pdu_t *path);
 
 // String parsing and formatting
-ptk_err eip_cip_ioi_path_parse_string(cip_ioi_path_array_t *path, const char *path_string);
-ptk_err eip_cip_ioi_path_to_string(const cip_ioi_path_array_t *path, char *buffer, size_t buffer_size);
-
-//=============================================================================
-// BASE APU STRUCTURE
-//=============================================================================
-
-typedef struct eip_apu_base_t {
-    ptk_serializable_t buf_base;  // Inherits serialization interface
-    size_t apu_type;             // Unique type identifier from #defines
-} eip_apu_base_t;
+ptk_err cip_ioi_path_pdu_parse_string(cip_ioi_path_pdu_t *path, const char *path_string);
+ptk_err cip_ioi_path_pdu_to_string(const cip_ioi_path_pdu_t *path, char *buffer, size_t buffer_size);
 
 //=============================================================================
 // DEVICE IDENTITY STRUCTURES (PUBLIC)
@@ -322,7 +347,7 @@ typedef struct eip_connection {
     // Connection parameters
     char host[256];                 // Target host (IP or hostname)
     uint16_t port;                  // Target port (typically 44818)
-    cip_ioi_path_array_t *cip_path; // CIP routing path (child allocation)
+    cip_segment_array_t *cip_path;  // CIP routing path (child allocation)
 
     // Session state
     uint32_t session_handle;        // Current session handle (0 if no session)
@@ -334,7 +359,7 @@ typedef struct eip_connection {
 
 // Connection creation functions
 eip_connection *eip_client_connect_tcp(void *parent, const char *host, uint16_t port,
-                                       const cip_ioi_path_array_t *cip_path);
+                                       const cip_segment_array_t *cip_path);
 eip_connection *eip_client_connect_udp(void *parent, const char *host, uint16_t port);
 eip_connection *eip_server_listen(void *parent, const char *host, uint16_t port);
 ptk_err eip_close(eip_connection *conn);
