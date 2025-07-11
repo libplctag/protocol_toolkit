@@ -1,5 +1,7 @@
 #include "ptk_err.h"
 
+ptk_thread_local ptk_err ptk_current_error = PTK_OK;
+
 const char *ptk_err_to_string(ptk_err err) {
     switch(err) {
         case PTK_OK: return "Success";

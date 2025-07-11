@@ -53,127 +53,29 @@ typedef struct ptk_serializable ptk_serializable_t;
 //=============================================================================
 
 typedef struct ptk_buf {
-    void *parent;      // Parent allocation for cleanup
-    u8 *data;
-    size_t capacity;
-    size_t start;  // Start position for reading
-    size_t end;    // End position (exclusive)
-    ptk_err last_err;
+    u8 *data;         // Pointer to start of buffer
+    size_t data_len;  // Total length of buffer
+    size_t cursor;    // Current read/write position
 } ptk_buf;
 
-
-//=============================================================================
-// BUFFER MEMORY MANAGEMENT
-//=============================================================================
-
-/**
- * @section buffer_memory Buffer Memory Management
- *
- * Buffers in Protocol Toolkit use the parent-child allocation system for
- * automatic memory management. The buffer structure and its data are managed
- * as a parent-child hierarchy.
- *
- * @subsection buffer_hierarchy Buffer Hierarchy
- *
- * When you create a buffer with `ptk_buf_create(parent, size)`:
- * 1. The `ptk_buf` structure is allocated as a child of `parent`
- * 2. The buffer's data array is allocated as a child of the buffer
- * 3. Freeing the parent automatically frees the buffer and its data
- *
- * @code{.c}
- * // Memory hierarchy:
- * // parent
- * //   └── buf (ptk_buf structure)
- * //       └── buf->data (byte array)
- *
- * void *parent = ptk_alloc(NULL, 1, NULL);
- * ptk_buf *buf = ptk_buf_create(parent, 1024);
- * // buf->data is automatically allocated as child of buf
- *
- * ptk_free(parent);  // Frees buf and buf->data automatically
- * @endcode
- *
- * @subsection buffer_patterns Common Buffer Patterns
- *
- * **1. Session with Multiple Buffers**
- * @code{.c}
- * void *session = ptk_alloc(NULL, 1, NULL);
- * ptk_buf *in_buf = ptk_buf_create(session, 4096);
- * ptk_buf *out_buf = ptk_buf_create(session, 4096);
- *
- * // Process data...
- *
- * ptk_free(session);  // Cleans up both buffers
- * @endcode
- *
- * **2. Nested Protocol Parsing**
- * @code{.c}
- * void *parser = ptk_alloc(NULL, 1, NULL);
- * ptk_buf *packet = ptk_buf_create(parser, 1500);
- *
- * // Parse sub-messages into child buffers
- * ptk_buf *header = ptk_buf_create(packet, 20);
- * ptk_buf *payload = ptk_buf_create(packet, 1480);
- *
- * ptk_free(parser);  // Cleans up entire parsing hierarchy
- * @endcode
- *
- * **3. Buffer Pools**
- * @code{.c}
- * void *pool = ptk_alloc(NULL, 1, NULL);
- * ptk_buf *buffers[10];
- *
- * for(int i = 0; i < 10; i++) {
- *     buffers[i] = ptk_buf_create(pool, 1024);
- * }
- *
- * ptk_free(pool);  // Frees all buffers in pool
- * @endcode
- *
- * @subsection buffer_lifecycle Buffer Lifecycle
- *
- * - **Creation**: `ptk_buf_create()` establishes parent-child relationship
- * - **Usage**: Normal buffer operations (read/write/serialize)
- * - **Cleanup**: `ptk_free()` on parent automatically cleans up buffer
- * - **No Manual Disposal**: Don't call `ptk_buf_dispose()` if using parent-child
- *
- * @subsection buffer_migration Buffer Migration Examples
- *
- * **Old Pattern (with allocator):**
- * @code{.c}
- * ptk_allocator_t *alloc = ptk_allocator_create();
- * ptk_buf *buf = ptk_buf_create(alloc, 1024);
- * // ... use buffer ...
- * ptk_buf_dispose(buf);
- * ptk_allocator_destroy(alloc);
- * @endcode
- *
- * **New Pattern (parent-child):**
- * @code{.c}
- * void *parent = ptk_alloc(NULL, 1, NULL);
- * ptk_buf *buf = ptk_buf_create(parent, 1024);
- * // ... use buffer ...
- * ptk_free(parent);  // Automatically frees buf and buf->data
- * @endcode
- *
- * @subsection buffer_debugging Buffer Debugging
- *
- * - Each buffer allocation shows file/line where created
- * - Buffer data allocation shows file/line from `ptk_buf_create()`
- * - Automatic leak detection for unfreed buffers
- * - LIFO destruction order visible in debug output
- */
 
 
 //=============================================================================
 // BUFFER OPERATIONS
 //=============================================================================
 
-static inline ptk_buf *ptk_buf_create(void *parent, size_t size) {
+
+/**
+ * @brief create a new buffer with the specified size.
+ *
+ * @param size
+ * @return ptk_buf*
+ */
+static inline ptk_buf *ptk_buf_create(size_t size) {
     ptk_buf *buf = NULL;
 
     buf = ptk_alloc(parent, sizeof(ptk_buf), NULL);
-    if(!buf) { return NULL; }
+    if(!buf) { ptk_set_err(PTK_ERR_NO_RESOURCES); return NULL; }
 
     buf->data = ptk_alloc(buf, size, NULL);
     if(!buf->data) {
