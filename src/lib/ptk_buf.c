@@ -1,5 +1,7 @@
 #include "ptk_buf.h"
 #include "ptk_log.h"
+#include "ptk_alloc.h"
+#include "ptk_err.h"
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,69 +11,122 @@
 // NON-INLINE BUFFER FUNCTIONS
 //=============================================================================
 
-ptk_buf *ptk_buf_alloc(size_t size) {
+ptk_buf *ptk_buf_alloc(buf_size_t size) {
+    if (size == 0) {
+        ptk_set_err(PTK_ERR_INVALID_PARAM);
+        return NULL;
+    }
+    
     ptk_buf *buf = ptk_alloc(sizeof(ptk_buf), NULL);
-    if(!buf) { return NULL; }
+    if(!buf) { 
+        ptk_set_err(PTK_ERR_NO_RESOURCES);
+        return NULL; 
+    }
+    
     buf->data = ptk_alloc(size, NULL);
     if(!buf->data) {
         ptk_free(buf);
+        ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
+    
     buf->data_len = size;
-    buf->cursor = 0;
+    buf->start = 0;
+    buf->end = 0;
     return buf;
 }
 
-ptk_buf *ptk_buf_alloc_from_data(const u8 *data, size_t size) {
+ptk_buf *ptk_buf_alloc_from_data(const u8 *data, buf_size_t size) {
+    if (!data) {
+        ptk_set_err(PTK_ERR_NULL_PTR);
+        return NULL;
+    }
+    
     ptk_buf *buf = ptk_buf_alloc(size);
-    if(!buf) { return NULL; }
+    if(!buf) { 
+        return NULL; 
+    }
+    
     memcpy(buf->data, data, size);
-    buf->cursor = 0;
+    buf->start = 0;
+    buf->end = size;
     return buf;
 }
 
-ptk_buf *ptk_buf_realloc(ptk_buf *buf, size_t new_size) {
-    if(!buf) { return NULL; }
+ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size) {
+    if(!buf) { 
+        ptk_set_err(PTK_ERR_NULL_PTR);
+        return NULL; 
+    }
+    if(new_size == 0) {
+        ptk_set_err(PTK_ERR_INVALID_PARAM);
+        return NULL;
+    }
+    
     u8 *new_data = ptk_realloc(buf->data, new_size);
-    if(!new_data) { return NULL; }
+    if(!new_data) { 
+        ptk_set_err(PTK_ERR_NO_RESOURCES);
+        return NULL; 
+    }
+    
     buf->data = new_data;
     buf->data_len = new_size;
-    if(buf->cursor > new_size) { buf->cursor = new_size; }
+    
+    // Adjust start and end if they exceed new size
+    if(buf->start > new_size) { buf->start = new_size; }
+    if(buf->end > new_size) { buf->end = new_size; }
+    
     return buf;
 }
 
-size_t ptk_buf_get_size(const ptk_buf *buf) {
+buf_size_t ptk_buf_get_len(const ptk_buf *buf) {
+    if(!buf) { return 0; }
+    return buf->end - buf->start;
+}
+
+buf_size_t ptk_buf_get_capacity(const ptk_buf *buf) {
     if(!buf) { return 0; }
     return buf->data_len;
 }
 
-size_t ptk_buf_get_cursor(const ptk_buf *buf) {
+buf_size_t ptk_buf_get_start(const ptk_buf *buf) {
     if(!buf) { return 0; }
-    return buf->cursor;
+    return buf->start;
 }
 
-ptk_err ptk_buf_set_cursor(ptk_buf *buf, size_t cursor) {
+ptk_err ptk_buf_set_start(ptk_buf *buf, buf_size_t start) {
     if(!buf) { return PTK_ERR_NULL_PTR; }
-    if(cursor > buf->data_len) { return PTK_ERR_OUT_OF_BOUNDS; }
-    buf->cursor = cursor;
+    if(start > buf->data_len) { return PTK_ERR_OUT_OF_BOUNDS; }
+    buf->start = start;
     return PTK_OK;
 }
 
-ptk_err ptrk_buf_move_block(ptk_buf *buf, size_t new_position, size_t start, size_t len) {
+buf_size_t ptk_buf_get_end(const ptk_buf *buf) {
+    if(!buf) { return 0; }
+    return buf->end;
+}
+
+ptk_err ptk_buf_set_end(ptk_buf *buf, buf_size_t end) {
+    if(!buf) { return PTK_ERR_NULL_PTR; }
+    if(end > buf->data_len) { return PTK_ERR_OUT_OF_BOUNDS; }
+    buf->end = end;
+    return PTK_OK;
+}
+
+ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position) {
     if(!buf || !buf->data) { return PTK_ERR_NULL_PTR; }
-    if(start + len > buf->data_len || new_position + len > buf->data_len) { return PTK_ERR_OUT_OF_BOUNDS; }
-    memmove(buf->data + new_position, buf->data + start, len);
+    
+    buf_size_t block_size = buf->end - buf->start;
+    if(new_position + block_size > buf->data_len) { 
+        return PTK_ERR_OUT_OF_BOUNDS; 
+    }
+    
+    memmove(buf->data + new_position, buf->data + buf->start, block_size);
+    buf->start = new_position;
+    buf->end = new_position + block_size;
+    
     return PTK_OK;
 }
-
-//=============================================================================
-// BUFFER PRODUCE/CONSUME FUNCTIONS
-//=============================================================================
-
-/**
- * @brief Parse format string and determine required size
- */
-
 
 //=============================================================================
 // TYPE-SAFE SERIALIZATION IMPLEMENTATION
@@ -111,9 +166,9 @@ static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_
 
     size_t type_size = ptk_buf_type_size(type);
     if(type_size == 0) { return PTK_ERR_INVALID_PARAM; }
-    if(buf->cursor + type_size > buf->data_len) { return PTK_ERR_BUFFER_TOO_SMALL; }
+    if(buf->end + type_size > buf->data_len) { return PTK_ERR_BUFFER_TOO_SMALL; }
 
-    uint8_t *write_ptr = buf->data + buf->cursor;
+    uint8_t *write_ptr = buf->data + buf->end;
     bool needs_swap = false;
     if(endian == PTK_BUF_LITTLE_ENDIAN) {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -172,7 +227,7 @@ static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_
         }
         default: return PTK_ERR_INVALID_PARAM;
     }
-    buf->cursor += type_size;
+    buf->end += type_size;
     return PTK_OK;
 }
 
@@ -184,15 +239,15 @@ static ptk_err ptk_buf_read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t 
     if(type == PTK_BUF_TYPE_SERIALIZABLE) {
         ptk_serializable_t *obj = va_arg(*args, ptk_serializable_t *);
         if(!obj || !obj->deserialize) { return PTK_ERR_INVALID_PARAM; }
-        size_t original_cursor = buf->cursor;
+        buf_size_t original_start = buf->start;
         ptk_err result = obj->deserialize(buf, obj);
-        if(peek) { buf->cursor = original_cursor; }
+        if(peek) { buf->start = original_start; }
         return result;
     }
     size_t type_size = ptk_buf_type_size(type);
     if(type_size == 0) { return PTK_ERR_INVALID_PARAM; }
-    if(buf->cursor + type_size > buf->data_len) { return PTK_ERR_BUFFER_TOO_SMALL; }
-    uint8_t *read_ptr = buf->data + buf->cursor;
+    if(buf->start + type_size > buf->end) { return PTK_ERR_BUFFER_TOO_SMALL; }
+    uint8_t *read_ptr = buf->data + buf->start;
     bool needs_swap = false;
     if(endian == PTK_BUF_LITTLE_ENDIAN) {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
@@ -257,21 +312,21 @@ static ptk_err ptk_buf_read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t 
         }
         default: return PTK_ERR_INVALID_PARAM;
     }
-    if(!peek) { buf->cursor += type_size; }
+    if(!peek) { buf->start += type_size; }
     return PTK_OK;
 }
 
 /**
  * Implementation function for type-safe serialization
  */
-ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, size_t count, ...) {
+ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t count, ...) {
     if(!buf) { return PTK_ERR_NULL_PTR; }
     if(count == 0) { return PTK_OK; }
     va_list args;
     va_start(args, count);
-    size_t original_cursor = buf->cursor;
+    buf_size_t original_end = buf->end;
     ptk_err result = PTK_OK;
-    for(size_t i = 0; i < count && result == PTK_OK; i++) {
+    for(buf_size_t i = 0; i < count && result == PTK_OK; i++) {
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
         if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
             result = PTK_ERR_INVALID_PARAM;
@@ -281,21 +336,21 @@ ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, size_t cou
         if(result != PTK_OK) { break; }
     }
     va_end(args);
-    if(result != PTK_OK) { buf->cursor = original_cursor; }
+    if(result != PTK_OK) { buf->end = original_end; }
     return result;
 }
 
 /**
  * Implementation function for type-safe deserialization
  */
-ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, size_t count, ...) {
+ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, buf_size_t count, ...) {
     if(!buf) { return PTK_ERR_NULL_PTR; }
     if(count == 0) { return PTK_OK; }
     va_list args;
     va_start(args, count);
-    size_t original_cursor = buf->cursor;
+    buf_size_t original_start = buf->start;
     ptk_err result = PTK_OK;
-    for(size_t i = 0; i < count && result == PTK_OK; i++) {
+    for(buf_size_t i = 0; i < count && result == PTK_OK; i++) {
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
         if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
             result = PTK_ERR_INVALID_PARAM;
@@ -305,6 +360,6 @@ ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endia
         if(result != PTK_OK) { break; }
     }
     va_end(args);
-    if(result != PTK_OK || peek) { buf->cursor = original_cursor; }
+    if(result != PTK_OK || peek) { buf->start = original_start; }
     return result;
 }

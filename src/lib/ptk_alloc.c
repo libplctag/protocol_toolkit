@@ -85,7 +85,7 @@ void *ptk_realloc_impl(const char *file, int line, void *ptr, size_t new_size) {
 
 void ptk_free_impl(const char *file, int line, void *ptr) {
     if(!ptr) {
-        warn("ptk_free: called with null pointer at %s:%d", file, line);
+        debug("ptk_free: called with null pointer at %s:%d", file, line);
         return;
     }
     ptk_alloc_header_t *hdr = ptk_get_header(ptr);
@@ -95,6 +95,4 @@ void ptk_free_impl(const char *file, int line, void *ptr) {
         hdr->destructor(ptr);
     }
     free(hdr);
-}
-}
 }

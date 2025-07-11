@@ -52,10 +52,15 @@ typedef struct ptk_serializable ptk_serializable_t;
 // BUFFER STRUCTURE
 //=============================================================================
 
+typedef uint16_t buf_size_t;
+
+/* note the small size! */
+
 typedef struct ptk_buf {
-    u8 *data;         // Pointer to start of buffer
-    size_t data_len;  // Total length of buffer
-    size_t cursor;    // Current read/write position
+    u8 *data;           // Pointer to start of buffer
+    buf_size_t data_len;  // Total length of buffer
+    buf_size_t start;
+    buf_size_t end;
 } ptk_buf;
 
 
@@ -64,20 +69,56 @@ typedef struct ptk_buf {
 //=============================================================================
 
 
-// Only keep constructor and destructor
-extern ptk_buf *ptk_buf_alloc(size_t size);
+/**
+ * @brief Allocate a new buffer of the given size.
+ * 
+ * size must be greater than zero.
+ * 
+ * @return a new buffer or NULL if there was an error.  The thread error will be set.
+ */
+extern ptk_buf *ptk_buf_alloc(buf_size_t size);
 
-extern ptk_buf *ptk_buf_alloc_from_data(const u8 *data, size_t size);
+/**
+ * @brief as for ptk_buf_alloc() but adds the passed data in.
+ */
+extern ptk_buf *ptk_buf_alloc_from_data(const u8 *data, buf_size_t size);
 
-extern ptk_buf *ptk_buf_realloc(ptk_buf *buf, size_t new_size);
+/**
+ * @brief Resizes the buffer.   
+ * 
+ * The size may not be zero.  The passed in buffer may not be NULL.
+ * This does not act like POSIX realloc()!
+ */
+extern ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size);
 
-extern size_t ptk_buf_get_size(const ptk_buf *buf);
+/**
+ * @brief returns the length of data in the buffer (end - start).
+ * 
+ * Returns zero if the buffer was NULL. Returns the amount of data
+ * between start and end (exclusive for end).
+ */
+extern buf_size_t ptk_buf_get_len(const ptk_buf *buf);
 
-extern size_t ptk_buf_get_cursor(const ptk_buf *buf);
+/**
+ * @brief returns the total capacity of the buffer.
+ * 
+ * Returns zero if the buffer was NULL. Returns the total allocated
+ * size of the data block.
+ */
+extern buf_size_t ptk_buf_get_capacity(const ptk_buf *buf);
 
-extern ptk_err ptk_buf_set_cursor(ptk_buf *buf, size_t cursor);
+extern buf_size_t ptk_buf_get_start(const ptk_buf *buf);
+extern ptk_err ptk_buf_set_start(ptk_buf *buf, buf_size_t start);
 
-extern ptk_err ptrk_buf_move_block(ptk_buf *buf, size_t new_position, size_t start, size_t len);
+extern buf_size_t ptk_buf_get_end(const ptk_buf *buf);
+extern ptk_err ptk_buf_set_end(ptk_buf *buf, buf_size_t end);
+
+/**
+ * @brief Move the block of memory (start to end) to the new position in the buffer.
+ * 
+ * @return OK or OUT_OF_BOUNDS if the block would go out of bounds.
+ */
+extern ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position);
 
 /* no ptk_buf_free() because that it taken care of by ptk_alloc() */
 
@@ -113,7 +154,7 @@ typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endia
  * @param ... Alternating type_enum, value pairs
  * @return Error code
  */
-extern ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, size_t count, ...);
+extern ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t count, ...);
 
 /**
  * Implementation function for type-safe deserialization
@@ -131,7 +172,7 @@ extern ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, siz
  * @param ... Alternating type_enum, pointer pairs
  * @return Error code
  */
-extern ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, size_t count, ...);
+extern ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, buf_size_t count, ...);
 
 /* byte swap helpers */
 
