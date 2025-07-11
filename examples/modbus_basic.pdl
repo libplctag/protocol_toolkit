@@ -1,0 +1,91 @@
+// Basic Modbus PDL - Read Multiple Holding Registers and Read Multiple Coils
+// This demonstrates the field-indexed architecture with simple request/response pairs
+
+// Common Modbus types
+def u16_be = { type: u16, byte_order: [1, 0] }
+def u8_standard = { type: u8, byte_order: [0] }
+def u8_based_bit_array = { type: bit[], container_type: u8 }
+
+// Modbus function codes
+def MODBUS_READ_HOLDING_REGISTERS = { type: u8_standard, const: 0x03 }
+def MODBUS_READ_COILS = { type: u8_standard, const: 0x01 }
+
+// ADU header (Application Data Unit) - simplified for TCP
+def modbus_adu_header = {
+    type: message,
+    fields: [
+        transaction_id: { type: u16_be, encode: get_new_modbus_transaction_id
+        protocol_id: { type: u16_be, const: 0x0000 },
+        length: u16_be,
+        unit_id: u8_standard
+    ]
+}
+
+// PDU (Protocol Data Unit) - the actual Modbus message
+def modbus_pdu = {
+    type: message,
+    fields: [
+        function_code: u8_standard,
+        payload: [
+            read_holding_registers_request,
+            read_holding_registers_response,
+            read_coils_request,
+            read_coils_response
+        ]
+    ]
+}
+
+// Complete Modbus message
+def modbus_message = {
+    type: message,
+    fields: [
+        header: modbus_adu_header,
+        pdu: modbus_pdu
+    ]
+}
+
+// Read Multiple Holding Registers Request (Function Code 0x03)
+def read_holding_registers_request = {
+    type: message,
+    match: ($.function_code == MODBUS_READ_HOLDING_REGISTERS),
+    fields: [
+        starting_address: u16_be,
+        quantity: u16_be
+    ]
+}
+
+// Read Multiple Holding Registers Response (Function Code 0x03)
+def read_holding_registers_response = {
+    type: message,
+    match: ($.function_code == MODBUS_READ_HOLDING_REGISTERS),
+    fields: [
+        byte_count: u8_standard,
+        register_values: {
+            type: u16_be[],
+            length: {
+                decode: (byte_count / 2),
+                encode: (register_values.count)
+            }
+        }
+    ]
+}
+
+// Read Multiple Coils Request (Function Code 0x01)
+def read_coils_request = {
+    type: message,
+    match: ($.function_code == MODBUS_READ_COILS),
+    fields: [
+        starting_address: u16_be,
+        quantity: u16_be
+    ]
+}
+
+// Read Multiple Coils Response (Function Code 0x01)
+def read_coils_response = {
+    type: message,
+    match: ($.function_code == MODBUS_READ_COILS),
+    fields: [
+        byte_count: u8_standard,
+        coil_status: u8_based_bit_array[byte_count]
+    ]
+}

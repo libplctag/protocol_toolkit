@@ -1,0 +1,228 @@
+// Modbus TCP Protocol Definition Language Specification
+// Based on Modbus Application Protocol Specification V1.1b3
+
+// Basic type definitions with endianness
+def u8_le = { type: u8 }
+def u16_be = { type: u16, byte_order: [1, 0] }
+def u32_be = { type: u32, byte_order: [3, 2, 1, 0] }
+
+// Modbus function codes (constants)
+def READ_COILS = { type: u8_le, const: 0x01 }
+def READ_DISCRETE_INPUTS = { type: u8_le, const: 0x02 }
+def READ_HOLDING_REGISTERS = { type: u8_le, const: 0x03 }
+def READ_INPUT_REGISTERS = { type: u8_le, const: 0x04 }
+def WRITE_SINGLE_COIL = { type: u8_le, const: 0x05 }
+def WRITE_SINGLE_REGISTER = { type: u8_le, const: 0x06 }
+def WRITE_MULTIPLE_COILS = { type: u8_le, const: 0x0F }
+def WRITE_MULTIPLE_REGISTERS = { type: u8_le, const: 0x10 }
+
+// Exception codes
+def ILLEGAL_FUNCTION = { type: u8_le, const: 0x01 }
+def ILLEGAL_DATA_ADDRESS = { type: u8_le, const: 0x02 }
+def ILLEGAL_DATA_VALUE = { type: u8_le, const: 0x03 }
+def SERVER_DEVICE_FAILURE = { type: u8_le, const: 0x04 }
+def ACKNOWLEDGE = { type: u8_le, const: 0x05 }
+def SERVER_DEVICE_BUSY = { type: u8_le, const: 0x06 }
+
+// Modbus TCP/IP Header (MBAP - Modbus Application Protocol)
+def modbus_tcp_header = {
+    type: message,
+    fields: [
+        transaction_id: u16_be,     // Transaction identifier
+        protocol_id: u16_be,        // Protocol identifier (0x0000 for Modbus)
+        length: u16_be,             // Length of following bytes
+        unit_id: u8_le              // Unit identifier (slave address)
+    ]
+}
+
+// Read Coils Request (Function Code 0x01)
+def read_coils_request = {
+    type: message,
+    fields: [
+        function_code: READ_COILS,
+        starting_address: u16_be,
+        quantity_of_coils: u16_be
+    ]
+}
+
+// Read Coils Response (Function Code 0x01)
+def read_coils_response = {
+    type: message,
+    fields: [
+        function_code: READ_COILS,
+        byte_count: u8_le,
+        coil_status: u8[byte_count]
+    ]
+}
+
+// Read Discrete Inputs Request (Function Code 0x02)
+def read_discrete_inputs_request = {
+    type: message,
+    fields: [
+        function_code: READ_DISCRETE_INPUTS,
+        starting_address: u16_be,
+        quantity_of_inputs: u16_be
+    ]
+}
+
+// Read Discrete Inputs Response (Function Code 0x02)
+def read_discrete_inputs_response = {
+    type: message,
+    fields: [
+        function_code: READ_DISCRETE_INPUTS,
+        byte_count: u8_le,
+        input_status: u8[byte_count]
+    ]
+}
+
+// Read Holding Registers Request (Function Code 0x03)
+def read_holding_registers_request = {
+    type: message,
+    fields: [
+        function_code: READ_HOLDING_REGISTERS,
+        starting_address: u16_be,
+        quantity_of_registers: u16_be
+    ]
+}
+
+// Read Holding Registers Response (Function Code 0x03)
+def read_holding_registers_response = {
+    type: message,
+    fields: [
+        function_code: READ_HOLDING_REGISTERS,
+        byte_count: u8_le,
+        register_value: u16_be[byte_count]
+    ]
+}
+
+// Read Input Registers Request (Function Code 0x04)
+def read_input_registers_request = {
+    type: message,
+    fields: [
+        function_code: READ_INPUT_REGISTERS,
+        starting_address: u16_be,
+        quantity_of_registers: u16_be
+    ]
+}
+
+// Read Input Registers Response (Function Code 0x04)
+def read_input_registers_response = {
+    type: message,
+    fields: [
+        function_code: READ_INPUT_REGISTERS,
+        byte_count: u8_le,
+        input_registers: u16_be[byte_count]
+    ]
+}
+
+// Write Single Coil Request (Function Code 0x05)
+def write_single_coil_request = {
+    type: message,
+    fields: [
+        function_code: WRITE_SINGLE_COIL,
+        output_address: u16_be,
+        output_value: u16_be        // 0x0000 = OFF, 0xFF00 = ON
+    ]
+}
+
+// Write Single Coil Response (Function Code 0x05)
+def write_single_coil_response = {
+    type: message,
+    fields: [
+        function_code: WRITE_SINGLE_COIL,
+        output_address: u16_be,
+        output_value: u16_be
+    ]
+}
+
+// Write Single Register Request (Function Code 0x06)
+def write_single_register_request = {
+    type: message,
+    fields: [
+        function_code: WRITE_SINGLE_REGISTER,
+        register_address: u16_be,
+        register_value: u16_be
+    ]
+}
+
+// Write Single Register Response (Function Code 0x06)
+def write_single_register_response = {
+    type: message,
+    fields: [
+        function_code: WRITE_SINGLE_REGISTER,
+        register_address: u16_be,
+        register_value: u16_be
+    ]
+}
+
+// Write Multiple Coils Request (Function Code 0x0F)
+def write_multiple_coils_request = {
+    type: message,
+    fields: [
+        function_code: WRITE_MULTIPLE_COILS,
+        starting_address: u16_be,
+        quantity_of_outputs: u16_be,
+        byte_count: u8_le,
+        output_value: u8[byte_count]
+    ]
+}
+
+// Write Multiple Coils Response (Function Code 0x0F)
+def write_multiple_coils_response = {
+    type: message,
+    fields: [
+        function_code: WRITE_MULTIPLE_COILS,
+        starting_address: u16_be,
+        quantity_of_outputs: u16_be
+    ]
+}
+
+// Write Multiple Registers Request (Function Code 0x10)
+def write_multiple_registers_request = {
+    type: message,
+    fields: [
+        function_code: WRITE_MULTIPLE_REGISTERS,
+        starting_address: u16_be,
+        quantity_of_registers: u16_be,
+        byte_count: u8_le,
+        registers_value: u16_be[byte_count]
+    ]
+}
+
+// Write Multiple Registers Response (Function Code 0x10)
+def write_multiple_registers_response = {
+    type: message,
+    fields: [
+        function_code: WRITE_MULTIPLE_REGISTERS,
+        starting_address: u16_be,
+        quantity_of_registers: u16_be
+    ]
+}
+
+// Exception Response (for any function code)
+def modbus_exception_response = {
+    type: message,
+    fields: [
+        function_code: u8_le,       // Original function code + 0x80
+        exception_code: u8_le
+    ]
+}
+
+// Complete Modbus TCP PDU (Protocol Data Unit)
+def modbus_tcp_pdu = {
+    type: message,
+    fields: [
+        header: modbus_tcp_header,
+        function_code: u8_le,
+        data: u8[header]            // Variable length data based on function code
+    ]
+}
+
+// Complete Modbus TCP Message
+def modbus_tcp_message = {
+    type: message,
+    fields: [
+        header: modbus_tcp_header,
+        pdu_data: u8[header]        // PDU data (function code + data)
+    ]
+}

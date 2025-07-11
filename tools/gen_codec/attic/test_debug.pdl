@@ -1,0 +1,3 @@
+// Debug test PDL file
+def u16_le = { type: u16 }
+def simple_message = { type: message }
