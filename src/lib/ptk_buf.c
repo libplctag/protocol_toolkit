@@ -9,28 +9,58 @@
 // NON-INLINE BUFFER FUNCTIONS
 //=============================================================================
 
-u8 *ptk_buf_get_start_ptr(ptk_buf *buf) {
-    if(!buf) {
-        error("ptk_buf_get_start_ptr called with NULL buffer");
+ptk_buf *ptk_buf_alloc(size_t size) {
+    ptk_buf *buf = ptk_alloc(sizeof(ptk_buf), NULL);
+    if(!buf) { return NULL; }
+    buf->data = ptk_alloc(size, NULL);
+    if(!buf->data) {
+        ptk_free(buf);
         return NULL;
     }
-
-    return buf->data + buf->start;
+    buf->data_len = size;
+    buf->cursor = 0;
+    return buf;
 }
 
-ptk_err ptk_buf_set_start(ptk_buf *buf, size_t start) {
-    if(!buf) {
-        error("ptk_buf_set_start called with NULL buffer");
-        return PTK_ERR_NULL_PTR;
-    }
+ptk_buf *ptk_buf_alloc_from_data(const u8 *data, size_t size) {
+    ptk_buf *buf = ptk_buf_alloc(size);
+    if(!buf) { return NULL; }
+    memcpy(buf->data, data, size);
+    buf->cursor = 0;
+    return buf;
+}
 
-    if(start > buf->end) {
-        error("ptk_buf_set_start: start %zu > end %zu", start, buf->end);
-        return PTK_ERR_OUT_OF_BOUNDS;
-    }
+ptk_buf *ptk_buf_realloc(ptk_buf *buf, size_t new_size) {
+    if(!buf) { return NULL; }
+    u8 *new_data = ptk_realloc(buf->data, new_size);
+    if(!new_data) { return NULL; }
+    buf->data = new_data;
+    buf->data_len = new_size;
+    if(buf->cursor > new_size) { buf->cursor = new_size; }
+    return buf;
+}
 
-    buf->start = start;
-    trace("Buffer start set to %zu", start);
+size_t ptk_buf_get_size(const ptk_buf *buf) {
+    if(!buf) { return 0; }
+    return buf->data_len;
+}
+
+size_t ptk_buf_get_cursor(const ptk_buf *buf) {
+    if(!buf) { return 0; }
+    return buf->cursor;
+}
+
+ptk_err ptk_buf_set_cursor(ptk_buf *buf, size_t cursor) {
+    if(!buf) { return PTK_ERR_NULL_PTR; }
+    if(cursor > buf->data_len) { return PTK_ERR_OUT_OF_BOUNDS; }
+    buf->cursor = cursor;
+    return PTK_OK;
+}
+
+ptk_err ptrk_buf_move_block(ptk_buf *buf, size_t new_position, size_t start, size_t len) {
+    if(!buf || !buf->data) { return PTK_ERR_NULL_PTR; }
+    if(start + len > buf->data_len || new_position + len > buf->data_len) { return PTK_ERR_OUT_OF_BOUNDS; }
+    memmove(buf->data + new_position, buf->data + start, len);
     return PTK_OK;
 }
 
@@ -62,7 +92,7 @@ static size_t ptk_buf_type_size(ptk_buf_type_t type) {
         case PTK_BUF_TYPE_U64:
         case PTK_BUF_TYPE_S64:
         case PTK_BUF_TYPE_DOUBLE: return 8;
-        case PTK_BUF_TYPE_SERIALIZABLE: return 0;  // Variable size, handled by object's serialize method
+        case PTK_BUF_TYPE_SERIALIZABLE: return 0;
         default: return 0;
     }
 }
@@ -73,43 +103,18 @@ static size_t ptk_buf_type_size(ptk_buf_type_t type) {
 static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
     if(!buf || !args) { return PTK_ERR_NULL_PTR; }
 
-    // Handle serializable objects separately
     if(type == PTK_BUF_TYPE_SERIALIZABLE) {
         ptk_serializable_t *obj = va_arg(*args, ptk_serializable_t *);
-        if(!obj) {
-            error("ptk_buf_write_typed_value: NULL serializable object");
-            return PTK_ERR_NULL_PTR;
-        }
-        if(!obj->serialize) {
-            error("ptk_buf_write_typed_value: Serializable object has NULL serialize method");
-            return PTK_ERR_INVALID_PARAM;
-        }
-
-        // Call the object's serialize method
-        ptk_err result = obj->serialize(buf, obj);
-        if(result != PTK_OK) {
-            error("ptk_buf_write_typed_value: Serializable object serialize failed: %s", ptk_err_to_string(result));
-        }
-        return result;
+        if(!obj || !obj->serialize) { return PTK_ERR_INVALID_PARAM; }
+        return obj->serialize(buf, obj);
     }
 
     size_t type_size = ptk_buf_type_size(type);
-    if(type_size == 0) {
-        error("ptk_buf_write_typed_value: Invalid type %d", type);
-        return PTK_ERR_INVALID_PARAM;
-    }
+    if(type_size == 0) { return PTK_ERR_INVALID_PARAM; }
+    if(buf->cursor + type_size > buf->data_len) { return PTK_ERR_BUFFER_TOO_SMALL; }
 
-    // Check if we have enough space
-    if(ptk_buf_get_remaining(buf) < type_size) {
-        error("ptk_buf_write_typed_value: Not enough space for type %d (need %zu, have %zu)", type, type_size,
-              ptk_buf_get_remaining(buf));
-        return PTK_ERR_BUFFER_TOO_SMALL;
-    }
-
-    uint8_t *write_ptr = ptk_buf_get_end_ptr(buf);
+    uint8_t *write_ptr = buf->data + buf->cursor;
     bool needs_swap = false;
-
-    // Determine if byte swapping is needed
     if(endian == PTK_BUF_LITTLE_ENDIAN) {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
         needs_swap = true;
@@ -119,8 +124,6 @@ static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_
         needs_swap = true;
 #endif
     }
-    // PTK_BUF_NATIVE_ENDIAN never needs swapping
-
     switch(type) {
         case PTK_BUF_TYPE_U8:
         case PTK_BUF_TYPE_S8: {
@@ -150,7 +153,7 @@ static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_
             break;
         }
         case PTK_BUF_TYPE_FLOAT: {
-            float value = (float)va_arg(*args, double);  // float promoted to double in varargs
+            float value = (float)va_arg(*args, double);
             if(needs_swap) {
                 uint32_t *int_value = (uint32_t *)&value;
                 *int_value = __builtin_bswap32(*int_value);
@@ -169,10 +172,7 @@ static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_
         }
         default: return PTK_ERR_INVALID_PARAM;
     }
-
-    // Advance buffer
-    buf->end += type_size;
-    trace("ptk_buf_write_typed_value: Wrote %zu bytes for type %d", type_size, type);
+    buf->cursor += type_size;
     return PTK_OK;
 }
 
@@ -181,48 +181,19 @@ static ptk_err ptk_buf_write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_
  */
 static ptk_err ptk_buf_read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
     if(!buf || !args) { return PTK_ERR_NULL_PTR; }
-
-    // Handle serializable objects separately
     if(type == PTK_BUF_TYPE_SERIALIZABLE) {
         ptk_serializable_t *obj = va_arg(*args, ptk_serializable_t *);
-        if(!obj) {
-            error("ptk_buf_read_typed_value: NULL serializable object");
-            return PTK_ERR_NULL_PTR;
-        }
-        if(!obj->deserialize) {
-            error("ptk_buf_read_typed_value: Serializable object has NULL deserialize method");
-            return PTK_ERR_INVALID_PARAM;
-        }
-
-        // For peek operations with serializable objects, we need to save and restore buffer position
-        size_t original_start = buf->start;
+        if(!obj || !obj->deserialize) { return PTK_ERR_INVALID_PARAM; }
+        size_t original_cursor = buf->cursor;
         ptk_err result = obj->deserialize(buf, obj);
-        if(result != PTK_OK) {
-            error("ptk_buf_read_typed_value: Serializable object deserialize failed: %s", ptk_err_to_string(result));
-        }
-
-        // Restore position if peeking
-        if(peek && result == PTK_OK) { buf->start = original_start; }
-
+        if(peek) { buf->cursor = original_cursor; }
         return result;
     }
-
     size_t type_size = ptk_buf_type_size(type);
-    if(type_size == 0) {
-        error("ptk_buf_read_typed_value: Invalid type %d", type);
-        return PTK_ERR_INVALID_PARAM;
-    }
-
-    // Check if we have enough data
-    if(ptk_buf_len(buf) < type_size) {
-        error("ptk_buf_read_typed_value: Not enough data for type %d (need %zu, have %zu)", type, type_size, ptk_buf_len(buf));
-        return PTK_ERR_BUFFER_TOO_SMALL;
-    }
-
-    uint8_t *read_ptr = ptk_buf_get_start_ptr(buf);
+    if(type_size == 0) { return PTK_ERR_INVALID_PARAM; }
+    if(buf->cursor + type_size > buf->data_len) { return PTK_ERR_BUFFER_TOO_SMALL; }
+    uint8_t *read_ptr = buf->data + buf->cursor;
     bool needs_swap = false;
-
-    // Determine if byte swapping is needed
     if(endian == PTK_BUF_LITTLE_ENDIAN) {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
         needs_swap = true;
@@ -232,14 +203,8 @@ static ptk_err ptk_buf_read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t 
         needs_swap = true;
 #endif
     }
-    // PTK_BUF_NATIVE_ENDIAN never needs swapping
-
     void *dest_ptr = va_arg(*args, void *);
-    if(!dest_ptr) {
-        error("ptk_buf_read_typed_value: NULL destination pointer for type %d", type);
-        return PTK_ERR_NULL_PTR;
-    }
-
+    if(!dest_ptr) { return PTK_ERR_NULL_PTR; }
     switch(type) {
         case PTK_BUF_TYPE_U8:
         case PTK_BUF_TYPE_S8: {
@@ -292,15 +257,7 @@ static ptk_err ptk_buf_read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t 
         }
         default: return PTK_ERR_INVALID_PARAM;
     }
-
-    // Advance buffer only if not peeking
-    if(!peek) {
-        buf->start += type_size;
-        trace("ptk_buf_read_typed_value: Read %zu bytes for type %d", type_size, type);
-    } else {
-        trace("ptk_buf_read_typed_value: Peeked %zu bytes for type %d", type_size, type);
-    }
-
+    if(!peek) { buf->cursor += type_size; }
     return PTK_OK;
 }
 
@@ -308,54 +265,23 @@ static ptk_err ptk_buf_read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t 
  * Implementation function for type-safe serialization
  */
 ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, size_t count, ...) {
-    if(!buf) {
-        error("ptk_buf_serialize_impl: NULL buffer");
-        return PTK_ERR_NULL_PTR;
-    }
-
-    if(count == 0) {
-        trace("ptk_buf_serialize_impl: No fields to serialize");
-        return PTK_OK;
-    }
-
-    trace("ptk_buf_serialize_impl: Serializing %zu fields with endianness %d", count, endian);
-
+    if(!buf) { return PTK_ERR_NULL_PTR; }
+    if(count == 0) { return PTK_OK; }
     va_list args;
     va_start(args, count);
-
-    size_t original_end = buf->end;
+    size_t original_cursor = buf->cursor;
     ptk_err result = PTK_OK;
-
     for(size_t i = 0; i < count && result == PTK_OK; i++) {
-        // Get type enum
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
-
-        // Validate type
         if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
-            error("ptk_buf_serialize_impl: Invalid type %d at field %zu", type, i);
             result = PTK_ERR_INVALID_PARAM;
             break;
         }
-
-        // Write the value
         result = ptk_buf_write_typed_value(buf, type, endian, &args);
-        if(result != PTK_OK) {
-            error("ptk_buf_serialize_impl: Failed to write field %zu (type %d): %s", i, type, ptk_err_to_string(result));
-            break;
-        }
+        if(result != PTK_OK) { break; }
     }
-
     va_end(args);
-
-    if(result != PTK_OK) {
-        // Rollback on error
-        warn("ptk_buf_serialize_impl: Rolling back buffer end from %zu to %zu", buf->end, original_end);
-        buf->end = original_end;
-        buf->last_err = result;
-    } else {
-        info("ptk_buf_serialize_impl: Successfully serialized %zu fields (%zu bytes)", count, buf->end - original_end);
-    }
-
+    if(result != PTK_OK) { buf->cursor = original_cursor; }
     return result;
 }
 
@@ -363,61 +289,22 @@ ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, size_t cou
  * Implementation function for type-safe deserialization
  */
 ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, size_t count, ...) {
-    if(!buf) {
-        error("ptk_buf_deserialize_impl: NULL buffer");
-        return PTK_ERR_NULL_PTR;
-    }
-
-    if(count == 0) {
-        trace("ptk_buf_deserialize_impl: No fields to deserialize");
-        return PTK_OK;
-    }
-
-    trace("ptk_buf_deserialize_impl: Deserializing %zu fields with endianness %d (peek=%s)", count, endian,
-          peek ? "true" : "false");
-
+    if(!buf) { return PTK_ERR_NULL_PTR; }
+    if(count == 0) { return PTK_OK; }
     va_list args;
     va_start(args, count);
-
-    size_t original_start = buf->start;
+    size_t original_cursor = buf->cursor;
     ptk_err result = PTK_OK;
-
     for(size_t i = 0; i < count && result == PTK_OK; i++) {
-        // Get type enum
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
-
-        // Validate type
         if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
-            error("ptk_buf_deserialize_impl: Invalid type %d at field %zu", type, i);
             result = PTK_ERR_INVALID_PARAM;
             break;
         }
-
-        // For peek operations, we always read as if not peeking, but we'll restore the original position at the end
-        result = ptk_buf_read_typed_value(buf, false, type, endian, &args);
-        if(result != PTK_OK) {
-            error("ptk_buf_deserialize_impl: Failed to read field %zu (type %d): %s", i, type, ptk_err_to_string(result));
-            break;
-        }
+        result = ptk_buf_read_typed_value(buf, peek, type, endian, &args);
+        if(result != PTK_OK) { break; }
     }
-
     va_end(args);
-
-    if(result != PTK_OK) {
-        // Rollback on error
-        warn("ptk_buf_deserialize_impl: Rolling back buffer start from %zu to %zu", buf->start, original_start);
-        buf->start = original_start;
-        buf->last_err = result;
-    } else {
-        if(peek) {
-            // Restore original position for peek operations
-            buf->start = original_start;
-            info("ptk_buf_deserialize_impl: Successfully peeked %zu fields", count);
-        } else {
-            info("ptk_buf_deserialize_impl: Successfully deserialized %zu fields (%zu bytes)", count,
-                 buf->start - original_start);
-        }
-    }
-
+    if(result != PTK_OK || peek) { buf->cursor = original_cursor; }
     return result;
 }

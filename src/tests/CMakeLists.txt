@@ -1,3 +1,16 @@
+# Test for ptk_buf serialization/deserialization
+add_executable(test_ptk_buf
+    test_ptk_buf.c
+)
+
+target_link_libraries(test_ptk_buf
+    protocol_toolkit
+)
+
+target_include_directories(test_ptk_buf PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/include
+    ${CMAKE_SOURCE_DIR}
+)
 # Socket tests for protocol toolkit - temporarily disabled (use old allocator)
 
 # Test 1: TCP Echo Server/Client with Abort
