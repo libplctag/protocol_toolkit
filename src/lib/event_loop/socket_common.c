@@ -9,7 +9,7 @@
 #include <ptk_err.h>
 #include <ptk_alloc.h>
 #include <ptk_log.h>
-#include "socket_common.h"
+#include <ptk_sock.h>
 #include "event_loop.h"
 #include "event_registration.h"
 #include "timeout_heap.h"

@@ -5,31 +5,34 @@ Based on analysis of the codebase and echo client/server sketches, here are the 
 ## 🔥 Critical - API Mismatches (Blocking sketches)
 
 ### 1. Fix `ptk_tcp_socket_connect()` API Mismatch
-**Issue**: Header declares one signature, implementation has another
-- **Header** (`ptk_sock.h`): `ptk_sock *ptk_tcp_socket_connect(const ptk_address_t *remote_addr, ptk_duration_ms timeout_ms);`
-- **Implementation** (`socket_common.c`): `ptk_err ptk_tcp_socket_connect(ptk_sock *sock, const ptk_address_t *remote_addr, ptk_duration_ms timeout_ms);`
+**Issue**: ✅ Header and implementation agree.
+
 
 **Solution**: Update implementation to match header (create socket + connect in one call)
 
-### 2. Implement Missing Address Functions
-**Issue**: Functions declared in `ptk_sock.h` but not implemented anywhere accessible
-- `ptk_address_create()`
-- `ptk_address_to_string()` (update signature to remove allocator)
-- `ptk_address_get_port()`
-- `ptk_address_equals()`
-- `ptk_address_create_any()`
+### 2. ✅ Address Functions - COMPLETED
+**Status**: All address functions are now implemented and properly named
+- ✅ `ptk_address_init()` - Initialize address from IP string and port
+- ✅ `ptk_address_to_string()` - Convert address to string (proper signature)
+- ✅ `ptk_address_get_port()` - Get port from address
+- ✅ `ptk_address_equals()` - Compare two addresses
+- ✅ `ptk_address_init_any()` - Initialize address for INADDR_ANY
 
-**Note**: These exist in `attic/ptk_socket.c` but need to be moved to active codebase
+**Note**: Functions use proper naming convention - `init` for initialization, `create` for allocation
 
 ## 🟡 Important - Missing Socket Functions
 
 ### 3. Missing Socket Management Functions
 - `ptk_socket_abort()` - Abort ongoing socket operations
 - `ptk_socket_wait()` - Wait for socket events with timeout
-- `ptk_socket_signal()` - Signal a socket (fix typo: currently `pkt_socket_signal`)
-- `ptk_socket_find_networks()` - Wrapper for `ptk_network_discover()`
+- `ptk_socket_signal()` - Signal a socket
+### 4. ✅ Network Discovery Function Renamed
+**Status**: Function renamed for consistency
+- ✅ `ptk_socket_list_networks()` - Renamed from `ptk_network_discover()` (was `ptk_socket_find_networks()` in header)
 
-### 4. Buffer API Return Type Mismatch
+**Note**: Header and implementation now aligned with consistent naming
+
+### 4. ✅ Buffer API Return Type Mismatch
 **Issue**: Sketches expect `ptk_buf_get_len()` to return `size_t`, but implementation returns `buf_size_t`
 - Current: `buf_size_t ptk_buf_get_len(const ptk_buf *buf);`
 - Expected: Some sketches cast to `size_t`
@@ -49,15 +52,15 @@ Based on analysis of the codebase and echo client/server sketches, here are the 
 
 ## 📁 Implementation Plan
 
-### Phase 1: Address Functions (Critical)
+### Phase 1: ✅ Address Functions - COMPLETED
 ```bash
-# Create new file: src/lib/ptk_sock_address.c
-# Move functions from attic/ptk_socket.c:
-# - ptk_address_create()
-# - ptk_address_to_string() (update signature)
-# - ptk_address_get_port()
-# - ptk_address_equals()
-# - ptk_address_create_any()
+# ✅ DONE: Address functions implemented in socket_common.c
+# ✅ Functions properly named with init/create convention:
+# - ptk_address_init() - Initialize existing memory
+# - ptk_address_init_any() - Initialize for INADDR_ANY
+# - ptk_address_to_string() - Create allocated string
+# - ptk_address_get_port() - Get port value
+# - ptk_address_equals() - Compare addresses
 ```
 
 ### Phase 2: Socket Connect Fix (Critical)
@@ -107,9 +110,9 @@ Based on analysis of the codebase and echo client/server sketches, here are the 
 - `tests/test_ptk_sock_address.c` - Address function tests
 
 ### Files to Modify
-- `src/lib/event_loop/socket_common.c` - Fix connect API, add missing functions
-- `src/lib/CMakeLists.txt` - Add new source files
-- `src/include/ptk_sock.h` - Fix any typos (pkt_socket_signal)
+- `src/lib/event_loop/socket_common.c` - ✅ Address functions added, fix connect API, add missing functions
+- `src/lib/CMakeLists.txt` - Add new source files (if needed)
+- `src/include/ptk_sock.h` - ✅ Address functions declared, fix any remaining typos
 
 ### Files to Review
 - `echo_client_sketch.c` - Verify compatibility after fixes
@@ -138,6 +141,20 @@ Based on analysis of the codebase and echo client/server sketches, here are the 
 3. **Memory Management**: Ensure all socket objects use proper destructors
 4. **Thread Safety**: Verify threadlet integration works correctly
 5. **Platform Support**: Test on both POSIX and Windows platforms
+
+## 📝 Recent Progress
+
+### ✅ Completed (Latest)
+- **Address Functions**: All address manipulation functions implemented in `socket_common.c`
+  - `ptk_address_init()` - Initialize address from IP/port (proper naming: init vs create)
+  - `ptk_address_init_any()` - Initialize for INADDR_ANY
+  - `ptk_address_to_string()` - Convert to string (allocates memory)
+  - `ptk_address_get_port()` - Get port number
+  - `ptk_address_equals()` - Compare addresses
+- **Network Discovery**: `ptk_socket_list_networks()` renamed and header aligned
+- **Header/Implementation Sync**: Address function signatures now match between header and implementation
+
+### 🎯 Next Priority: Fix `ptk_tcp_socket_connect()` API mismatch
 
 ## 📝 Notes
 

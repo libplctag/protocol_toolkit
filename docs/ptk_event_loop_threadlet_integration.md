@@ -69,12 +69,12 @@ ready_events = platform_poll_events(event_loop->platform, timeout_ms);
 for (int i = 0; i < ready_events.count; i++) {
     event_t *event = &ready_events.events[i];
     event_registration_t *reg = lookup_registration(event->fd);
-    
+
     if (reg && reg->waiting_threadlet) {
         // Remove from waiting queue and add to ready queue
         remove_from_waiting_queue(reg->waiting_threadlet);
         enqueue_ready_threadlet(reg->waiting_threadlet);
-        
+
         // Clear the registration
         unregister_fd_events(event->fd);
     }
@@ -92,14 +92,14 @@ for (each registration in waiting_queue) {
     if (current_time >= registration->deadline) {
         // Timeout occurred
         threadlet_t *threadlet = registration->waiting_threadlet;
-        
+
         // Set timeout error for the threadlet
         threadlet_set_error(threadlet, PTK_ERR_TIMEOUT);
-        
+
         // Move to ready queue
         remove_from_waiting_queue(threadlet);
         enqueue_ready_threadlet(threadlet);
-        
+
         // Clean up registration
         unregister_fd_events(registration->fd);
     }
@@ -112,26 +112,26 @@ for (each registration in waiting_queue) {
 // Execute ready threadlets cooperatively
 while (has_ready_threadlets()) {
     threadlet_t *threadlet = dequeue_ready_threadlet();
-    
+
     // Resume threadlet execution
     threadlet_execution_result_t result = threadlet_resume_execution(threadlet);
-    
+
     switch (result.status) {
         case THREADLET_YIELDED:
             // Threadlet yielded voluntarily, keep in ready queue
             enqueue_ready_threadlet(threadlet);
             break;
-            
+
         case THREADLET_BLOCKED_ON_IO:
             // Threadlet blocked on I/O, register with event loop
             register_io_wait(result.fd, result.events, threadlet);
             break;
-            
+
         case THREADLET_COMPLETED:
             // Threadlet finished, clean up resources
             threadlet_destroy(threadlet);
             break;
-            
+
         case THREADLET_ERROR:
             // Handle threadlet error
             handle_threadlet_error(threadlet, result.error);
@@ -162,16 +162,16 @@ When a threadlet calls `ptk_tcp_socket_recv()` (returns `ptk_err`):
    if (errno == EAGAIN || errno == EWOULDBLOCK) {
        // Register interest in read events
        ptk_event_loop_register_read(sock->fd, current_threadlet, timeout_ms);
-       
+
        // Yield current threadlet
        ptk_threadlet_yield();
-       
+
        // When resumed, check for timeout or error
        if (threadlet_has_error()) {
            ptk_err err = ptk_get_err();
            return err; // PTK_ERR_TIMEOUT or other error
        }
-       
+
        // Try read again (should succeed now)
        bytes_read = recv(sock->fd, buffer, length, MSG_DONTWAIT);
    }
@@ -185,7 +185,7 @@ When a threadlet calls `ptk_tcp_socket_recv()` (returns `ptk_err`):
 ### Socket Registration Process
 
 ```c
-ptk_err ptk_event_loop_register_read(int fd, threadlet_t *threadlet, 
+ptk_err ptk_event_loop_register_read(int fd, threadlet_t *threadlet,
                                     ptk_duration_ms timeout_ms) {
     event_registration_t *reg = create_registration();
     reg->fd = fd;
@@ -193,16 +193,16 @@ ptk_err ptk_event_loop_register_read(int fd, threadlet_t *threadlet,
     reg->events = PTK_EVENT_READ;
     reg->timeout = timeout_ms;
     reg->deadline = current_time_ms + timeout_ms;
-    
+
     // Add to platform event loop
     platform_add_fd_read(event_loop->platform, fd);
-    
+
     // Store registration for lookup
     hash_table_insert(event_loop->registrations, fd, reg);
-    
+
     // Move threadlet to waiting queue
     move_to_waiting_queue(threadlet);
-    
+
     return PTK_OK;
 }
 ```
@@ -222,12 +222,12 @@ typedef struct {
 
 int platform_poll_events(platform_event_loop_t *platform, int timeout_ms) {
     linux_event_loop_t *linux_loop = (linux_event_loop_t *)platform;
-    
-    int ready_count = epoll_wait(linux_loop->epoll_fd, 
+
+    int ready_count = epoll_wait(linux_loop->epoll_fd,
                                 linux_loop->events,
                                 linux_loop->max_events,
                                 timeout_ms);
-    
+
     return ready_count;
 }
 ```
@@ -243,17 +243,17 @@ typedef struct {
 
 int platform_poll_events(platform_event_loop_t *platform, int timeout_ms) {
     bsd_event_loop_t *bsd_loop = (bsd_event_loop_t *)platform;
-    
+
     struct timespec timeout = {
         .tv_sec = timeout_ms / 1000,
         .tv_nsec = (timeout_ms % 1000) * 1000000
     };
-    
+
     int ready_count = kevent(bsd_loop->kqueue_fd,
                             NULL, 0,  // No changes
                             bsd_loop->events, bsd_loop->max_events,
                             timeout_ms >= 0 ? &timeout : NULL);
-    
+
     return ready_count;
 }
 ```
@@ -276,16 +276,16 @@ New threadlets are distributed across OS threads using a simple load-balancing a
 ptk_err ptk_threadlet_resume(threadlet_t *threadlet) {
     // Find thread with least load
     ptk_thread_t *target_thread = find_least_loaded_thread();
-    
+
     // Assign threadlet to that thread's event loop
     ptk_event_loop_t *target_loop = target_thread->event_loop;
-    
+
     // Add to ready queue (thread-safe)
     thread_safe_enqueue_threadlet(target_loop, threadlet);
-    
+
     // Wake up the target thread's event loop
     platform_wake_event_loop(target_loop->platform);
-    
+
     return PTK_OK;
 }
 ```
@@ -296,18 +296,18 @@ ptk_err ptk_threadlet_resume(threadlet_t *threadlet) {
 
 ### Socket Signaling
 
-The `pkt_socket_signal()` function allows external threads to interrupt waiting threadlets:
+The `ptk_socket_signal()` function allows external threads to interrupt waiting threadlets:
 
 ```c
-ptk_err pkt_socket_signal(ptk_sock *sock) {
+ptk_err ptk_socket_signal(ptk_sock *sock) {
     event_registration_t *reg = lookup_registration(sock->fd);
     if (reg && reg->waiting_threadlet) {
         // Set signal error
         threadlet_set_error(reg->waiting_threadlet, PTK_ERR_SIGNAL);
-        
+
         // Move to ready queue
         move_to_ready_queue(reg->waiting_threadlet);
-        
+
         // Wake event loop
         platform_wake_event_loop(sock->event_loop->platform);
     }
@@ -350,7 +350,7 @@ Errors flow from the event loop to threadlets through several mechanisms:
 
 1. **I/O Errors**: Platform events indicate error conditions
 2. **Timeouts**: Event loop detects expired deadlines
-3. **Interrupts**: External interruption via `pkt_socket_signal()`
+3. **Interrupts**: External interruption via `ptk_socket_signal()`
 4. **System Errors**: Platform-specific error handling
 
 ### Cleanup Procedures
