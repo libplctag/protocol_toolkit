@@ -19,4 +19,5 @@ function name or line number in the log messages.
 That means that the place where obj was created should have provided a destructor function.  There should only be one place that all the details of disposing of an object are known.
 - if there is more than 10% of a file to change, rewrite it in a different file and mv it over.
 - do not provide publically accessible destructor functions for your data.  Use the destructor callback with ptk_alloc().  All memory should be freed just with ptk_free().
+- Only public functions have the ptk_ prefix.  Anything internal should not have that prefix.  Public functions are those that are in the public header files in src/include.
 

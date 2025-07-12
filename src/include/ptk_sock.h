@@ -154,10 +154,10 @@ ptk_err pkt_socket_signal(ptk_sock *sock);
  *
  * @param remote_addr The remote address to connect to.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return PTK_WAIT_OK on connection, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
+ * @return A pointer to the connected TCP socket, or NULL on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_err ptk_tcp_socket_connect(ptk_sock *sock, const ptk_address_t *remote_addr, ptk_duration_ms timeout_ms);
+ptk_sock *ptk_tcp_socket_connect(const ptk_address_t *remote_addr, ptk_duration_ms timeout_ms);
 
 /**
  * Write data to a TCP socket (blocking).

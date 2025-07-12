@@ -123,6 +123,27 @@ extern ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position);
 /* no ptk_buf_free() because that it taken care of by ptk_alloc() */
 
 //=============================================================================
+// SIMPLE BYTE ACCESS API
+//=============================================================================
+
+/**
+ * @brief Set a single byte at the current end position and advance end
+ * 
+ * @param buf The buffer to write to
+ * @param val The byte value to set
+ * @return PTK_OK on success, error code on failure
+ */
+extern ptk_err ptk_buf_set_u8(ptk_buf *buf, u8 val);
+
+/**
+ * @brief Get a single byte from the current start position and advance start
+ * 
+ * @param buf The buffer to read from
+ * @return The byte value, or 0 if error (check ptk_get_err())
+ */
+extern u8 ptk_buf_get_u8(ptk_buf *buf);
+
+//=============================================================================
 // TYPE-SAFE SERIALIZATION API
 //=============================================================================
 
