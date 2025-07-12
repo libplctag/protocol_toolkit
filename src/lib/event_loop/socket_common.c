@@ -280,15 +280,15 @@ ptk_err ptk_tcp_socket_connect(ptk_sock *sock, const ptk_address_t *remote_addr,
  *         If the socket is invalid or arguments are bad, returns PTK_ERR_INVALID_ARGUMENT.
  *         If the socket was aborted while waiting, returns PTK_ERR_ABORT (handled by threadlet status).
  */
-ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms) {
-    debug("ptk_tcp_socket_read: entry");
+ptk_err ptk_tcp_socket_recv(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms) {
+    debug("ptk_tcp_socket_recv: entry");
     int fd = sock->fd;
     trace("Calling recv() on fd %d", fd);
     ssize_t bytes_read = recv(fd, data->data, data->data_len, MSG_DONTWAIT);
     if (bytes_read > 0) {
         data->end += bytes_read;
         trace("Read %zd bytes", bytes_read);
-        debug("ptk_tcp_socket_read: exit");
+        debug("ptk_tcp_socket_recv: exit");
         return PTK_OK;
     }
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -299,18 +299,18 @@ ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeo
         trace("Yielding threadlet");
         ptk_threadlet_yield();
         if (current_threadlet->status == THREADLET_TIMEOUT) {
-            warn("ptk_tcp_socket_read: timeout");
+            warn("ptk_tcp_socket_recv: timeout");
             ptk_set_err(PTK_ERR_TIMEOUT);
-            debug("ptk_tcp_socket_read: exit");
+            debug("ptk_tcp_socket_recv: exit");
             return PTK_ERR_TIMEOUT;
         }
         trace("Resuming read after yield");
-        debug("ptk_tcp_socket_read: exit");
-        return ptk_tcp_socket_read(sock, data, timeout_ms);
+        debug("ptk_tcp_socket_recv: exit");
+        return ptk_tcp_socket_recv(sock, data, timeout_ms);
     }
     warn("recv() failed: %s", strerror(errno));
     ptk_set_err(PTK_ERR_NETWORK_ERROR);
-    debug("ptk_tcp_socket_read: exit");
+    debug("ptk_tcp_socket_recv: exit");
     return PTK_ERR_NETWORK_ERROR;
 }
 
@@ -337,14 +337,14 @@ ptk_err ptk_tcp_socket_read(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeo
  *         If partial data is written, data->start will be updated accordingly; caller should check this.
  *         If no data is written, data->start remains unchanged.
  */
-ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms) {
-    debug("ptk_tcp_socket_write: entry");
+ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms) {
+    debug("ptk_tcp_socket_send: entry");
     int fd = sock->fd;
     ssize_t bytes_sent = send(fd, data->data + data->start, data->end - data->start, MSG_DONTWAIT);
     if (bytes_sent >= 0) {
         data->start += bytes_sent;
         trace("Wrote %zd bytes", bytes_sent);
-        debug("ptk_tcp_socket_write: exit");
+        debug("ptk_tcp_socket_send: exit");
         return PTK_OK;
     }
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -355,18 +355,18 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data, ptk_duration_ms time
         trace("Yielding threadlet");
         ptk_threadlet_yield();
         if (current_threadlet->status == THREADLET_TIMEOUT) {
-            warn("ptk_tcp_socket_write: timeout");
+            warn("ptk_tcp_socket_send: timeout");
             ptk_set_err(PTK_ERR_TIMEOUT);
-            debug("ptk_tcp_socket_write: exit");
+            debug("ptk_tcp_socket_send: exit");
             return PTK_ERR_TIMEOUT;
         }
         trace("Resuming write after yield");
-        debug("ptk_tcp_socket_write: exit");
-        return ptk_tcp_socket_write(sock, data, timeout_ms);
+        debug("ptk_tcp_socket_send: exit");
+        return ptk_tcp_socket_send(sock, data, timeout_ms);
     }
     warn("send() failed: %s", strerror(errno));
     ptk_set_err(PTK_ERR_NETWORK_ERROR);
-    debug("ptk_tcp_socket_write: exit");
+    debug("ptk_tcp_socket_send: exit");
     return PTK_ERR_NETWORK_ERROR;
 }
 

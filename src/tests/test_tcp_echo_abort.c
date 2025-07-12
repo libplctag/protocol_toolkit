@@ -69,7 +69,7 @@ static void server_client_thread(void *arg) {
     while(g_test_running) {
 
         // Read data from client
-        ptk_err err = ptk_tcp_socket_read(io_buf, client);
+        ptk_err err = ptk_tcp_socket_recv(io_buf, client);
 
         if(err == PTK_ERR_ABORT) {
             info("[CLIENT_HANDLER_%d] Aborted.", client_id);
@@ -98,7 +98,7 @@ static void server_client_thread(void *arg) {
 
         info("[CLIENT_HANDLER_%d] Echoing %zu bytes\n", client_id, data_len);
 
-        err = ptk_tcp_socket_write(client, io_buf);
+        err = ptk_tcp_socket_send(client, io_buf);
         if(err == PTK_ERR_ABORT) {
             info("[CLIENT_HANDLER_%d] Write aborted\n", client_id);
             break;
@@ -249,7 +249,7 @@ static void client_thread(void *arg) {
     ptk_buf_set_end(send_buf, strlen(message));
 
     info("[CLIENT] Sending message: '%s'\n", message);
-    err = ptk_tcp_socket_write(client_socket, send_buf);
+    err = ptk_tcp_socket_send(client_socket, send_buf);
     if(err != PTK_OK) {
         info("[CLIENT] Failed to send message: %s\n", ptk_err_to_string(err));
         ptk_buf_dispose(send_buf);
@@ -267,7 +267,7 @@ static void client_thread(void *arg) {
     }
 
     info("[CLIENT] Reading response\n");
-    err = ptk_tcp_socket_read(recv_buf, client_socket);
+    err = ptk_tcp_socket_recv(recv_buf, client_socket);
     if(err != PTK_OK) {
         info("[CLIENT] Failed to read response: %s\n", ptk_err_to_string(err));
         ptk_buf_dispose(send_buf);

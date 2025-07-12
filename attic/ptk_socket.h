@@ -4,7 +4,7 @@
  * @file ptk_sock.h
  *
  * Synchronous/blocking socket API over an event loop.
- * All blocking socket operations use the waitable API and return a ptk_wait_status.
+ * All blocking socket operations use the waitable API and return a ptk_err.
  */
 
 #include <stdint.h>
@@ -68,7 +68,7 @@ ptk_err ptk_socket_abort(ptk_sock *sock);
  * @return PTK_WAIT_OK on connection, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_wait_status ptk_tcp_socket_connect(ptk_sock *sock, const ptk_address_t *remote_addr, uint32_t timeout_ms);
+ptk_err ptk_tcp_socket_connect(ptk_sock *sock, const ptk_address_t *remote_addr, uint32_t timeout_ms);
 
 /**
  * Write data to a TCP socket (blocking).
@@ -79,7 +79,7 @@ ptk_wait_status ptk_tcp_socket_connect(ptk_sock *sock, const ptk_address_t *remo
  * @return PTK_WAIT_OK on success, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_wait_status ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data, uint32_t timeout_ms);
+ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, uint32_t timeout_ms);
 
 /**
  * Read data from a TCP socket (blocking).
@@ -90,7 +90,7 @@ ptk_wait_status ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data, uint32_t tim
  * @return PTK_WAIT_OK on success, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_wait_status ptk_tcp_socket_read(ptk_sock *sock, ptk_buf *data, uint32_t timeout_ms);
+ptk_err ptk_tcp_socket_recv(ptk_sock *sock, ptk_buf *data, uint32_t timeout_ms);
 
 //=============================================================================
 // TCP Server Sockets
@@ -112,7 +112,7 @@ ptk_sock *ptk_tcp_socket_listen(const ptk_address_t *local_addr, int backlog);
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
  * @return Valid client socket on PTK_WAIT_OK, NULL on PTK_WAIT_ERROR or PTK_WAIT_TIMEOUT (ptk_get_err() set).
  */
-ptk_wait_status ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **out_client, uint32_t timeout_ms);
+ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **out_client, uint32_t timeout_ms);
 
 //=============================================================================
 // UDP Sockets
@@ -137,7 +137,7 @@ ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr);
  * @return PTK_WAIT_OK on success, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_wait_status ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, uint32_t timeout_ms);
+ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, uint32_t timeout_ms);
 
 /**
  * Receive UDP data (blocking).
@@ -149,7 +149,7 @@ ptk_wait_status ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_
  * @return PTK_WAIT_OK on data receipt, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_wait_status ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf *data, ptk_address_t *sender_addr, uint32_t timeout_ms);
+ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf *data, ptk_address_t *sender_addr, uint32_t timeout_ms);
 
 //=============================================================================
 // NETWORK DISCOVERY

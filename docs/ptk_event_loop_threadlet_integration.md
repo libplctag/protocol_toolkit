@@ -146,7 +146,7 @@ while (has_ready_threadlets()) {
 
 ### Blocking Socket Read Example
 
-When a threadlet calls `ptk_tcp_socket_read()` (returns `ptk_err`):
+When a threadlet calls `ptk_tcp_socket_recv()` (returns `ptk_err`):
 
 1. **Attempt Non-blocking Read**:
    ```c
@@ -369,7 +369,7 @@ When errors occur:
 The PTK event loop and threadlet integration provides:
 
 - **Cooperative Multitasking**: Thousands of concurrent "threads" per OS thread
-- **Blocking Semantics**: Natural programming model with `ptk_tcp_socket_read()`, etc.
+- **Blocking Semantics**: Natural programming model with `ptk_tcp_socket_recv()`, etc.
 - **High Performance**: Non-blocking I/O with efficient event multiplexing
 - **Cross-Platform**: Unified API across Linux, macOS, Windows, and RTOS platforms
 - **Scalable Architecture**: Per-thread event loops eliminate global synchronization

@@ -602,7 +602,7 @@ cleanup:
     return NULL;
 }
 
-ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data) {
+ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }
@@ -641,7 +641,7 @@ ptk_err ptk_tcp_socket_write(ptk_sock *sock, ptk_buf *data) {
     return PTK_OK;
 }
 
-ptk_err ptk_tcp_socket_read(ptk_buf *data, ptk_sock *sock) {
+ptk_err ptk_tcp_socket_recv(ptk_buf *data, ptk_sock *sock) {
     if(!ptk_socket_is_valid(sock) || !data) { return PTK_ERR_NULL_PTR; }
 
     if(sock->type != PTK_SOCK_TCP_CLIENT || !sock->connected) { return PTK_ERR_CLOSED; }

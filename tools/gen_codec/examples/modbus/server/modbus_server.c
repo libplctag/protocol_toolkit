@@ -327,7 +327,7 @@ ptk_err handle_client(ptk_allocator_t *alloc, ptk_sock *client) {
         ptk_buf_reset(response_buf);
 
         // Read request from client
-        err = ptk_tcp_socket_read(client, request_buf);
+        err = ptk_tcp_socket_recv(client, request_buf);
         if(err == PTK_ERR_CLOSED) {
             ptk_log_info("Client disconnected");
             break;
@@ -355,7 +355,7 @@ ptk_err handle_client(ptk_allocator_t *alloc, ptk_sock *client) {
         }
 
         // Send response back to client
-        err = ptk_tcp_socket_write(client, response_buf);
+        err = ptk_tcp_socket_send(client, response_buf);
         if(err != PTK_OK) {
             ptk_log_error("Failed to write response to client: %s", ptk_err_to_string(err));
             break;
