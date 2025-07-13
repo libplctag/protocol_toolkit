@@ -13,9 +13,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ptk_alloc.h"
-#include "ptk_err.h"
-#include "ptk_log.h"
+#include <ptk_alloc.h>
+#include <ptk_err.h>
+#include <ptk_log.h>
 
 /*
  Invariants that must be maintained:
@@ -46,35 +46,37 @@
         size_t len; \
     } PREFIX##_array_t; \
     \
-    static inline void PREFIX##_PRIVATE_array_dispose(PREFIX##_array_t *arr) { \
+    static void PREFIX##_PRIVATE_array_destructor(void *ptr) { \
+        PREFIX##_array_t *arr = (PREFIX##_array_t *)ptr; \
         if (!arr) return; \
         if (arr->element_destructor && arr->elements) { \
             for (size_t i = 0; i < arr->len; i++) { \
                 arr->element_destructor(&arr->elements[i]); \
             } \
         } \
+        if (arr->elements) { \
+            ptk_free(&arr->elements); \
+        } \
     } \
     \
     static inline PREFIX##_array_t * PREFIX##_array_create(size_t initial_size, void (*element_destructor)(T *element)) { \
         if (initial_size == 0) return NULL; \
         \
-        PREFIX##_array_t *arr = ptk_alloc(NULL, sizeof(PREFIX##_array_t), PREFIX##_PRIVATE_array_dispose); \
+        PREFIX##_array_t *arr = ptk_alloc(sizeof(PREFIX##_array_t), PREFIX##_PRIVATE_array_destructor); \
         if (!arr) return NULL; \
         \
         arr->len = initial_size; \
         arr->element_destructor = element_destructor; \
-        arr->elements = ptk_alloc(arr, initial_size * sizeof(T), NULL); \
+        arr->elements = ptk_alloc(initial_size * sizeof(T), NULL); \
         if (!arr->elements) { \
-            ptk_free(arr); \
+            ptk_free(&arr); \
             return NULL; \
         } \
         \
-        /* initialize elements to zero */ \
         memset(arr->elements, 0, initial_size * sizeof(T)); \
-        /* add the elements array as a child of the array struct */ \
-        ptk_add_child(arr, arr->elements); \
         \
-        trace("Created " #PREFIX "_array with %zu initial elements", initial_size);\
+        trace("Created " #PREFIX "_array with %zu initial elements", initial_size); \
+        return arr; \
     } \
     \
     static inline ptk_err PREFIX##_array_resize(PREFIX##_array_t *arr, size_t new_len) { \
@@ -88,7 +90,6 @@
         } \
         \
         if(new_len > arr->len) { \
-            // Initialize new elements to zero if expanding
             memset(new_elements + arr->len, 0, (new_len - arr->len) * sizeof(T)); \
         } \
         \
@@ -151,7 +152,6 @@
         PREFIX##_array_t *arr = PREFIX##_array_create(count, element_destructor); \
         if (!arr) return NULL; \
         \
-        /* copy the elements into the new array */ \
         memcpy(arr->elements, raw_data, count * sizeof(T)); \
         \
         return arr; \
@@ -161,3 +161,4 @@
     static inline size_t PREFIX##_array_len(const PREFIX##_array_t *arr) { \
         return (arr && arr->elements && arr->len > 0) ? arr->len : 0; \
     }
+

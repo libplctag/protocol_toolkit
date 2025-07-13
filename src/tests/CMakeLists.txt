@@ -68,17 +68,3 @@ target_include_directories(test_type_safe_serialize PRIVATE
 #     ${CMAKE_SOURCE_DIR}/src/include
 #     ${CMAKE_SOURCE_DIR}
 # )
-
-# Test 5: Parent-Child Allocation Test
-add_executable(test_parent_child_alloc
-    test_parent_child_alloc.c
-)
-
-target_link_libraries(test_parent_child_alloc
-    protocol_toolkit
-)
-
-target_include_directories(test_parent_child_alloc PRIVATE
-    ${CMAKE_SOURCE_DIR}/src/include
-    ${CMAKE_SOURCE_DIR}
-)

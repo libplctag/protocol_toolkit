@@ -4,9 +4,10 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "ptk_err.h"
-#include "ptk_utils.h"
-#include "ptk_alloc.h"
+// Forward declarations to break circular dependencies
+typedef enum ptk_err ptk_err;
+typedef int64_t ptk_time_ms;
+
 
 /**
  * @file ptk_threading.h
@@ -45,15 +46,7 @@ typedef struct ptk_thread ptk_thread;
  * @param allocator The allocator to use for creating the mutex
  * @return Pointer to the newly created mutex, or NULL on failure
  */
-extern ptk_mutex *ptk_mutex_create(ptk_allocator_t *allocator);
-
-/**
- * @brief Destroys a mutex.
- *
- * @param mutex Pointer to the mutex to destroy.
- * @return Error code.
- */
-extern ptk_err ptk_mutex_destroy(ptk_mutex *mutex);
+extern ptk_mutex *ptk_mutex_create(void);
 
 /**
  * @brief Attempts to lock the mutex, optionally waiting for a timeout.
@@ -82,15 +75,7 @@ extern ptk_err ptk_mutex_unlock(ptk_mutex *mutex);
  * @param allocator The allocator to use for creating the condition variable
  * @return Pointer to the created condition variable, or NULL on failure
  */
-extern ptk_cond_var *ptk_cond_var_create(ptk_allocator_t *allocator);
-
-/**
- * @brief Destroys a condition variable.
- *
- * @param cond_var Pointer to the condition variable.
- * @return Error code.
- */
-extern ptk_err ptk_cond_var_destroy(ptk_cond_var *cond_var);
+extern ptk_cond_var *ptk_cond_var_create(void);
 
 /**
  * @brief Signals the condition variable, waking one waiting thread.
@@ -124,12 +109,11 @@ typedef void (*ptk_thread_func)(void *data);
 /**
  * @brief Creates and starts a new thread.
  *
- * @param allocator The allocator to use for creating the thread
  * @param func Entry point for the thread function.
  * @param data User data to pass to the thread function.
  * @return Pointer to the created thread handle, or NULL on failure
  */
-extern ptk_thread *ptk_thread_create(ptk_allocator_t *allocator, ptk_thread_func func, void *data);
+extern ptk_thread *ptk_thread_create(ptk_thread_func func, void *data);
 
 /**
  * @brief Waits for the specified thread to complete.
@@ -139,10 +123,3 @@ extern ptk_thread *ptk_thread_create(ptk_allocator_t *allocator, ptk_thread_func
  */
 extern ptk_err ptk_thread_join(ptk_thread *thread);
 
-/**
- * @brief Destroys a thread object.
- *
- * @param thread Thread to destroy.
- * @return Error code.
- */
-extern ptk_err ptk_thread_destroy(ptk_thread *thread);

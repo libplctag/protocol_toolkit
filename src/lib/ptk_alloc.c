@@ -1,11 +1,11 @@
 // ptk_alloc.c - rewritten for new API (no parent/child, 16-byte alignment, zeroing, destructor)
-#include "ptk_alloc.h"
-#include "ptk_err.h"
-#include "ptk_log.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ptk_alloc.h>
+#include <ptk_err.h>
+#include <ptk_log.h>
 
 #define PTK_ALLOC_ALIGNMENT 16
 
@@ -83,16 +83,22 @@ void *ptk_realloc_impl(const char *file, int line, void *ptr, size_t new_size) {
     return new_user_ptr;
 }
 
-void ptk_free_impl(const char *file, int line, void *ptr) {
+void ptk_free_impl(const char *file, int line, void **ptr_ref) {
+    if(!ptr_ref) {
+        warn("called with null pointer reference");
+        return;
+    }
+    void *ptr = *ptr_ref;
     if(!ptr) {
-        debug("ptk_free: called with null pointer at %s:%d", file, line);
+        debug("called with null pointer");
         return;
     }
     ptk_alloc_header_t *hdr = ptk_get_header(ptr);
-    info("ptk_free: freeing memory at %p (user: %p) allocated from %s:%d", hdr, ptr, hdr ? hdr->file : "?", hdr ? hdr->line : -1);
+    info("freeing memory at %p (user: %p) allocated from %s:%d", hdr, ptr, hdr ? hdr->file : "?", hdr ? hdr->line : -1);
     if(hdr && hdr->destructor) {
-        info("ptk_free: calling destructor for memory at %p (user: %p)", hdr, ptr);
+        debug("calling destructor for memory at %p", ptr);
         hdr->destructor(ptr);
     }
     free(hdr);
+    *ptr_ref = NULL;
 }

@@ -41,7 +41,7 @@ ptk_err test_pdu_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
 void test_basic_serialization() {
     printf("\n=== Test Basic Serialization ===\n");
 
-    ptk_buf *buf = ptk_buf_create(NULL, 256);
+    ptk_buf *buf = ptk_buf_alloc(256);
     assert(buf != NULL);
 
     // Test data
@@ -59,15 +59,15 @@ void test_basic_serialization() {
     ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, cmd, len, session, status, context, options);
     assert(err == PTK_OK);
 
-    printf("Serialized %zu bytes\n", ptk_buf_len(buf));
+    printf("Serialized %zu bytes\n", ptk_buf_get_len(buf));
 
     // Verify buffer contains expected data
-    assert(ptk_buf_len(buf) == 24);  // 2+2+4+4+8+4 = 24 bytes
+    assert(ptk_buf_get_len(buf) == 24);  // 2+2+4+4+8+4 = 24 bytes
 
     // Print buffer contents in hex
     printf("Buffer contents: ");
-    uint8_t *data_ptr = ptk_buf_get_start_ptr(buf);
-    for(size_t i = 0; i < ptk_buf_len(buf); i++) { printf("%02x ", data_ptr[i]); }
+    uint8_t *data_ptr = buf->data + buf->start;
+    for(size_t i = 0; i < ptk_buf_get_len(buf); i++) { printf("%02x ", data_ptr[i]); }
     printf("\n");
 
     // Test deserialization
@@ -92,13 +92,13 @@ void test_basic_serialization() {
 
     printf("✓ Basic serialization test passed\n");
 
-    ptk_buf_dispose(buf);
+    ptk_free(&buf);
 }
 
 void test_struct_serialization() {
     printf("\n=== Test Struct Serialization ===\n");
 
-    ptk_buf *buf = ptk_buf_create(NULL, 256);
+    ptk_buf *buf = ptk_buf_alloc(256);
     assert(buf != NULL);
 
     // Test data
@@ -117,8 +117,8 @@ void test_struct_serialization() {
                                     header.status, header.sender_context, header.options);
     assert(err == PTK_OK);
 
-    printf("Serialized %zu bytes\n", ptk_buf_len(buf));
-    assert(ptk_buf_len(buf) == 24);
+    printf("Serialized %zu bytes\n", ptk_buf_get_len(buf));
+    assert(ptk_buf_get_len(buf) == 24);
 
     // Test explicit deserialization
     eip_header_t received = {0};
@@ -140,14 +140,14 @@ void test_struct_serialization() {
 
     printf("✓ Struct serialization test passed\n");
 
-    ptk_buf_dispose(buf);
+    ptk_free(&buf);
 }
 
 void test_endianness() {
     printf("\n=== Test Endianness ===\n");
 
-    ptk_buf *buf1 = ptk_buf_create(NULL, 256);
-    ptk_buf *buf2 = ptk_buf_create(NULL, 256);
+    ptk_buf *buf1 = ptk_buf_alloc(256);
+    ptk_buf *buf2 = ptk_buf_alloc(256);
     assert(buf1 != NULL && buf2 != NULL);
 
     uint32_t test_value = 0x12345678;
@@ -161,12 +161,12 @@ void test_endianness() {
     assert(err == PTK_OK);
 
     printf("Little-endian bytes: ");
-    uint8_t *data1 = ptk_buf_get_start_ptr(buf1);
+    uint8_t *data1 = buf1->data + buf1->start;
     for(size_t i = 0; i < 4; i++) { printf("%02x ", data1[i]); }
     printf("\n");
 
     printf("Big-endian bytes: ");
-    uint8_t *data2 = ptk_buf_get_start_ptr(buf2);
+    uint8_t *data2 = buf2->data + buf2->start;
     for(size_t i = 0; i < 4; i++) { printf("%02x ", data2[i]); }
     printf("\n");
 
@@ -190,14 +190,14 @@ void test_endianness() {
 
     printf("✓ Endianness test passed\n");
 
-    ptk_buf_dispose(buf1);
-    ptk_buf_dispose(buf2);
+    ptk_free(&buf1);
+    ptk_free(&buf2);
 }
 
 void test_peek_functionality() {
     printf("\n=== Test Peek Functionality ===\n");
 
-    ptk_buf *buf = ptk_buf_create(NULL, 256);
+    ptk_buf *buf = ptk_buf_alloc(256);
     assert(buf != NULL);
 
     uint16_t val1 = 0x1234;
@@ -207,7 +207,7 @@ void test_peek_functionality() {
     ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, val1, val2);
     assert(err == PTK_OK);
 
-    size_t original_size = ptk_buf_len(buf);
+    size_t original_size = ptk_buf_get_len(buf);
     printf("Buffer size after serialization: %zu bytes\n", original_size);
 
     // Peek at the data (should not advance buffer)
@@ -223,8 +223,8 @@ void test_peek_functionality() {
     assert(peek_val2 == val2);
 
     // Buffer size should be unchanged
-    assert(ptk_buf_len(buf) == original_size);
-    printf("Buffer size after peek: %zu bytes (unchanged)\n", ptk_buf_len(buf));
+    assert(ptk_buf_get_len(buf) == original_size);
+    printf("Buffer size after peek: %zu bytes (unchanged)\n", ptk_buf_get_len(buf));
 
     // Now actually consume the data
     uint16_t real_val1;
@@ -235,18 +235,18 @@ void test_peek_functionality() {
     assert(real_val2 == val2);
 
     // Buffer should now be empty
-    assert(ptk_buf_len(buf) == 0);
-    printf("Buffer size after consume: %zu bytes (empty)\n", ptk_buf_len(buf));
+    assert(ptk_buf_get_len(buf) == 0);
+    printf("Buffer size after consume: %zu bytes (empty)\n", ptk_buf_get_len(buf));
 
     printf("✓ Peek functionality test passed\n");
 
-    ptk_buf_dispose(buf);
+    ptk_free(&buf);
 }
 
 void test_error_handling() {
     printf("\n=== Test Error Handling ===\n");
 
-    ptk_buf *buf = ptk_buf_create(NULL, 8);  // Small buffer for overflow test
+    ptk_buf *buf = ptk_buf_alloc(8);  // Small buffer for overflow test
     assert(buf != NULL);
 
     // Test buffer overflow during serialization
@@ -278,13 +278,13 @@ void test_error_handling() {
 
     printf("✓ Error handling test passed\n");
 
-    ptk_buf_dispose(buf);
+    ptk_free(&buf);
 }
 
 void test_serializable_interface() {
     printf("\n=== Test Serializable Interface ===\n");
 
-    ptk_buf *buf = ptk_buf_create(NULL, 256);
+    ptk_buf *buf = ptk_buf_alloc(256);
     assert(buf != NULL);
 
     // Initialize test PDU
@@ -299,8 +299,8 @@ void test_serializable_interface() {
     ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, (ptk_serializable_t *)&pdu);
     assert(err == PTK_OK);
 
-    printf("Serialized PDU: %zu bytes\n", ptk_buf_len(buf));
-    assert(ptk_buf_len(buf) == 8);  // 2+4+2 = 8 bytes
+    printf("Serialized PDU: %zu bytes\n", ptk_buf_get_len(buf));
+    assert(ptk_buf_get_len(buf) == 8);  // 2+4+2 = 8 bytes
 
     // Test direct PDU deserialization
     test_pdu_t received_pdu = {.base = {.serialize = test_pdu_serialize, .deserialize = test_pdu_deserialize}};
@@ -326,8 +326,8 @@ void test_serializable_interface() {
     err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, preamble, (ptk_serializable_t *)&pdu, trailer);
     assert(err == PTK_OK);
 
-    printf("Mixed serialization: %zu bytes\n", ptk_buf_len(buf));
-    assert(ptk_buf_len(buf) == 11);  // 1 + 8 + 2 = 11 bytes
+    printf("Mixed serialization: %zu bytes\n", ptk_buf_get_len(buf));
+    assert(ptk_buf_get_len(buf) == 11);  // 1 + 8 + 2 = 11 bytes
 
     // Test mixed deserialization
     uint8_t recv_preamble;
@@ -348,7 +348,7 @@ void test_serializable_interface() {
 
     printf("✓ Serializable interface test passed\n");
 
-    ptk_buf_dispose(buf);
+    ptk_free(&buf);
 }
 
 int main() {

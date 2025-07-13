@@ -20,4 +20,8 @@ That means that the place where obj was created should have provided a destructo
 - if there is more than 10% of a file to change, rewrite it in a different file and mv it over.
 - do not provide publically accessible destructor functions for your data.  Use the destructor callback with ptk_alloc().  All memory should be freed just with ptk_free().
 - Only public functions have the ptk_ prefix.  Anything internal should not have that prefix.  Public functions are those that are in the public header files in src/include.
+- Ownership of memory/data:
+  - if a function returns a pointer, it was created with ptk_alloc() and you own it and need to free it with ptk_free().
+  - if you pass a parameter to a function that is a pointer to a pointer, then the function owns the value and will NULL out your pointer to the data.  Obviously this does not help if you make multiple copies of the point. So don't do that.
+
 

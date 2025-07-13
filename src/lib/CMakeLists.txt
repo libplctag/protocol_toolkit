@@ -6,13 +6,14 @@ add_library(protocol_toolkit
     ptk_alloc.c
     ptk_atomic.c
     ptk_buf.c
-    ptk_config.c
-    # ptk_codec.c
     ptk_err.c
     ptk_log.c
-    # ptk_socket.c  # Temporarily disabled - uses old allocator
-    # ptk_thread.c  # Temporarily disabled - uses old allocator
+    ptk_os_thread.c
     ptk_utils.c
+    # Socket implementation files
+    event_loop/socket_common.c
+    event_loop/socket_tcp.c
+    event_loop/socket_udp.c
 )
 
 # Set target properties

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ptk_thread.h>
+#include <ptk_os_thread.h>
 
 /**
  * @brief Definitions for error handling.
@@ -10,7 +10,7 @@
 /**
  * Error codes for event loop operations
  */
-typedef enum {
+typedef enum ptk_err{
     PTK_OK,                     // Status/error was OK
     PTK_ERR_OUT_OF_BOUNDS,      // Index out of bounds
     PTK_ERR_NULL_PTR,           // Null pointer in params or returns
@@ -74,3 +74,4 @@ static inline ptk_err ptk_get_err(void) {
  * @return String description of the error
  */
 const char* ptk_err_to_string(ptk_err err);
+

@@ -238,6 +238,26 @@ static const size_t type_sizes[] = {
     [PTK_BUF_TYPE_SERIALIZABLE] = 0,
 };
 
+/**
+ * Wrapper functions for the macros
+ */
+static inline size_t ptk_buf_type_size(ptk_buf_type_t type) {
+    if (type >= sizeof(type_sizes) / sizeof(type_sizes[0])) return 0;
+    return type_sizes[type];
+}
+
+static inline uint64_t ptk_buf_convert_endian(uint64_t value, size_t size, ptk_buf_endian_t endian) {
+    return convert_endian(value, size, endian);
+}
+
+static inline void ptk_buf_u64_to_bytes(uint64_t value, uint8_t *bytes, size_t size) {
+    u64_to_bytes(value, bytes, size);
+}
+
+static inline uint64_t ptk_buf_bytes_to_u64(const uint8_t *bytes, size_t size) {
+    return bytes_to_u64(bytes, size);
+}
+
 //=============================================================================
 // CONVENIENCE MACROS FOR TYPE-SPECIFIC FUNCTIONS
 //=============================================================================

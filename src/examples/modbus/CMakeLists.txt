@@ -1,13 +1,9 @@
 # Modbus TCP Implementation Test
 
 add_library(modbus STATIC
-    lib/src/modbus_common.c
-    lib/src/modbus_holding_registers.c
-    lib/src/modbus_input_registers.c
-    lib/src/modbus_discrete_inputs.c
-    lib/src/modbus_coils.c
-    lib/src/modbus_exceptions.c
     lib/src/modbus_connection.c
+    lib/src/modbus_bit_array.c
+    lib/src/modbus_pdu.c
 )
 
 target_include_directories(modbus PUBLIC

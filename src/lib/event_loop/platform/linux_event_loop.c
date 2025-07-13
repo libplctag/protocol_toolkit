@@ -85,6 +85,7 @@ platform_event_loop_t *platform_event_loop_create(int max_events) {
     }
     platform_event_loop_t *handle = ptk_alloc(sizeof(platform_event_loop_t), NULL);
     handle->impl = loop;
+    handle->max_events = loop->max_events;
     debug("exit");
     return handle;
 }
@@ -108,21 +109,29 @@ void platform_event_loop_destroy(platform_event_loop_t *handle) {
     debug("exit");
 }
 
-// Add a file descriptor for read events to the event loop.
+// Add a file descriptor for specific events to the event loop.
 /**
- * @brief Add a file descriptor for read events to the event loop.
+ * @brief Add a file descriptor for specific events to the event loop.
  *
- * Registers the given fd for EPOLLIN events. If the fd is already present, modifies its event mask.
+ * Registers the given fd for the specified events. If the fd is already present, modifies its event mask.
  *
  * @param handle Event loop handle.
- * @param fd File descriptor to monitor for read events.
+ * @param fd File descriptor to monitor.
+ * @param events Event mask (PTK_EVENT_READ | PTK_EVENT_WRITE | PTK_EVENT_ERROR).
  * @return PTK_OK on success, error code otherwise.
  */
-ptk_err platform_add_fd_read(platform_event_loop_t *handle, int fd) {
-    debug("fd=%d", fd);
+ptk_err platform_add_fd(platform_event_loop_t *handle, int fd, uint32_t events) {
+    debug("fd=%d, events=0x%x", fd, events);
+    
+    if (!handle || !handle->impl || fd < 0) {
+        warn("Invalid arguments");
+        return PTK_ERR_INVALID_ARGUMENT;
+    }
+    
     linux_event_loop_t *loop = handle->impl;
     struct epoll_event ev;
-    set_epoll_event(&ev, fd, PTK_EVENT_READ);
+    set_epoll_event(&ev, fd, events);
+    
     if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
         if (errno == EEXIST) {
             debug("fd %d already exists, modifying", fd);
@@ -135,9 +144,21 @@ ptk_err platform_add_fd_read(platform_event_loop_t *handle, int fd) {
             return PTK_ERR_NETWORK_ERROR;
         }
     }
-    debug("fd %d added/modified", fd);
+    
+    debug("fd %d added/modified with events 0x%x", fd, events);
     return PTK_OK;
 }
+
+// Add a file descriptor for read events to the event loop.
+/**
+ * @brief Add a file descriptor for read events to the event loop.
+ *
+ * Convenience function that calls platform_add_fd with PTK_EVENT_READ.
+ *
+ * @param handle Event loop handle.
+ * @param fd File descriptor to monitor for read events.
+ * @return PTK_OK on success, error code otherwise.
+ */
 
 // Add a file descriptor for write events to the event loop.
 /**
@@ -149,26 +170,16 @@ ptk_err platform_add_fd_read(platform_event_loop_t *handle, int fd) {
  * @param fd File descriptor to monitor for write events.
  * @return PTK_OK on success, error code otherwise.
  */
-ptk_err platform_add_fd_write(platform_event_loop_t *handle, int fd) {
-    debug("fd=%d", fd);
-    linux_event_loop_t *loop = handle->impl;
-    struct epoll_event ev;
-    set_epoll_event(&ev, fd, PTK_EVENT_WRITE);
-    if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-        if (errno == EEXIST) {
-            debug("fd %d already exists, modifying", fd);
-            if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_MOD, fd, &ev) < 0) {
-                warn("epoll_ctl mod failed for fd %d: %s", fd, strerror(errno));
-                return PTK_ERR_NETWORK_ERROR;
-            }
-        } else {
-            warn("epoll_ctl add failed for fd %d: %s", fd, strerror(errno));
-            return PTK_ERR_NETWORK_ERROR;
-        }
-    }
-    debug("fd %d added/modified", fd);
-    return PTK_OK;
-}
+// Add a file descriptor for write events to the event loop.
+/**
+ * @brief Add a file descriptor for write events to the event loop.
+ *
+ * Convenience function that calls platform_add_fd with PTK_EVENT_WRITE.
+ *
+ * @param handle Event loop handle.
+ * @param fd File descriptor to monitor for write events.
+ * @return PTK_OK on success, error code otherwise.
+ */
 
 // Remove a file descriptor from the event loop.
 /**

@@ -1,0 +1,191 @@
+(* Protocol Definition Language (PDL) Grammar *)
+
+protocol_file = { import_statement | definition } ;
+
+import_statement = "import" identifier "=" string_literal ;
+
+definition = "def" identifier "=" type_definition ;
+
+type_definition = primitive_type | aggregate_type | constant_definition | array_type | bit_array_type | fixed_array_type ;
+
+primitive_type = "{" primitive_attributes "}" ;
+primitive_attributes = { primitive_attribute "," } ;
+primitive_attribute = "type" ":" base_type |
+                     "byte_order" ":" byte_order_array |
+                     "const" ":" constant |
+                     "hidden" ":" boolean_literal ;
+
+bit_array_type = "{" bit_array_attributes "}" ;
+bit_array_attributes = { bit_array_attribute "," } ;
+bit_array_attribute = "type" ":" "bit" "[" "]" |
+                     "container_type" ":" type_reference ;
+
+array_type = type_reference "[" "]" ;
+
+fixed_array_type = "{" fixed_array_attributes "}" ;
+fixed_array_attributes = { fixed_array_attribute "," } ;
+fixed_array_attribute = "type" ":" fixed_array_spec |
+                       "byte_order" ":" byte_order_array |
+                       "hidden" ":" boolean_literal ;
+
+fixed_array_spec = base_type "[" number "]" ;
+
+aggregate_type = "{" aggregate_attributes "}" ;
+aggregate_attributes = { aggregate_attribute "," } ;
+aggregate_attribute = "type" ":" aggregate_type_value |
+                     "fields" ":" field_array |
+                     "match" ":" expression_or_function |
+                     "response_to" ":" response_target ;
+
+constant_definition = "{" constant_attributes "}" ;
+constant_attributes = { constant_attribute "," } ;
+constant_attribute = "type" ":" type_reference |
+                    "const" ":" constant ;
+
+response_target = type_reference | "ALL" | "[" type_list "]" ;
+
+field_array = "[" field_list "]" ;
+field_list = field_definition { "," field_definition } ;
+
+field_definition = identifier ":" field_spec ;
+field_spec = type_reference | 
+             primitive_type | 
+             aggregate_type | 
+             variant_array_type |
+             bit_array_type |
+             bit_field_type |
+             fixed_array_type |
+             simple_array_type |
+             complex_field_type ;
+
+simple_array_type = type_reference "[" simple_array_size "]" ;
+simple_array_size = identifier | number ;
+
+complex_field_type = "{" complex_field_attributes "}" ;
+complex_field_attributes = { complex_field_attribute "," } ;
+complex_field_attribute = "type" ":" ( base_type | array_type_spec | fixed_array_spec ) |
+                         "byte_order" ":" byte_order_array |
+                         "hidden" ":" boolean_literal |
+                         "length" ":" length_definition |
+                         "encode" ":" expression_or_function ;
+
+bit_field_type = "{" bit_field_attributes "}" ;
+bit_field_attributes = { bit_field_attribute "," } ;
+bit_field_attribute = "type" ":" bit_field_type_value |
+                     "container" ":" identifier |
+                     "bits" ":" bit_array ;
+
+bit_field_type_value = "bit" | "bit_field" ;
+
+bit_array = "[" number_list "]" ;
+
+variant_array_type = "[" type_list "]" ;
+type_list = type_reference { "," type_reference } ;
+
+array_type_spec = type_reference "[" "]" ;
+
+length_definition = "{" length_attributes "}" ;
+length_attributes = { length_attribute "," } ;
+length_attribute = "decode" ":" expression_or_function |
+                  "encode" ":" expression_or_function ;
+
+type_reference = identifier | namespaced_identifier ;
+namespaced_identifier = identifier "." identifier ;
+
+base_type = "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" ;
+
+aggregate_type_value = "message" ;
+
+byte_order_array = "[" number_list "]" ;
+number_list = number { "," number } ;
+
+expression_or_function = "(" expression ")" | identifier | namespaced_identifier ;
+
+expression = ternary_expression ;
+
+ternary_expression = logical_or [ "?" expression ":" expression ] ;
+
+logical_or = logical_and { "||" logical_and } ;
+
+logical_and = bitwise_or { "&&" bitwise_or } ;
+
+bitwise_or = bitwise_xor { "|" bitwise_xor } ;
+
+bitwise_xor = bitwise_and { "^" bitwise_and } ;
+
+bitwise_and = equality { "&" equality } ;
+
+equality = relational { ( "==" | "!=" ) relational } ;
+
+relational = shift { ( "<" | "<=" | ">" | ">=" ) shift } ;
+
+shift = additive { ( "<<" | ">>" ) additive } ;
+
+additive = multiplicative { ( "+" | "-" ) multiplicative } ;
+
+multiplicative = unary { ( "*" | "/" | "%" ) unary } ;
+
+unary = [ ( "!" | "~" | "-" | "+" ) ] primary ;
+
+primary = identifier | 
+          namespaced_identifier |
+          number | 
+          field_reference | 
+          function_call |
+          "(" expression ")" ;
+
+field_reference = "$" [ "." identifier { "." identifier } ] ;
+
+function_call = ( identifier | namespaced_identifier ) "(" [ expression { "," expression } ] ")" ;
+
+constant = number | string_literal | boolean_literal ;
+
+boolean_literal = "true" | "false" ;
+
+identifier = letter { letter | digit | "_" } ;
+
+number = digit { digit } [ "." digit { digit } ] | "0x" hex_digit { hex_digit } ;
+
+string_literal = '"' { character } '"' ;
+
+comment = "//" { character } newline ;
+
+letter = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | 
+         "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" |
+         "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" |
+         "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" ;
+
+digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+hex_digit = digit | "a" | "b" | "c" | "d" | "e" | "f" | "A" | "B" | "C" | "D" | "E" | "F" ;
+
+character = (* any character except '"' and newline *) ;
+
+newline = (* newline character *) ;
+
+(* Key features of the grammar:
+ * - Import statements: Support for importing external definitions with namespaces
+ * - Namespaced types: Imported definitions accessed via namespace.identifier syntax
+ * - Definition-based: All constructs are definitions with "def" keyword
+ * - Direct struct access: Generated structs with direct field access (no vtables)
+ * - Field references: Uses $.field.subfield syntax for referencing parent fields
+ * - Array sizing: Simple shortcuts (type[field] or type[constant]) and complex length attribute
+ * - Complex arrays: Use length: { decode: expr, encode: expr } for calculated sizes
+ * - Safe array accessors: Generated bounds-checked accessors for all array types
+ * - Bit arrays: Container-type specific bit arrays (u8, u16, u32 containers)
+ * - Bit fields: Individual bit and multi-bit field extraction from container fields
+ * - Fixed arrays with byte ordering: Support for u8[N] with custom byte_order arrays
+ * - Array byte ordering: Handles complex wire formats like PLC5 word-swapped strings
+ * - Byte order validation: Length must match type size (primitives) or array length (arrays)
+ * - Expression support: Full expression language with operator precedence
+ * - Variant arrays: Arrays of types for discriminated unions
+ * - Response linking: response_to: attribute links responses to requests
+ * - Comments: C++ style // comments supported
+ * - Parent references: $ represents parent message, $.field accesses parent fields
+ * - Request references: $.request.field accesses request fields from responses
+ * - Namespace support: Both types and functions can be namespaced
+ * - Container types: Bit arrays specify their underlying container type
+ * - Hidden fields: Fields marked as hidden exist only in raw/encoded data
+ * - Semantic types: Same base types can have different semantic meanings
+ * - DRY principles: Minimal repetition through type reuse and response linking
+ *)

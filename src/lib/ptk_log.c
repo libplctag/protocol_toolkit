@@ -83,7 +83,7 @@ void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, p
         return;
     }
 
-    size_t data_len = ptk_buf_len(data);
+    size_t data_len = ptk_buf_get_len(data);
     if(data_len == SIZE_MAX) {
         ptk_log_impl(func, line_num, log_level, "Buffer data: (error getting length)");
         return;
@@ -96,7 +96,8 @@ void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, p
         return;
     }
 
-    uint8_t *ptr = ptk_buf_get_start_ptr(data);
+    // Get pointer to current data (data + start position)
+    uint8_t *ptr = data->data + data->start;
     if(!ptr) {
         printf("  (error getting data pointer)\n");
         return;

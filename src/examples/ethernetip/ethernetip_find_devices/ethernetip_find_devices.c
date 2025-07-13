@@ -16,8 +16,7 @@
 #include "ptk_alloc.h"
 #include "ptk_buf.h"
 #include "ptk_err.h"
-#include "ptk_socket.h"
-#include "ptk_thread.h"
+#include "ptk_sock.h"
 #include "ptk_utils.h"
 
 //=============================================================================
@@ -321,12 +320,22 @@ static ptk_err broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf,
     size_t num_networks = ptk_socket_network_info_count(networks);
     bool broadcast_sent = false;
 
+    // Create buffer array with single buffer for sending
+    ptk_buf_array_t *buf_array = ptk_buf_array_create(1, NULL);
+    if (!buf_array) {
+        return PTK_ERR_NO_RESOURCES;
+    }
+
     for(size_t i = 0; i < num_networks; i++) {
         const ptk_network_info_entry *entry = ptk_socket_network_info_get(networks, i);
         if(entry && entry->broadcast) {
+            // Reset buffer array and add the request buffer
+            ptk_buf_array_resize(buf_array, 1);
+            ptk_buf_array_set(buf_array, 0, *request_buf);
+            
             ptk_address_t broadcast_addr;
             if(ptk_address_create(&broadcast_addr, entry->broadcast, g_config.eip_port) == PTK_OK) {
-                if(ptk_udp_socket_send_to(socket, request_buf, &broadcast_addr, true) == PTK_OK) {
+                if(ptk_udp_socket_send_to(socket, buf_array, &broadcast_addr, true, 1000) == PTK_OK) {
                     broadcast_sent = true;
                     if(g_config.verbose_output) { printf("Broadcast sent to %s\n", entry->broadcast); }
                 }
@@ -334,6 +343,7 @@ static ptk_err broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf,
         }
     }
 
+    ptk_free(&buf_array);
     return broadcast_sent ? PTK_OK : PTK_ERR_NETWORK_ERROR;
 }
 
@@ -576,7 +586,7 @@ static void discovery_thread(void *arg) {
     printf("Starting EtherNet/IP device discovery for %d seconds...\n", *discovery_time);
 
     // Get network interfaces for broadcasting
-    ptk_network_info *networks = ptk_socket_find_networks(g_allocator);
+    ptk_network_info *networks = ptk_socket_find_networks();
     size_t num_networks = 0;
 
     if(!networks) {
@@ -595,15 +605,15 @@ static void discovery_thread(void *arg) {
     ptk_err err = ptk_address_create_any(&local_addr, 0);
     if(err != PTK_OK) {
         printf("Failed to create local address: %s\n", ptk_err_to_string(err));
-        if(networks) { ptk_socket_network_info_dispose(networks); }
+        if(networks) { ptk_free(&networks); }
         return;
     }
 
     // Create UDP socket for discovery
-    g_udp_socket = ptk_udp_socket_create(g_allocator, &local_addr);
+    g_udp_socket = ptk_udp_socket_create(&local_addr, true); // Enable broadcast
     if(!g_udp_socket) {
-        printf("Failed to create UDP socket\n");
-        if(networks) { ptk_socket_network_info_dispose(networks); }
+        printf("Failed to create UDP socket: %s\n", ptk_err_to_string(ptk_get_err()));
+        if(networks) { ptk_free(&networks); }
         return;
     }
 
@@ -639,20 +649,27 @@ static void discovery_thread(void *arg) {
                         ptk_buf_set_end(request_buf, 0);
                         build_list_identity_request(request_buf);
 
-                        // Create broadcast address
-                        ptk_address_t broadcast_addr;
-                        err = ptk_address_create(&broadcast_addr, entry->broadcast, EIP_PORT);
-                        if(err == PTK_OK) {
-                            err = ptk_udp_socket_send_to(g_udp_socket, request_buf, &broadcast_addr, true);
+                        // Create buffer array for sending
+                        ptk_buf_array_t *buf_array = ptk_buf_array_create(1, NULL);
+                        if (buf_array) {
+                            ptk_buf_array_set(buf_array, 0, *request_buf);
+                            
+                            // Create broadcast address
+                            ptk_address_t broadcast_addr;
+                            err = ptk_address_create(&broadcast_addr, entry->broadcast, EIP_PORT);
                             if(err == PTK_OK) {
-                                printf("Sent broadcast to %s:%d\n", entry->broadcast, EIP_PORT);
-                                broadcast_sent = true;
-                            } else if(err != PTK_ERR_ABORT) {
-                                printf("Failed to send to %s:%d: %s\n", entry->broadcast, EIP_PORT, ptk_err_to_string(err));
+                                err = ptk_udp_socket_send_to(g_udp_socket, buf_array, &broadcast_addr, true, 1000);
+                                if(err == PTK_OK) {
+                                    printf("Sent broadcast to %s:%d\n", entry->broadcast, EIP_PORT);
+                                    broadcast_sent = true;
+                                } else if(err != PTK_ERR_ABORT) {
+                                    printf("Failed to send to %s:%d: %s\n", entry->broadcast, EIP_PORT, ptk_err_to_string(err));
+                                }
+                            } else {
+                                printf("Failed to create broadcast address %s:%d: %s\n", entry->broadcast, EIP_PORT,
+                                       ptk_err_to_string(err));
                             }
-                        } else {
-                            printf("Failed to create broadcast address %s:%d: %s\n", entry->broadcast, EIP_PORT,
-                                   ptk_err_to_string(err));
+                            ptk_free(&buf_array);
                         }
                     }
                 }
@@ -663,17 +680,24 @@ static void discovery_thread(void *arg) {
                     ptk_buf_set_end(request_buf, 0);
                     build_list_identity_request(request_buf);
 
-                    ptk_address_t broadcast_addr;
-                    err = ptk_address_create(&broadcast_addr, "255.255.255.255", EIP_PORT);
-                    if(err == PTK_OK) {
-                        err = ptk_udp_socket_send_to(g_udp_socket, request_buf, &broadcast_addr, true);
+                    // Create buffer array for fallback send
+                    ptk_buf_array_t *buf_array = ptk_buf_array_create(1, NULL);
+                    if (buf_array) {
+                        ptk_buf_array_set(buf_array, 0, *request_buf);
+                        
+                        ptk_address_t broadcast_addr;
+                        err = ptk_address_create(&broadcast_addr, "255.255.255.255", EIP_PORT);
                         if(err == PTK_OK) {
-                            printf("Sent fallback broadcast to 255.255.255.255:%d\n", EIP_PORT);
-                        } else if(err != PTK_ERR_ABORT) {
-                            printf("Failed to send fallback broadcast: %s\n", ptk_err_to_string(err));
+                            err = ptk_udp_socket_send_to(g_udp_socket, buf_array, &broadcast_addr, true, 1000);
+                            if(err == PTK_OK) {
+                                printf("Sent fallback broadcast to 255.255.255.255:%d\n", EIP_PORT);
+                            } else if(err != PTK_ERR_ABORT) {
+                                printf("Failed to send fallback broadcast: %s\n", ptk_err_to_string(err));
+                            }
+                        } else {
+                            printf("Failed to create fallback broadcast address: %s\n", ptk_err_to_string(err));
                         }
-                    } else {
-                        printf("Failed to create fallback broadcast address: %s\n", ptk_err_to_string(err));
+                        ptk_free(&buf_array);
                     }
                 }
             } else {
@@ -685,31 +709,28 @@ static void discovery_thread(void *arg) {
         }
 
         // Listen for responses
-        ptk_buf *response_buf = ptk_buf_create(g_allocator, 512);
-        if(!response_buf) {
-            printf("Failed to create response buffer\n");
-            usleep(100000);
-            continue;
-        }
-
         ptk_address_t sender_addr;
-        err = ptk_udp_socket_recv_from(g_udp_socket, response_buf, &sender_addr);
+        ptk_buf_array_t *response_buffers = ptk_udp_socket_recv_from(g_udp_socket, &sender_addr, false, g_config.response_timeout_ms);
 
-        if(err == PTK_OK) {
-            g_responses_received++;
-            parse_list_identity_response(response_buf, &sender_addr);
-        } else if(err == PTK_ERR_ABORT) {
-            printf("Discovery aborted\n");
-            ptk_buf_dispose(response_buf);
-            break;
-        } else if(err == PTK_ERR_WOULD_BLOCK || err == PTK_ERR_TIMEOUT) {
-            // No data available, continue
-            ptk_buf_dispose(response_buf);
-            usleep(100000);  // Sleep 100ms
+        if(response_buffers) {
+            size_t num_packets = ptk_buf_array_len(response_buffers);
+            for(size_t i = 0; i < num_packets; i++) {
+                ptk_buf *response_buf;
+                if(ptk_buf_array_get(response_buffers, i, &response_buf) == PTK_OK) {
+                    g_responses_received++;
+                    parse_list_identity_response(response_buf, &sender_addr);
+                }
+            }
+            ptk_free(&response_buffers);
         } else {
-            printf("Receive error: %s\n", ptk_err_to_string(err));
-            ptk_buf_dispose(response_buf);
-            usleep(100000);  // Sleep 100ms before retry
+            ptk_err recv_err = ptk_get_err();
+            if(recv_err == PTK_ERR_ABORT) {
+                printf("Discovery aborted\n");
+                break;
+            } else if(recv_err != PTK_ERR_TIMEOUT) {
+                printf("Receive error: %s\n", ptk_err_to_string(recv_err));
+            }
+            usleep(100000);  // Sleep 100ms
         }
     }
 
@@ -769,7 +790,7 @@ int main(int argc, char *argv[]) {
     if(err != PTK_OK) { printf("Error joining discovery thread: %s\n", ptk_err_to_string(err)); }
 
     // Cleanup
-    if(g_udp_socket) { ptk_socket_close(g_udp_socket); }
+    if(g_udp_socket) { ptk_free(&g_udp_socket); }
 
     if(g_discovery_thread) { ptk_thread_destroy(g_discovery_thread); }
 

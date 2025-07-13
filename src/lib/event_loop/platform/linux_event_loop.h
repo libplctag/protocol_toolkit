@@ -13,6 +13,7 @@ typedef struct linux_event_loop_t linux_event_loop_t;
 // Opaque handle for platform event loop
 typedef struct platform_event_loop_t {
     linux_event_loop_t *impl;
+    int max_events;  // Maximum events for allocation
 } platform_event_loop_t;
 
 // Event types
@@ -29,6 +30,7 @@ typedef struct {
 typedef struct {
     platform_event_t *events;
     int count;
+    int capacity;
 } platform_event_list_t;
 
 // Create a new epoll-based event loop
@@ -37,11 +39,9 @@ platform_event_loop_t *platform_event_loop_create(int max_events);
 // Destroy the event loop and free resources
 void platform_event_loop_destroy(platform_event_loop_t *loop);
 
-// Register a file descriptor for read events
-ptk_err platform_add_fd_read(platform_event_loop_t *loop, int fd);
+// Register a file descriptor for specific events
+ptk_err platform_add_fd(platform_event_loop_t *loop, int fd, uint32_t events);
 
-// Register a file descriptor for write events
-ptk_err platform_add_fd_write(platform_event_loop_t *loop, int fd);
 
 // Remove a file descriptor from the event loop
 ptk_err platform_remove_fd(platform_event_loop_t *loop, int fd);

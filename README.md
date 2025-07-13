@@ -162,19 +162,7 @@ modbus_request_serialize(&request, buffer);
 ```
 
 ### Resource Management with Destructors
-```c
-// Create allocator with automatic cleanup
-ptk_allocator_t alloc = ptk_allocator_create_with_destructor(cleanup_connection);
 
-// Allocate long-term data (persists across requests)
-connection_t *conn = ptk_alloc_long_term(alloc, sizeof(connection_t));
-
-// Allocate ephemeral data (freed automatically after request)
-request_buffer_t *req = ptk_alloc_ephemeral(alloc, sizeof(request_buffer_t));
-
-// Cleanup happens automatically when allocator is destroyed
-ptk_allocator_destroy(alloc);  // Calls destructors automatically
-```
 
 ### Cross-Platform Threading
 ```c

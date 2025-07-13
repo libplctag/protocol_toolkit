@@ -1,7 +1,7 @@
 # Modbus TCP Client
 
 add_executable(modbus_client
-    modbus_client.c
+    modbus_client_sketch.c
 )
 
 target_include_directories(modbus_client PRIVATE

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "ptk_err.h"
+#include <ptk_err.h>
 
 /**
  * @brief Allocate memory with optional destructor
@@ -63,19 +63,21 @@ extern void *ptk_realloc_impl(const char *file, int line, void *ptr, size_t new_
 /**
  * @brief Free an allocated memory block after calling its destructor
  *
- * Calls the destructor if provided, then frees the memory.
+ * Calls the destructor if provided, then frees the memory and sets the pointer to NULL.
  *
- * @param ptr Pointer to memory block to free
+ * @param ptr_ref Pointer to pointer to memory block to free
  *
  * @note This is a macro that automatically captures file/line information
  * @note Destructors are called before freeing each allocation
- * @note It is safe to call ptk_free(NULL)
- *
+ * @note It is safe to call ptk_free(NULL) or ptk_free(&null_ptr)
+ * @note The pointer will be set to NULL after freeing to prevent use-after-free bugs
  *
  * @example
  * ```c
+ * void *ptr = ptk_alloc(1024, NULL);
+ * ptk_free(&ptr);  // ptr is now NULL
  * ```
  */
-#define ptk_free(ptr) \
-    ptk_free_impl(__FILE__, __LINE__, ptr)
-extern void ptk_free_impl(const char *file, int line, void *ptr);
+#define ptk_free(ptr_ref) \
+    ptk_free_impl(__FILE__, __LINE__, (void **)(ptr_ref))
+extern void ptk_free_impl(const char *file, int line, void **ptr_ref);

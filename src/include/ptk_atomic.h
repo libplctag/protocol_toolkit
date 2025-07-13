@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "ptk_err.h"
+#include <ptk_err.h>
 
 /**
  * @brief Wrappers around platform-specific atomic operations.

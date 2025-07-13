@@ -110,7 +110,7 @@ static void server_client_thread(void *arg) {
 
     info("[CLIENT_HANDLER_%d] Stopping\n", client_id);
     ptk_buf_dispose(io_buf);
-    ptk_socket_close(client);
+    ptk_free(&client);
     free(data);
 }
 

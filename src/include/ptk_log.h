@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include "ptk_err.h"
+#include <ptk_err.h>
 
 // Forward declaration to avoid circular dependency
 typedef struct ptk_buf ptk_buf;

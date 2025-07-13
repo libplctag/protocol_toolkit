@@ -19,6 +19,7 @@
 #include <ptk_buf.h>
 #include <ptk_err.h>
 #include <ptk_utils.h>
+#include <ptk_array.h>
 
 // Forward declarations
 typedef struct ptk_sock ptk_sock;
@@ -34,8 +35,11 @@ typedef enum {
 } ptk_sock_type;
 
 
+//=============================================================================
+// COMMON DATA TYPES
+//=============================================================================
 
-
+PTK_ARRAY_DECLARE(ptk_buf, ptk_buf);
 
 //=============================================================================
 // ADDRESS STRUCTURES AND FUNCTIONS
@@ -52,14 +56,14 @@ typedef struct {
 } ptk_address_t;
 
 /**
- * @brief Create an address structure from IP string and port
+ * @brief Initialize an address structure from IP string and port
  *
- * @param address Output parameter for the created address
+ * @param address Output parameter for the address to initialize
  * @param ip_string The IP address as a string (e.g., "192.168.1.1" or NULL for INADDR_ANY)
  * @param port The port number in host byte order
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_address_create(ptk_address_t *address, const char *ip_string, uint16_t port);
+ptk_err ptk_address_init(ptk_address_t *address, const char *ip_string, uint16_t port);
 
 /**
  * @brief Convert an address structure to an IP string
@@ -88,14 +92,62 @@ uint16_t ptk_address_get_port(const ptk_address_t *address);
 bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2);
 
 /**
- * @brief Create an address for any interface (INADDR_ANY)
+ * @brief Initialize an address for any interface (INADDR_ANY)
  *
- * @param address Output parameter for the created address
+ * @param address Output parameter for the address to initialize
  * @param port The port number in host byte order
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_address_create_any(ptk_address_t *address, uint16_t port);
+ptk_err ptk_address_init_any(ptk_address_t *address, uint16_t port);
 
+//=============================================================================
+// NETWORK DISCOVERY API
+//=============================================================================
+
+/**
+ * Network interface information structure
+ */
+typedef struct ptk_network_interface {
+    char interface_name[32];     // Interface name (e.g., "eth0", "wlan0") 
+    char ip_address[16];         // IP address (e.g., "192.168.1.100")
+    char netmask[16];            // Subnet mask (e.g., "255.255.255.0")
+    char broadcast[16];          // Broadcast address (e.g., "192.168.1.255")
+    char network[16];            // Network address (e.g., "192.168.1.0")
+    uint8_t prefix_length;       // CIDR prefix length (e.g., 24 for /24)
+    bool is_up;                  // True if interface is up
+    bool is_loopback;            // True if this is loopback interface
+    bool supports_broadcast;     // True if interface supports broadcast
+} ptk_network_interface_t;
+
+// Declare array type for network interfaces
+PTK_ARRAY_DECLARE(ptk_network_interface, ptk_network_interface_t);
+
+/**
+ * @brief Discover all available network interfaces
+ *
+ * Returns information about all network interfaces on the system.
+ * The returned array and all its contents are managed by a single allocation
+ * that can be freed with ptk_free().
+ *
+ * @return Array of network interfaces, or NULL on error.
+ *         Use ptk_free() to free all associated memory.
+ *         Check ptk_get_err() for error details on NULL return.
+ *
+ * @example
+ * ```c
+ * ptk_network_interface_array_t *interfaces = ptk_network_discover_interfaces();
+ * if (interfaces) {
+ *     size_t count = ptk_network_interface_array_len(interfaces);
+ *     for (size_t i = 0; i < count; i++) {
+ *         const ptk_network_interface_t *iface = ptk_network_interface_array_get(interfaces, i);
+ *         printf("Interface: %s IP: %s Broadcast: %s\n", 
+ *                iface->interface_name, iface->ip_address, iface->broadcast);
+ *     }
+ *     ptk_free(&interfaces);  // Frees everything
+ * }
+ * ```
+ */
+ptk_network_interface_array_t *ptk_network_discover_interfaces(void);
 
 
 //=============================================================================
@@ -110,13 +162,6 @@ ptk_err ptk_address_create_any(ptk_address_t *address, uint16_t port);
  */
 ptk_sock_type ptk_socket_type(ptk_sock *sock);
 
-/**
- * Close the socket.
- *
- * @param sock The socket to close.
- * @return PTK_OK on success, error code on failure.
- */
-ptk_err ptk_socket_close(ptk_sock *sock);
 
 /**
  * Abort any ongoing socket operations.
@@ -160,26 +205,26 @@ ptk_err pkt_socket_signal(ptk_sock *sock);
 ptk_sock *ptk_tcp_socket_connect(const ptk_address_t *remote_addr, ptk_duration_ms timeout_ms);
 
 /**
- * Write data to a TCP socket (blocking).
+ * Write data to a TCP socket using vectored I/O (blocking).
  *
  * @param sock TCP client socket.
- * @param data Data to write.
+ * @param data_array Array of buffers containing data to write.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return PTK_WAIT_OK on success, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
+ * @return PTK_OK on success, PTK_ERR_TIMEOUT on timeout, PTK_ERR_NETWORK_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms);
+ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf_array_t *data_array, ptk_duration_ms timeout_ms);
 
 /**
  * Read data from a TCP socket (blocking).
  *
  * @param sock TCP client socket.
- * @param data Buffer to receive data.
+ * @param wait_for_data If true, wait the entire timeout period and return as much data as is available.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return PTK_WAIT_OK on success, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
- *         On error, ptk_get_err() provides the error code.
+ * @return Returns a buffer containing the received data on success (must be freed with ptk_buf_free()),
+ *        or NULL on error. If NULL is returned, check ptk_get_err() for
  */
-ptk_err ptk_tcp_socket_recv(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms);
+ptk_buf *ptk_tcp_socket_recv(ptk_sock *sock, bool wait_for_data, ptk_duration_ms timeout_ms);
 
 //=============================================================================
 // TCP Server Sockets
@@ -199,13 +244,22 @@ ptk_sock *ptk_tcp_socket_listen(const ptk_address_t *local_addr, int backlog);
  *
  * @param server Listening server socket.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return Valid client socket on PTK_WAIT_OK, NULL on PTK_WAIT_ERROR or PTK_WAIT_TIMEOUT (ptk_get_err() set).
+ * @return Valid client socket on success, NULL on error.
+ *         On error, ptk_get_err() provides the error code.
  */
-ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **out_client, ptk_duration_ms timeout_ms);
+ptk_sock *ptk_tcp_socket_accept(ptk_sock *server, ptk_duration_ms timeout_ms);
 
 //=============================================================================
 // UDP Sockets
 //=============================================================================
+
+typedef struct ptk_udp_buf_entry_t {
+    ptk_buf *buf;                // Buffer containing UDP packet data
+    ptk_address_t sender_addr;   // Address of the sender of this packet
+} ptk_udp_buf_entry_t;
+
+PTK_ARRAY_DECLARE(ptk_udp_buf_entry, ptk_udp_buf_entry_t);
+
 
 /**
  * Create a UDP socket.
@@ -216,29 +270,52 @@ ptk_err ptk_tcp_socket_accept(ptk_sock *server, ptk_sock **out_client, ptk_durat
 ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr, bool broadcast);
 
 /**
- * Send UDP data to a specific address (blocking).
+ * Send UDP data to a specific address using vectored I/O (blocking).
  *
  * @param sock UDP socket.
- * @param data Data to send.
+ * @param data Buffer containing data to send.
  * @param dest_addr Destination address.
  * @param broadcast Whether to send as broadcast.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return PTK_WAIT_OK on success, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
+ * @return PTK_OK on success, PTK_ERR_TIMEOUT on timeout, PTK_ERR_NETWORK_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
 ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms);
 
 /**
- * Receive UDP data (blocking).
+ * Send UDP data to a specific address using vectored I/O (blocking).
  *
  * @param sock UDP socket.
- * @param data Buffer to receive data.
- * @param sender_addr Output parameter for sender's address (can be NULL).
+ * @param data_array Array of buffers and addresses containing data to send.
+ * @param broadcast Whether to send as broadcast.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return PTK_WAIT_OK on data receipt, PTK_WAIT_TIMEOUT on timeout, PTK_WAIT_ERROR on error.
+ * @return PTK_OK on success, PTK_ERR_TIMEOUT on timeout, PTK_ERR_NETWORK_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf *data, ptk_address_t *sender_addr, ptk_duration_ms timeout_ms);
+ptk_err ptk_udp_socket_send_many_to(ptk_sock *sock, ptk_udp_buf_entry_array_t *data_array, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms);
+
+/**
+ * Receive UDP data, returning an array of buffers (blocking).
+ *
+ * @param sock UDP socket.
+ * @param sender_addr Output parameter for sender's address of last packet (can be NULL).
+ * @param timeout_ms Timeout in milliseconds (0 for infinite).
+ * @return Buffer containing one received packet on success (must be freed with ptk_free()), 
+ *         NULL on error. Check ptk_get_err() for error details.
+ */
+ptk_buf *ptk_udp_socket_recv_from(ptk_sock *sock, ptk_address_t *sender_addr, ptk_duration_ms timeout_ms);
+
+/**
+ * Receive UDP data, returning an array of buffers (blocking).
+ *
+ * @param sock UDP socket.
+ * @param wait_for_packets If true, wait the entire timeout period and return all the packets. 
+ *    If false, return as soon as any packets are available (may be one or more).
+ * @param timeout_ms Timeout in milliseconds (0 for infinite).
+ * @return Buffer entry array containing received packets on success (must be freed with ptk_free()), 
+ *         NULL on error. Check ptk_get_err() for error details.
+ */
+ptk_udp_buf_entry_array_t *ptk_udp_socket_recv_many_from(ptk_sock *sock, bool wait_for_packets, ptk_duration_ms timeout_ms);
 
 
 //=============================================================================
@@ -248,10 +325,17 @@ ptk_err ptk_udp_socket_recv_from(ptk_sock *sock, ptk_buf *data, ptk_address_t *s
 /**
  * Network interface information
  */
+
+#include <net/if.h>
+
 typedef struct {
-    char *network_ip;          // Network interface IP address (allocated)
-    char *netmask;             // Network mask (allocated)
-    char *broadcast;           // Broadcast address (allocated)
+    char interface_name[32];     // Interface name (e.g., "eth0", "wlan0")
+    char ip_address[16];         // IP address (e.g., "192.168.1.100")
+    char netmask[16];            // Subnet mask (e.g., "255.255.255.0")
+    char broadcast[16];          // Broadcast address (e.g., "192.168.1.255")
+    bool is_up;                  // True if interface is up
+    bool is_loopback;            // True if this is loopback interface
+    bool supports_broadcast;     // True if interface supports broadcast
 } ptk_network_info_entry;
 
 typedef struct ptk_network_info ptk_network_info;
