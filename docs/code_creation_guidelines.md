@@ -1,3 +1,10 @@
+<!-- TODO: API-level Test Coverage Checklist
+ - [ ] Ensure every public API function and data element is tested.
+ - [ ] Add tests for any missing functions or data elements in existing test files.
+ - [ ] Add Valgrind runs for tests that check memory/resource reclamation.
+ - [ ] Review and update tests for `ptk_sock.h` (no test file found).
+ - [ ] Review and update tests for any new or changed public APIs.
+-->
 ## Platform/Implementation-Specific File Naming
 
 Implementation-specific (private) source files must not use the `ptk_` prefix. Only public API headers and source files should use the `ptk_` prefix.
@@ -81,3 +88,9 @@ That means that the place where obj was created should have provided a destructo
   - Example: src/lib/ptk_atomic.c includes platform-specific atomic operations from posix/atomic_operations.c or windows/atomic_operations.c
 - Never create stub or empty files unless explicitly requested. Always move or implement real code. If a file would be empty, do not create it. This applies to all platform/standard-specific implementations and refactors.
 - internal implementation functions and data definitions within a .c file should always be "static".  Header files that declare public functions and data must use "extern" explicitly.  
+- For test files:
+    - Use the APIs you are NOT testing.
+    - When testing a specific API file, do not use any function from that file except the one(s) under test.
+    - Test programs must return 0 on success and a non-zero value on failure.
+- Tests should test every function and data element of a public API.  Unit tests are nice, but the public APIs are generally more useful and less fragile.
+- Tests that test memory or reclamation of resources should be run under Valgrind on platforms that support it.
