@@ -46,6 +46,26 @@ add_executable(test_type_safe_serialize
     test_type_safe_serialize.c
 )
 
+# Build test_ptk_sock
+add_executable(test_ptk_sock test_ptk_sock.c)
+target_link_libraries(test_ptk_sock protocol_toolkit)
+target_include_directories(test_ptk_sock PRIVATE ${CMAKE_SOURCE_DIR}/src/include ${CMAKE_SOURCE_DIR})
+
+# Enable CTest and add all test executables
+enable_testing()
+add_test(NAME test_ptk_config COMMAND test_ptk_config)
+add_test(NAME test_ptk_threadlet COMMAND test_ptk_threadlet)
+add_test(NAME test_ptk_os_thread COMMAND test_ptk_os_thread)
+add_test(NAME test_ptk_alloc COMMAND test_ptk_alloc)
+add_test(NAME test_ptk_array COMMAND test_ptk_array)
+add_test(NAME test_ptk_atomic COMMAND test_ptk_atomic)
+add_test(NAME test_ptk_buf COMMAND test_ptk_buf)
+add_test(NAME test_ptk_err COMMAND test_ptk_err)
+add_test(NAME test_ptk_log COMMAND test_ptk_log)
+add_test(NAME test_ptk_shared COMMAND test_ptk_shared)
+add_test(NAME test_ptk_utils COMMAND test_ptk_utils)
+add_test(NAME test_ptk_sock COMMAND test_ptk_sock)
+
 target_link_libraries(test_type_safe_serialize
     protocol_toolkit
 )
