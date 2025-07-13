@@ -3,6 +3,7 @@
 #include "threadlet_core.h"
 #include "linux_event_loop.h"
 #include <ptk_array.h>
+#include <ptk_shared.h>
 
 typedef struct threadlet_queue_t threadlet_queue_t;
 
@@ -13,13 +14,17 @@ typedef struct {
     ptk_time_ms deadline;
 } event_registration_t;
 
+typedef struct {
+    ptk_shared_handle_t *registration_handles;  // Array of handles to individual registrations
+    size_t registrations_capacity;
+    size_t registrations_count;
+} registrations_array_t;
+
 typedef struct event_loop_t {
     platform_event_loop_t *platform;
     threadlet_queue_t *ready_queue;
     threadlet_queue_t *waiting_queue;
-    event_registration_t *registrations;
-    size_t registrations_capacity;
-    size_t registrations_count;
+    ptk_shared_handle_t registrations_handle;
     bool running;
     ptk_time_ms current_time_ms;
 } event_loop_t;

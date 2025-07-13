@@ -1,4 +1,4 @@
-#include "../ptk_atomic.h"
+#include <ptk_atomic.h>
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #include <stdatomic.h>

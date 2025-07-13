@@ -2,6 +2,7 @@
 #include <ptk_alloc.h>
 #include <ptk_log.h>
 #include <ptk_os_thread.h>
+#include <ptk_shared.h>
 #include <string.h>
 
 #define INITIAL_REGISTRATIONS_CAPACITY 64
@@ -17,6 +18,24 @@ static void threadlet_queue_destructor(void *ptr) {
     
     if (queue->threadlets) {
         ptk_free(&queue->threadlets);
+    }
+}
+
+static void event_registration_destructor(void *ptr) {
+    // Individual registration cleanup if needed
+    // Currently no special cleanup required for event_registration_t
+}
+
+static void registrations_array_destructor(void *ptr) {
+    registrations_array_t *reg_array = (registrations_array_t *)ptr;
+    if (reg_array && reg_array->registration_handles) {
+        // Release all individual registration handles
+        for (size_t i = 0; i < reg_array->registrations_count; i++) {
+            if (PTK_SHARED_IS_VALID(reg_array->registration_handles[i])) {
+                ptk_shared_release(reg_array->registration_handles[i]);
+            }
+        }
+        ptk_free(&reg_array->registration_handles);
     }
 }
 
@@ -92,8 +111,8 @@ static void event_loop_destructor(void *ptr) {
     if (loop->waiting_queue) {
         ptk_free(&loop->waiting_queue);
     }
-    if (loop->registrations) {
-        ptk_free(&loop->registrations);
+    if (PTK_SHARED_IS_VALID(loop->registrations_handle)) {
+        ptk_shared_release(loop->registrations_handle);
     }
 }
 
@@ -134,15 +153,41 @@ event_loop_t *event_loop_create(void) {
         return NULL;
     }
     
-    loop->registrations = ptk_alloc(INITIAL_REGISTRATIONS_CAPACITY * sizeof(event_registration_t), NULL);
-    if (!loop->registrations) {
-        error("Failed to allocate registrations array");
+    // Initialize shared memory subsystem if not already done
+    ptk_shared_init();
+    
+    // Create shared registrations array
+    registrations_array_t *reg_array = ptk_alloc(sizeof(registrations_array_t), registrations_array_destructor);
+    if (!reg_array) {
+        error("Failed to allocate registrations array structure");
         ptk_free(&loop);
         return NULL;
     }
     
-    loop->registrations_capacity = INITIAL_REGISTRATIONS_CAPACITY;
-    loop->registrations_count = 0;
+    reg_array->registration_handles = ptk_alloc(INITIAL_REGISTRATIONS_CAPACITY * sizeof(ptk_shared_handle_t), NULL);
+    if (!reg_array->registration_handles) {
+        error("Failed to allocate registration handles array");
+        ptk_free(&reg_array);
+        ptk_free(&loop);
+        return NULL;
+    }
+    
+    // Initialize all handles to invalid
+    for (size_t i = 0; i < INITIAL_REGISTRATIONS_CAPACITY; i++) {
+        reg_array->registration_handles[i] = PTK_SHARED_INVALID_HANDLE;
+    }
+    
+    reg_array->registrations_capacity = INITIAL_REGISTRATIONS_CAPACITY;
+    reg_array->registrations_count = 0;
+    
+    // Wrap in shared handle
+    loop->registrations_handle = ptk_shared_wrap(reg_array);
+    if (!PTK_SHARED_IS_VALID(loop->registrations_handle)) {
+        error("Failed to create shared handle for registrations");
+        ptk_free(&reg_array);
+        ptk_free(&loop);
+        return NULL;
+    }
     loop->running = false;
     loop->current_time_ms = ptk_now_ms();
     
@@ -156,25 +201,65 @@ event_loop_t *get_thread_local_event_loop(void) {
     return thread_event_loop;
 }
 
-static event_registration_t *find_registration(event_loop_t *loop, int fd) {
-    for (size_t i = 0; i < loop->registrations_count; i++) {
-        if (loop->registrations[i].fd == fd) {
-            return &loop->registrations[i];
+static ptk_shared_handle_t find_registration_handle(event_loop_t *loop, int fd) {
+    ptk_shared_handle_t result = PTK_SHARED_INVALID_HANDLE;
+    
+    use_shared(loop->registrations_handle, registrations_array_t *reg_array) {
+        for (size_t i = 0; i < reg_array->registrations_count; i++) {
+            if (PTK_SHARED_IS_VALID(reg_array->registration_handles[i])) {
+                use_shared(reg_array->registration_handles[i], event_registration_t *reg) {
+                    if (reg->fd == fd) {
+                        result = reg_array->registration_handles[i];
+                        break;
+                    }
+                } on_shared_fail {
+                    warn("Failed to acquire registration %zu for find", i);
+                }
+                if (PTK_SHARED_IS_VALID(result)) break;
+            }
         }
+    } on_shared_fail {
+        error("Failed to acquire registrations for find_registration");
     }
-    return NULL;
+    
+    return result;
 }
 
 static ptk_err remove_registration(event_loop_t *loop, int fd) {
-    for (size_t i = 0; i < loop->registrations_count; i++) {
-        if (loop->registrations[i].fd == fd) {
-            memmove(&loop->registrations[i], &loop->registrations[i + 1],
-                   (loop->registrations_count - i - 1) * sizeof(event_registration_t));
-            loop->registrations_count--;
-            return PTK_OK;
+    ptk_err result = PTK_ERR_NOT_FOUND;
+    
+    use_shared(loop->registrations_handle, registrations_array_t *reg_array) {
+        for (size_t i = 0; i < reg_array->registrations_count; i++) {
+            if (PTK_SHARED_IS_VALID(reg_array->registration_handles[i])) {
+                bool found = false;
+                use_shared(reg_array->registration_handles[i], event_registration_t *reg) {
+                    if (reg->fd == fd) {
+                        found = true;
+                    }
+                } on_shared_fail {
+                    warn("Failed to acquire registration %zu for remove check", i);
+                }
+                
+                if (found) {
+                    // Release the handle
+                    ptk_shared_release(reg_array->registration_handles[i]);
+                    
+                    // Shift remaining handles down
+                    memmove(&reg_array->registration_handles[i], &reg_array->registration_handles[i + 1],
+                           (reg_array->registrations_count - i - 1) * sizeof(ptk_shared_handle_t));
+                    
+                    reg_array->registrations_count--;
+                    result = PTK_OK;
+                    break;
+                }
+            }
         }
+    } on_shared_fail {
+        error("Failed to acquire registrations for remove_registration");
+        result = PTK_ERR_VALIDATION;
     }
-    return PTK_ERR_NOT_FOUND;
+    
+    return result;
 }
 
 ptk_err event_loop_register_io(event_loop_t *loop, int fd, uint32_t events, 
@@ -187,38 +272,75 @@ ptk_err event_loop_register_io(event_loop_t *loop, int fd, uint32_t events,
         return PTK_ERR_INVALID_ARGUMENT;
     }
     
-    if (loop->registrations_count >= loop->registrations_capacity) {
-        size_t new_capacity = loop->registrations_capacity * 2;
-        void *new_registrations = ptk_realloc(loop->registrations, 
-                                            new_capacity * sizeof(event_registration_t));
-        if (!new_registrations) {
-            error("Failed to expand registrations array");
-            ptk_set_err(PTK_ERR_OUT_OF_MEMORY);
-            return PTK_ERR_OUT_OF_MEMORY;
+    ptk_err result = PTK_OK;
+    
+    use_shared(loop->registrations_handle, registrations_array_t *reg_array) {
+        if (reg_array->registrations_count >= reg_array->registrations_capacity) {
+            size_t new_capacity = reg_array->registrations_capacity * 2;
+            void *new_handles = ptk_realloc(reg_array->registration_handles, 
+                                          new_capacity * sizeof(ptk_shared_handle_t));
+            if (!new_handles) {
+                error("Failed to expand registrations handles array");
+                ptk_set_err(PTK_ERR_OUT_OF_MEMORY);
+                result = PTK_ERR_OUT_OF_MEMORY;
+                break;
+            }
+            reg_array->registration_handles = new_handles;
+            
+            // Initialize new handles to invalid
+            for (size_t i = reg_array->registrations_capacity; i < new_capacity; i++) {
+                reg_array->registration_handles[i] = PTK_SHARED_INVALID_HANDLE;
+            }
+            reg_array->registrations_capacity = new_capacity;
         }
-        loop->registrations = new_registrations;
-        loop->registrations_capacity = new_capacity;
+        
+        ptk_err err = platform_add_fd(loop->platform, fd, events);
+        if (err != PTK_OK) {
+            error("Failed to add fd to platform event loop");
+            result = err;
+            break;
+        }
+        
+        // Create new registration
+        event_registration_t *new_reg = ptk_alloc(sizeof(event_registration_t), event_registration_destructor);
+        if (!new_reg) {
+            error("Failed to allocate new registration");
+            result = PTK_ERR_OUT_OF_MEMORY;
+            break;
+        }
+        
+        // Initialize registration fields
+        new_reg->fd = fd;
+        new_reg->waiting_threadlet = threadlet;
+        new_reg->events = events;
+        new_reg->deadline = (timeout_ms > 0) ? ptk_now_ms() + timeout_ms : 0;
+        
+        // Wrap in shared handle and add to array
+        ptk_shared_handle_t reg_handle = ptk_shared_wrap(new_reg);
+        if (!PTK_SHARED_IS_VALID(reg_handle)) {
+            error("Failed to create shared handle for registration");
+            ptk_free(&new_reg);
+            result = PTK_ERR_VALIDATION;
+            break;
+        }
+        
+        reg_array->registration_handles[reg_array->registrations_count++] = reg_handle;
+        
+        // Update threadlet status within the use_shared block
+        threadlet->waiting_fd = fd;
+        threadlet->waiting_events = events;
+        threadlet->deadline = new_reg->deadline;
+        threadlet_set_status(threadlet, THREADLET_WAITING);
+        
+    } on_shared_fail {
+        error("Failed to acquire registrations for register_io");
+        result = PTK_ERR_VALIDATION;
     }
     
-    ptk_err err = platform_add_fd(loop->platform, fd, events);
-    if (err != PTK_OK) {
-        error("Failed to add fd to platform event loop");
-        return err;
+    if (result == PTK_OK) {
+        debug("I/O registration complete for fd=%d", fd);
     }
-    
-    event_registration_t *reg = &loop->registrations[loop->registrations_count++];
-    reg->fd = fd;
-    reg->waiting_threadlet = threadlet;
-    reg->events = events;
-    reg->deadline = (timeout_ms > 0) ? ptk_now_ms() + timeout_ms : 0;
-    
-    threadlet->waiting_fd = fd;
-    threadlet->waiting_events = events;
-    threadlet->deadline = reg->deadline;
-    threadlet_set_status(threadlet, THREADLET_WAITING);
-    
-    debug("I/O registration complete for fd=%d", fd);
-    return PTK_OK;
+    return result;
 }
 
 ptk_err event_loop_unregister_io(event_loop_t *loop, int fd) {
@@ -272,20 +394,47 @@ static void process_ready_events(event_loop_t *loop, platform_event_list_t *even
 static void process_timeouts(event_loop_t *loop) {
     ptk_time_ms current_time = ptk_now_ms();
     loop->current_time_ms = current_time;
+    int timeout_fd = -1;
     
-    for (size_t i = 0; i < loop->registrations_count; i++) {
-        event_registration_t *reg = &loop->registrations[i];
-        if (reg->deadline > 0 && current_time >= reg->deadline) {
-            warn("Timeout occurred for fd=%d", reg->fd);
-            
-            ptk_set_err(PTK_ERR_TIMEOUT);
-            threadlet_queue_enqueue(loop->ready_queue, reg->waiting_threadlet);
-            reg->waiting_threadlet->waiting_fd = -1;
-            reg->waiting_threadlet->waiting_events = 0;
-            
-            event_loop_unregister_io(loop, reg->fd);
-            i--;
+    use_shared(loop->registrations_handle, registrations_array_t *reg_array) {
+        for (size_t i = 0; i < reg_array->registrations_count; i++) {
+            if (PTK_SHARED_IS_VALID(reg_array->registration_handles[i])) {
+                bool timed_out = false;
+                threadlet_t *timeout_threadlet = NULL;
+                
+                use_shared(reg_array->registration_handles[i], event_registration_t *reg) {
+                    if (reg->deadline > 0 && current_time >= reg->deadline) {
+                        timed_out = true;
+                        timeout_fd = reg->fd;
+                        timeout_threadlet = reg->waiting_threadlet;
+                    }
+                } on_shared_fail {
+                    warn("Failed to acquire registration %zu for timeout check", i);
+                }
+                
+                if (timed_out) {
+                    warn("Timeout occurred for fd=%d", timeout_fd);
+                    
+                    ptk_set_err(PTK_ERR_TIMEOUT);
+                    threadlet_queue_enqueue(loop->ready_queue, timeout_threadlet);
+                    timeout_threadlet->waiting_fd = -1;
+                    timeout_threadlet->waiting_events = 0;
+                    
+                    // Remove the registration - must be done outside the inner use_shared block
+                    // but we'll defer it until after we finish the array iteration
+                    // For now, mark as processed and continue
+                    break; // Break and handle unregistration outside
+                }
+            }
         }
+    } on_shared_fail {
+        error("Failed to acquire registrations for timeout processing");
+    }
+    
+    // If we found a timeout, unregister it and recursively check for more
+    if (timeout_fd >= 0) {
+        event_loop_unregister_io(loop, timeout_fd);
+        process_timeouts(loop); // Recursive call to handle remaining timeouts
     }
 }
 

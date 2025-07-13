@@ -1,4 +1,4 @@
-#include "../ptk_atomic.h"
+#include <ptk_atomic.h>
 
 #ifdef _WIN32
 #include <intrin.h>

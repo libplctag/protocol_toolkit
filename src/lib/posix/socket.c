@@ -2,9 +2,9 @@
  * @file socket.c
  * @brief POSIX implementation of TCP/UDP socket functions for Protocol Toolkit
  */
-#include "ptk_sock.h"
-#include "ptk_alloc.h"
-#include "ptk_err.h"
+#include <ptk_sock.h>
+#include <ptk_alloc.h>
+#include <ptk_err.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>

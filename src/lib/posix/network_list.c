@@ -2,9 +2,9 @@
  * @file network_list.c
  * @brief POSIX implementation of network interface listing for Protocol Toolkit
  */
-#include "ptk_sock.h"
-#include "ptk_alloc.h"
-#include "ptk_err.h"
+#include <ptk_sock.h>
+#include <ptk_alloc.h>
+#include <ptk_err.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

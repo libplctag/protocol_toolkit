@@ -1,0 +1,33 @@
+@PACKAGE_INIT@
+
+# Protocol Toolkit CMake Configuration File
+
+include(CMakeFindDependencyMacro)
+
+# Find required dependencies
+if(WIN32)
+    # Windows dependencies are handled by target_link_libraries
+elseif(UNIX)
+    find_dependency(Threads REQUIRED)
+endif()
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/PTKTargets.cmake")
+
+# Check that all requested components are available
+check_required_components(PTK)
+
+# Set variables for compatibility
+set(PTK_FOUND TRUE)
+set(PTK_VERSION "@PROJECT_VERSION@")
+
+# Provide information about the library
+if(NOT TARGET ptk::ptk)
+    message(FATAL_ERROR "PTK::ptk target not found!")
+endif()
+
+# Legacy variables for compatibility
+get_target_property(PTK_INCLUDE_DIRS ptk::ptk INTERFACE_INCLUDE_DIRECTORIES)
+set(PTK_LIBRARIES ptk::ptk)
+
+message(STATUS "Found Protocol Toolkit: ${PTK_VERSION}")

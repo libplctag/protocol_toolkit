@@ -1,12 +1,14 @@
 # Protocol Toolkit
 
+**WARNING** This is note even close to being usable!!!  DO NOT USE.
+
 A C library designed to make industrial network protocol implementations **simple**, **clear**, and **bulletproof**.
 
 ## Project Goals
 
 The Protocol Toolkit is built around three core principles:
 
-### 🎯 **Simple**
+### **Simple**
 - **Global managers** for common resources (timers, sockets, memory)
 - **Minimal APIs** with just the functions you need
 - **Single-protocol focus** - optimized for applications implementing one protocol
@@ -14,7 +16,7 @@ The Protocol Toolkit is built around three core principles:
 - **Simplified resource handling** with allocators that support destructors
 - **Separation of long-term vs. ephemeral data** for optimal memory management
 
-### 🔍 **Clear**
+### **Clear**
 - **Type-safe serialization** using Protocol Description Language (PDL)
 - **Structured protocol definitions** that are easy to read and maintain
 - **Consistent error handling** throughout the library
@@ -22,7 +24,7 @@ The Protocol Toolkit is built around three core principles:
 - **Cross-platform support** for common tasks with unified APIs
 - **Built-in serialization/deserialization** that handles endianness and validation
 
-### 🛡️ **Bulletproof**
+### **Bulletproof**
 - **Memory safety** with built-in buffer management and automatic cleanup
 - **Robust error handling** with clear error codes and recovery paths
 - **Timeout management** for all network operations
@@ -80,24 +82,24 @@ ptk_modbus_client_destroy(client);
 
 ## Key Features
 
-### 🔧 **Protocol-Agnostic Components**
+### **Protocol-Agnostic Components**
 - **Global timer system** - Simple, efficient timers for timeouts and periodic tasks
 - **Smart memory management** - Allocators with destructors for automatic cleanup
 - **Event framework** - Unified handling of socket and timer events
 - **Error handling** - Consistent error codes and recovery mechanisms
 - **Cross-platform threading** - Mutexes, condition variables, and thread primitives
 
-### 📡 **Protocol-Specific APIs**
+### **Protocol-Specific APIs**
 - **Modbus** - Complete client/server with all function codes
 - **EtherNet/IP** - Device discovery, explicit messaging, and I/O
 - **Type-safe parsing** - PDL-generated serialization code
 
-### 🏗️ **Development Tools**
+### **Development Tools**
 - **Protocol Description Language** - Generate serialization code from simple definitions
 - **Code generator** - Automatic creation of type-safe protocol handlers
 - **Testing utilities** - Built-in support for protocol testing and validation
 
-### 🌐 **Cross-Platform Support**
+### **Cross-Platform Support**
 - **Logging system** - Unified logging with configurable levels and outputs
 - **Buffer management** - Efficient, safe buffer operations with bounds checking
 - **Serialization/deserialization** - Automatic handling of endianness and data types

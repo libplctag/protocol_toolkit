@@ -1,8 +1,8 @@
 // Windows implementation of ptk_os_thread API
-#include "ptk_os_thread.h"
-#include "ptk_alloc.h"
-#include "ptk_log.h"
-#include "ptk_err.h"
+#include <ptk_os_thread.h>
+#include <ptk_alloc.h>
+#include <ptk_log.h>
+#include <ptk_err.h>
 // #include <windows.h> // Uncomment and implement Windows threading
 
 // All functions are stubs for now, matching the POSIX signatures

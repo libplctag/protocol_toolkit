@@ -1,8 +1,8 @@
 // POSIX implementation of ptk_os_thread API
-#include "ptk_os_thread.h"
-#include "ptk_alloc.h"
-#include "ptk_log.h"
-#include "ptk_err.h"
+#include <ptk_os_thread.h>
+#include <ptk_alloc.h>
+#include <ptk_log.h>
+#include <ptk_err.h>
 #include <pthread.h>
 #include <errno.h>
 #include <string.h>

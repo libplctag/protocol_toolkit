@@ -3,15 +3,29 @@
 #include "threadlet_scheduler.h"
 #include <ptk_log.h>
 #include <ptk_os_thread.h>
+#include <ptk_shared.h>
 
 static ptk_thread_local size_t thread_assignment_counter = 0;
 static ptk_mutex *global_thread_mutex = NULL;
-static ptk_thread **thread_pool = NULL;
+static ptk_shared_handle_t thread_pool_handle = PTK_SHARED_INVALID_HANDLE;
 static size_t thread_pool_size = 0;
 static size_t current_thread_index = 0;
 
+typedef struct {
+    ptk_thread **threads;
+    size_t size;
+} thread_pool_t;
+
+static void thread_pool_destructor(void *ptr) {
+    thread_pool_t *pool = (thread_pool_t *)ptr;
+    if (pool && pool->threads) {
+        // Note: Individual threads should be cleaned up elsewhere
+        ptk_free(&pool->threads);
+    }
+}
+
 static void init_thread_pool(void) {
-    if (global_thread_mutex) return;
+    if (PTK_SHARED_IS_VALID(thread_pool_handle)) return;
     
     global_thread_mutex = ptk_mutex_create();
     if (!global_thread_mutex) {
@@ -19,30 +33,58 @@ static void init_thread_pool(void) {
         return;
     }
     
+    // Initialize shared memory subsystem if not already done
+    ptk_shared_init();
+    
     thread_pool_size = 4;
-    thread_pool = ptk_alloc(thread_pool_size * sizeof(ptk_thread*), NULL);
-    if (!thread_pool) {
-        error("Failed to allocate thread pool");
+    
+    // Allocate the thread pool structure
+    thread_pool_t *pool = ptk_alloc(sizeof(thread_pool_t), thread_pool_destructor);
+    if (!pool) {
+        error("Failed to allocate thread pool structure");
         return;
     }
     
+    // Allocate the thread array
+    pool->threads = ptk_alloc(thread_pool_size * sizeof(ptk_thread*), NULL);
+    if (!pool->threads) {
+        error("Failed to allocate thread pool array");
+        ptk_free(&pool);
+        return;
+    }
+    
+    pool->size = thread_pool_size;
+    
     for (size_t i = 0; i < thread_pool_size; i++) {
-        thread_pool[i] = NULL;
+        pool->threads[i] = NULL;
+    }
+    
+    // Wrap in shared handle
+    thread_pool_handle = ptk_shared_wrap(pool);
+    if (!PTK_SHARED_IS_VALID(thread_pool_handle)) {
+        error("Failed to create shared handle for thread pool");
+        ptk_free(&pool);
+        return;
     }
 }
 
 static ptk_thread *get_next_thread_round_robin(void) {
-    if (!global_thread_mutex) {
+    if (!PTK_SHARED_IS_VALID(thread_pool_handle)) {
         init_thread_pool();
-        if (!global_thread_mutex) return NULL;
+        if (!PTK_SHARED_IS_VALID(thread_pool_handle)) return NULL;
     }
     
     ptk_mutex_wait_lock(global_thread_mutex, PTK_TIME_WAIT_FOREVER);
     
     ptk_thread *result = NULL;
-    if (thread_pool_size > 0) {
-        current_thread_index = (current_thread_index + 1) % thread_pool_size;
-        result = thread_pool[current_thread_index];
+    
+    use_shared(thread_pool_handle, thread_pool_t *pool) {
+        if (pool->size > 0) {
+            current_thread_index = (current_thread_index + 1) % pool->size;
+            result = pool->threads[current_thread_index];
+        }
+    } on_shared_fail {
+        error("Failed to acquire thread pool for round-robin selection");
     }
     
     ptk_mutex_unlock(global_thread_mutex);
