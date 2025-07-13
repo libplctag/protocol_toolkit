@@ -1381,7 +1381,7 @@ ptk_sock_destructor	src/lib/linux/socket_integration.c	/^static void ptk_sock_de
 ptk_sock_type	src/include/ptk_sock.h	/^} ptk_sock_type;$/;"	t	typeref:enum:__anon3
 ptk_socket_abort	src/include/ptk_sock.h	/^ptk_err ptk_socket_abort(ptk_sock *sock);$/;"	p	signature:(ptk_sock *sock)
 ptk_socket_abort	src/lib/linux/socket_integration.c	/^ptk_err ptk_socket_abort(ptk_sock *sock) {$/;"	f	signature:(ptk_sock *sock)
-ptk_socket_list_networks	src/include/ptk_sock.h	/^ptk_network_info *ptk_socket_list_networks(void);$/;"	p	signature:(void)
+ptk_socket_network_list	src/include/ptk_sock.h	/^ptk_network_info *ptk_socket_network_list(void);$/;"	p	signature:(void)
 ptk_socket_network_info_count	src/include/ptk_sock.h	/^size_t ptk_socket_network_info_count(const ptk_network_info *network_info);$/;"	p	signature:(const ptk_network_info *network_info)
 ptk_socket_network_info_get	src/include/ptk_sock.h	/^const ptk_network_info_entry *ptk_socket_network_info_get(const ptk_network_info *network_info, size_t index);$/;"	p	signature:(const ptk_network_info *network_info, size_t index)
 ptk_socket_signal	src/include/ptk_sock.h	/^ptk_err ptk_socket_signal(ptk_sock *sock);$/;"	p	signature:(ptk_sock *sock)

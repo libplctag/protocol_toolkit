@@ -350,7 +350,7 @@ typedef struct ptk_network_info ptk_network_info;
  *
  * @return A valid network info pointer on success, NULL on failure, sets last error.
  */
-ptk_network_info *ptk_socket_list_networks(void);
+ptk_network_info *ptk_socket_network_list(void);
 
 /**
  * Get the number of network interface entries

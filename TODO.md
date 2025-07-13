@@ -28,7 +28,7 @@ Based on analysis of the codebase and echo client/server sketches, here are the 
 - `ptk_socket_signal()` - Signal a socket
 ### 4. ✅ Network Discovery Function Renamed
 **Status**: Function renamed for consistency
-- ✅ `ptk_socket_list_networks()` - Renamed from `ptk_network_discover()` (was `ptk_socket_find_networks()` in header)
+- ✅ `ptk_socket_network_list()` - Renamed from `ptk_network_discover()` (was `ptk_socket_find_networks()` in header)
 
 **Note**: Header and implementation now aligned with consistent naming
 
@@ -151,7 +151,7 @@ Based on analysis of the codebase and echo client/server sketches, here are the 
   - `ptk_address_to_string()` - Convert to string (allocates memory)
   - `ptk_address_get_port()` - Get port number
   - `ptk_address_equals()` - Compare addresses
-- **Network Discovery**: `ptk_socket_list_networks()` renamed and header aligned
+- **Network Discovery**: `ptk_socket_network_list()` renamed and header aligned
 - **Header/Implementation Sync**: Address function signatures now match between header and implementation
 
 ### 🎯 Next Priority: Fix `ptk_tcp_socket_connect()` API mismatch
