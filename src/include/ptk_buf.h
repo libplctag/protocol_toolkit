@@ -235,26 +235,14 @@ static inline u64 ptk_buf_byte_swap_u64(u64 value) {
         float: PTK_BUF_TYPE_FLOAT,                       \
         double: PTK_BUF_TYPE_DOUBLE,                     \
         ptk_serializable_t *: PTK_BUF_TYPE_SERIALIZABLE, \
+        ptk_serializable_t: PTK_BUF_TYPE_SERIALIZABLE,   \
         default: 0)
 
 /**
  * For pointers, handle serializable objects specially, dereference others
  */
 #define PTK_BUF_TYPE_OF_PTR(ptr) \
-    _Generic((ptr), \
-        uint8_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        uint16_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        uint32_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        uint64_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        int8_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        int16_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        int32_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        int64_t *: PTK_BUF_TYPE_OF(*(ptr)), \
-        float *: PTK_BUF_TYPE_OF(*(ptr)), \
-        double *: PTK_BUF_TYPE_OF(*(ptr)), \
-        ptk_serializable_t *: PTK_BUF_TYPE_SERIALIZABLE, \
-        ptk_serializable_t * *: PTK_BUF_TYPE_SERIALIZABLE, \
-        default: PTK_BUF_TYPE_OF(*(ptr)))
+    _Generic((ptr), ptk_serializable_t * *: PTK_BUF_TYPE_SERIALIZABLE, default: PTK_BUF_TYPE_OF(*(ptr)))
 
 //=============================================================================
 // ARGUMENT COUNTING MACROS

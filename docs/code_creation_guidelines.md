@@ -23,5 +23,37 @@ That means that the place where obj was created should have provided a destructo
 - Ownership of memory/data:
   - if a function returns a pointer, it was created with ptk_alloc() and you own it and need to free it with ptk_free().
   - if you pass a parameter to a function that is a pointer to a pointer, then the function owns the value and will NULL out your pointer to the data.  Obviously this does not help if you make multiple copies of the point. So don't do that.
-
+- Code that is largely shared between all the POSIX platforms goes in src/lib/posix.  Source that is shared between BSD-like platforms goes in src/lib/bsd and includes all the BSD variants and macOS.   Source that is specific to Windows goes in src/lib/windows.
+- Platform-specific event loop implementations:
+  - Linux-specific code (epoll) goes in src/lib/linux
+  - BSD/macOS-specific code (kqueue/kevent) goes in src/lib/bsd  
+  - Windows-specific code (IOCP) goes in src/lib/windows
+  - Cross-platform event loop interface goes in src/lib/posix
+- Green thread (threadlet) implementation:
+  - Use 64KiB stack size for threadlets
+  - Threadlets are bound to OS threads and cannot migrate
+  - Socket operations that would block should yield the threadlet and resume via event loop
+  - Platform detection macros should be defined for conditional compilation 
+- Shared memory/pointer usage (ptk_shared.h):
+  - Only wrap memory that was allocated with ptk_alloc() - never wrap stack variables or static memory
+  - Use ptk_shared_wrap() immediately after ptk_alloc() to avoid double-wrapping errors
+  - Prefer the use_shared() macro over manual acquire/release for automatic lifecycle management
+  - Always provide error handling with on_shared_fail when using use_shared() macro
+  - Never store the raw pointer returned by ptk_shared_acquire() beyond the acquire/release pair
+  - Handle reference count overflow gracefully - it indicates a design problem if you hit UINT32_MAX references
+  - Shared memory is thread-safe but the data it points to may not be - add your own synchronization if needed
+  - Example usage:
+    ```c
+    // Create and wrap memory
+    my_struct_t *obj = ptk_alloc(sizeof(my_struct_t), my_struct_destructor);
+    ptk_shared_handle_t handle = ptk_shared_wrap(obj);
+    
+    // Use with automatic lifecycle management
+    use_shared(handle, my_struct_t *ptr) {
+        ptr->field = 42;
+        // ptr automatically released when block exits
+    } on_shared_fail {
+        error("Failed to acquire shared memory");
+    }
+    ```
 

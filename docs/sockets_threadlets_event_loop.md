@@ -16,6 +16,28 @@ The PTK event loop provides the foundation for threadlet scheduling by:
 
 ## Architecture Components
 
+### Platform Detection
+
+Platform-specific implementations are selected using detection macros:
+
+```c
+#ifdef __linux__
+    // Linux epoll implementation
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
+    // BSD/macOS kqueue implementation  
+#elif defined(_WIN32)
+    // Windows IOCP implementation
+#else
+    #error "Unsupported platform"
+#endif
+```
+
+### Threadlet Configuration
+
+```c
+#define THREADLET_STACK_SIZE (64 * 1024)  // 64KiB stack size as specified
+```
+
 ### Per-Thread Event Loop Design
 
 Each OS thread creates and owns its own event loop instance:
@@ -39,7 +61,7 @@ typedef struct {
     threadlet_t *waiting_threadlet;   // Threadlet blocked on this fd
     uint32_t events;                  // Events being waited for (READ/WRITE)
     ptk_duration_ms timeout;          // Timeout for this operation
-    uint64_t deadline;                // Absolute deadline for timeout
+    ptk_time_ms deadline;             // Absolute deadline for timeout
 } event_registration_t;
 
 typedef struct {
@@ -48,7 +70,7 @@ typedef struct {
     threadlet_queue_t ready_queue;    // Threadlets ready to run
     threadlet_queue_t waiting_queue;  // Threadlets waiting on I/O
     bool running;                     // Event loop running state
-    uint64_t current_time_ms;         // Cached current time
+    ptk_time_ms current_time_ms;      // Cached current time
 } ptk_event_loop_t;
 ```
 
@@ -93,8 +115,8 @@ for (each registration in waiting_queue) {
         // Timeout occurred
         threadlet_t *threadlet = registration->waiting_threadlet;
 
-        // Set timeout error for the threadlet
-        threadlet_set_error(threadlet, PTK_ERR_TIMEOUT);
+        // Set timeout error using PTK error system
+        ptk_set_err(PTK_ERR_TIMEOUT);
 
         // Move to ready queue
         remove_from_waiting_queue(threadlet);
@@ -128,13 +150,14 @@ while (has_ready_threadlets()) {
             break;
 
         case THREADLET_COMPLETED:
-            // Threadlet finished, clean up resources
-            threadlet_destroy(threadlet);
+            // Threadlet finished, clean up resources using ptk_alloc destructor
+            ptk_free(&threadlet);
             break;
 
         case THREADLET_ERROR:
-            // Handle threadlet error
-            handle_threadlet_error(threadlet, result.error);
+            // Handle threadlet error using PTK error system
+            error("Threadlet execution error: %d", ptk_get_err());
+            ptk_free(&threadlet);
             break;
     }
 }
@@ -146,14 +169,16 @@ while (has_ready_threadlets()) {
 
 ### Blocking Socket Read Example
 
-When a threadlet calls `ptk_tcp_socket_recv()` (returns `ptk_err`):
+When a threadlet calls `ptk_tcp_socket_recv()` (returns `ptk_buf*`):
 
 1. **Attempt Non-blocking Read**:
    ```c
+   debug("Attempting non-blocking read on fd %d", sock->fd);
    ssize_t bytes_read = recv(sock->fd, buffer, length, MSG_DONTWAIT);
    if (bytes_read > 0) {
-       // Data available, return immediately
-       return PTK_OK;
+       // Data available, return buffer immediately
+       ptk_buf *result = ptk_buf_create_from_data(buffer, bytes_read);
+       return result;
    }
    ```
 
@@ -167,13 +192,18 @@ When a threadlet calls `ptk_tcp_socket_recv()` (returns `ptk_err`):
        ptk_threadlet_yield();
 
        // When resumed, check for timeout or error
-       if (threadlet_has_error()) {
-           ptk_err err = ptk_get_err();
-           return err; // PTK_ERR_TIMEOUT or other error
+       ptk_err err = ptk_get_err();
+       if (err != PTK_OK) {
+           warn("Socket operation failed: %d", err);
+           return NULL; // Error occurred, ptk_get_err() has details
        }
 
        // Try read again (should succeed now)
        bytes_read = recv(sock->fd, buffer, length, MSG_DONTWAIT);
+       if (bytes_read > 0) {
+           ptk_buf *result = ptk_buf_create_from_data(buffer, bytes_read);
+           return result;
+       }
    }
    ```
 
@@ -192,7 +222,7 @@ ptk_err ptk_event_loop_register_read(int fd, threadlet_t *threadlet,
     reg->waiting_threadlet = threadlet;
     reg->events = PTK_EVENT_READ;
     reg->timeout = timeout_ms;
-    reg->deadline = current_time_ms + timeout_ms;
+    reg->deadline = ptk_now_ms() + timeout_ms;
 
     // Add to platform event loop
     platform_add_fd_read(event_loop->platform, fd);
@@ -270,22 +300,34 @@ int platform_poll_events(platform_event_loop_t *platform, int timeout_ms) {
 
 ### Threadlet Distribution
 
-New threadlets are distributed across OS threads using a simple load-balancing algorithm:
+New threadlets are distributed across OS threads using round-robin assignment:
 
 ```c
 ptk_err ptk_threadlet_resume(threadlet_t *threadlet) {
-    // Find thread with least load
-    ptk_thread_t *target_thread = find_least_loaded_thread();
+    trace("Resuming threadlet with round-robin distribution");
+    
+    // Get next OS thread in round-robin fashion
+    ptk_thread *target_thread = get_next_thread_round_robin();
+    if (!target_thread) {
+        warn("No available OS threads for threadlet assignment");
+        ptk_set_err(PTK_ERR_INVALID_STATE);
+        return PTK_ERR_INVALID_STATE;
+    }
 
     // Assign threadlet to that thread's event loop
-    ptk_event_loop_t *target_loop = target_thread->event_loop;
+    ptk_event_loop_t *target_loop = ptk_thread_get_event_loop(target_thread);
 
     // Add to ready queue (thread-safe)
-    thread_safe_enqueue_threadlet(target_loop, threadlet);
+    ptk_err err = thread_safe_enqueue_threadlet(target_loop, threadlet);
+    if (err != PTK_OK) {
+        warn("Failed to enqueue threadlet: %d", err);
+        return err;
+    }
 
     // Wake up the target thread's event loop
     platform_wake_event_loop(target_loop->platform);
 
+    info("Threadlet assigned to thread %p", target_thread);
     return PTK_OK;
 }
 ```
@@ -300,16 +342,22 @@ The `ptk_socket_signal()` function allows external threads to interrupt waiting 
 
 ```c
 ptk_err ptk_socket_signal(ptk_sock *sock) {
+    debug("Signaling socket fd %d", sock->fd);
+    
     event_registration_t *reg = lookup_registration(sock->fd);
     if (reg && reg->waiting_threadlet) {
-        // Set signal error
-        threadlet_set_error(reg->waiting_threadlet, PTK_ERR_SIGNAL);
+        // Set signal error using PTK error system
+        ptk_set_err(PTK_ERR_SIGNAL);
 
         // Move to ready queue
         move_to_ready_queue(reg->waiting_threadlet);
 
         // Wake event loop
         platform_wake_event_loop(sock->event_loop->platform);
+        
+        info("Socket fd %d signaled successfully", sock->fd);
+    } else {
+        warn("No waiting threadlet found for socket fd %d", sock->fd);
     }
     return PTK_OK;
 }
@@ -357,10 +405,11 @@ Errors flow from the event loop to threadlets through several mechanisms:
 
 When errors occur:
 
-1. Remove event registrations
-2. Set appropriate error codes in threadlet context
+1. Remove event registrations from platform event loop
+2. Set appropriate error codes using ptk_set_err()
 3. Move threadlet to ready queue for error handling
-4. Clean up platform-specific resources
+4. Clean up platform-specific resources using ptk_free() destructors
+5. Log errors appropriately using warn() or error() macros
 
 ---
 
