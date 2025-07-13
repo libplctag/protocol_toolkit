@@ -1,4 +1,29 @@
+
 #pragma once
+
+/**
+ * @file ptk_os_thread.h
+ * @brief Threading and synchronization primitives for Protocol Toolkit
+ *
+ * This header provides cross-platform abstractions for threads, mutexes, and condition variables.
+ * Use these APIs to create and manage threads, synchronize access to shared resources, and coordinate
+ * between threads using condition variables. All types are opaque and managed by the library.
+ *
+ * Supported features:
+ *   - Thread creation and joining
+ *   - Recursive mutexes (lock/unlock)
+ *   - Condition variables (wait/signal)
+ *   - Thread-local storage macro
+ *
+ * Usage example:
+ *   ptk_mutex *m = ptk_mutex_create();
+ *   ptk_thread *t = ptk_thread_create(my_func, my_data);
+ *   ptk_thread_join(t);
+ *   ptk_mutex_wait_lock(m, PTK_TIME_WAIT_FOREVER);
+ *   ptk_mutex_unlock(m);
+ *
+ * See function documentation for details.
+ */
 
 #include <stdint.h>
 #include <stddef.h>
@@ -8,13 +33,7 @@
 typedef enum ptk_err ptk_err;
 typedef int64_t ptk_time_ms;
 
-
-/**
- * @file ptk_threading.h
- * @brief Threading and synchronization primitives including threads, mutexes, and condition variables.
- */
-
- #if defined(_WIN32) && defined(_MSC_VER)
+#if defined(_WIN32) && defined(_MSC_VER)
 #define ptk_thread_local __declspec(thread)
 #else
 #define ptk_thread_local __thread

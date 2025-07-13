@@ -1,5 +1,5 @@
-#ifndef MODBUS_H
-#define MODBUS_H
+
+#pragma once
 
 
 #include <ptk_alloc.h>
@@ -342,4 +342,3 @@ typedef struct modbus_exception_resp_t {
 #define MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE 0x03
 #define MODBUS_EXCEPTION_SLAVE_DEVICE_FAILURE 0x04
 
-#endif // MODBUS_H

@@ -1,18 +1,82 @@
 #pragma once
 
+
 /**
  * @file ptk_shared.h
- * @brief Shared memory definitions for the Protocol Toolkit library
- * 
- * Shared memory is represented by a handle.  The handle is an opaque struct.
- * 
- * To create a new shared memory segment, use ptk_shared_create().  To use a shared memory segment
- * you need to get the underlying ponter with ptk_shared_acquire(), and release it with ptk_shared_release().
- * 
- * Shared memroy segments are reference counted.  When the last reference is released, the memory segment is freed.
- * 
- * the handle is an integer value (64-bit) that includes two parts, a unique index in a look up table, and a generation counter.
- * This allows handles to be safely reused after a segment is freed. And attempts to use a stale handle will be detected.
+ * @brief Type-safe, reference-counted shared memory API for Protocol Toolkit
+ *
+ * This module provides a robust abstraction for managing shared memory segments in C.
+ * Shared memory is accessed via opaque handles (`ptk_shared_handle_t`), which encapsulate
+ * a unique index and generation counter for safety against stale or reused handles.
+ *
+ * Key Features:
+ * - Type-safe handle-based access to shared memory
+ * - Automatic reference counting: memory is freed when the last reference is released
+ * - Safe handle reuse: attempts to use stale handles are detected and rejected
+ * - Convenient macros for safe acquire/release and error handling
+ *
+ * Usage Overview:
+ * 1. Initialize the shared memory subsystem:
+ *      ptk_shared_init();
+ *
+ * 2. Create a shared memory segment:
+ *      my_struct_t *obj = ptk_alloc(sizeof(my_struct_t), my_destructor_fn);
+ *      ptk_shared_handle_t handle = ptk_shared_wrap(obj);
+ *
+ * 3. Acquire and use the memory safely:
+ *      use_shared(handle, my_struct_t *ptr) {
+ *          // Use ptr as a normal pointer
+ *          ptr->field = value;
+ *      } on_shared_fail {
+ *          // Handle acquisition failure
+ *          error("Failed to acquire shared memory");
+ *      }
+ *
+ * 4. Release the memory when done:
+ *      ptk_shared_release(handle);
+
+ * 5. Optionally resize the segment:
+ *      ptk_shared_realloc(handle, new_size);
+
+ * 6. Shutdown the subsystem:
+ *      ptk_shared_shutdown();
+
+ * Memory Management:
+ * - All allocations should use ptk_alloc() from ptk_alloc.h, not malloc/free.
+ * - When the reference count for a shared segment reaches zero, ptk_free() is called
+ *   and the registered destructor (if any) will be invoked automatically.
+ *
+ * API Summary:
+ * - ptk_shared_init(), ptk_shared_shutdown(): global setup/teardown
+ * - ptk_shared_wrap(ptr): wrap a pointer in a shared handle
+ * - ptk_shared_acquire(handle): get a pointer from a handle
+ * - ptk_shared_release(handle): release a reference
+ * - ptk_shared_realloc(handle, new_size): resize segment
+ * - Macros: PTK_SHARED_INVALID_HANDLE, PTK_SHARED_IS_VALID, PTK_SHARED_HANDLE_EQUAL
+ * - use_shared(handle, declaration) { ... } on_shared_fail { ... }: safe usage pattern
+ *
+ * Design Notes:
+ * - Handles are 64-bit values, combining a table index and generation counter
+ * - All memory segments are reference counted; freeing is automatic
+ * - Macros provide ergonomic, error-safe access for typical use cases
+ * - Intended for use in multi-threaded and event-driven applications
+ *
+ * Example:
+ *   my_struct_t *obj = ptk_alloc(sizeof(my_struct_t), my_destructor_fn);
+ *   ptk_shared_handle_t handle = ptk_shared_wrap(obj);
+ *   use_shared(handle, my_struct_t *obj_ptr) {
+ *       obj_ptr->field = 42;
+ *       // WARNING: Do NOT use 'return' inside this block. Only 'break' is allowed.
+ *   } on_shared_fail {
+ *       error("Could not acquire shared memory");
+ *   }
+ *   ptk_shared_release(handle);
+
+ * WARNING:
+ *   You cannot use 'return' within a use_shared block. Only 'break' is allowed to exit early.
+ *   Using 'return' will result in undefined behavior and may leak resources.
+
+ * See documentation for details on error codes and advanced usage.
  */
 
 

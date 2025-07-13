@@ -1,5 +1,5 @@
-#ifndef ETHERNETIP_H
-#define ETHERNETIP_H
+
+#pragma once
 
 
 #include <ptk_alloc.h>
@@ -322,4 +322,3 @@ const char *eip_device_state_to_string(uint8_t state);
 const char *eip_vendor_id_to_string(uint16_t vendor_id);
 const char *eip_device_type_to_string(uint16_t device_type);
 
-#endif // ETHERNETIP_H

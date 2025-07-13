@@ -1,4 +1,21 @@
+
 #pragma once
+
+/**
+ * @file ptk.h
+ * @brief Protocol Toolkit global initialization and shutdown API
+ *
+ * This header provides the entry points for initializing and shutting down the Protocol Toolkit library.
+ * You must call ptk_startup() before using any PTK functionality, and ptk_shutdown() when your application exits.
+ * These functions set up and tear down platform-specific resources and global state for all PTK modules.
+ *
+ * Usage:
+ *   if(ptk_startup() != PTK_OK) {
+ *       // handle error
+ *   }
+ *   // ... use PTK APIs ...
+ *   ptk_shutdown();
+ */
 
 #include <ptk_err.h>
 

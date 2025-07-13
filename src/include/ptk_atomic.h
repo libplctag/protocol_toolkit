@@ -1,15 +1,39 @@
+
 #pragma once
 
+/**
+ * @file ptk_atomic.h
+ * @brief Platform-independent atomic operations for Protocol Toolkit
+ *
+ * This header provides wrappers for atomic operations on integer and pointer types.
+ * All operations are implemented using platform-specific primitives for thread safety.
+ *
+ * Supported operations (for each type):
+ *   - load, store
+ *   - fetch_add, add_fetch
+ *   - fetch_sub, sub_fetch
+ *   - fetch_and, and_fetch
+ *   - fetch_or, or_fetch
+ *   - fetch_xor, xor_fetch
+ *   - compare_and_swap
+ *
+ * Supported data types:
+ *   - uint8_t, uint16_t, uint32_t, uint64_t
+ *   - void* (pointer)
+ *
+ * Example usage:
+ *   uint32_t val = 0;
+ *   ptk_atomic_fetch_add_u32(&val, 1);
+ *   ptk_atomic_compare_and_swap_u32(&val, old, new);
+ *
+ * See function documentation for details.
+ */
 
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
 
 #include <ptk_err.h>
-
-/**
- * @brief Wrappers around platform-specific atomic operations.
- */
 
 //=============================================================================
 // ATOMICS
