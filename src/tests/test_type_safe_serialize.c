@@ -196,30 +196,44 @@ void test_endianness() {
 
 void test_peek_functionality() {
     printf("\n=== Test Peek Functionality ===\n");
+    fflush(stdout);
 
     ptk_buf *buf = ptk_buf_alloc(256);
     assert(buf != NULL);
 
     uint16_t val1 = 0x1234;
     uint32_t val2 = 0x56789ABC;
+    printf("DEBUG: About to serialize val1=0x%04x, val2=0x%08x\n", val1, val2);
+    fflush(stdout);
 
     // Serialize data
     ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, val1, val2);
+    printf("DEBUG: Serialize returned err=%d\n", err);
+    fflush(stdout);
     assert(err == PTK_OK);
 
     size_t original_size = ptk_buf_get_len(buf);
     printf("Buffer size after serialization: %zu bytes\n", original_size);
 
     // Peek at the data (should not advance buffer)
-    uint16_t peek_val1;
-    uint32_t peek_val2;
+    uint16_t peek_val1 = 0xFFFF;
+    uint32_t peek_val2 = 0xFFFFFFFF;
+    printf("DEBUG: Before peek - peek_val1=0x%04x, peek_val2=0x%08x\n", peek_val1, peek_val2);
+    fflush(stdout);
+    printf("DEBUG: About to call ptk_buf_deserialize...\n");
+    fflush(stdout);
     err = ptk_buf_deserialize(buf, true, PTK_BUF_LITTLE_ENDIAN, &peek_val1, &peek_val2);
+    printf("DEBUG: After peek - peek_val1=0x%04x, peek_val2=0x%08x\n", peek_val1, peek_val2);
+    printf("DEBUG: Error code from deserialize: %d\n", err);
+    fflush(stdout);
     assert(err == PTK_OK);
 
     printf("Expected: val1=0x%04x, val2=0x%08x\n", val1, val2);
     printf("Peeked:   val1=0x%04x, val2=0x%08x\n", peek_val1, peek_val2);
 
+    printf("DEBUG: About to check val1: expected=0x%04x, actual=0x%04x\n", val1, peek_val1);
     assert(peek_val1 == val1);
+    printf("DEBUG: About to check val2: expected=0x%08x, actual=0x%08x\n", val2, peek_val2);
     assert(peek_val2 == val2);
 
     // Buffer size should be unchanged

@@ -153,7 +153,7 @@ ptk_err modbus_signal(modbus_connection_t *conn) {
     }
 
     if (conn->socket) {
-        return pkt_socket_signal(conn->socket);
+        return ptk_socket_signal(conn->socket);
     }
 
     return PTK_OK;

@@ -35,108 +35,68 @@ int set_nonblocking(int fd) {
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-//==============================================================================
-// Socket address conversion functions
+// char *ptk_address_to_string(const ptk_address_t *address) {
+//     if(!address) { return NULL; }
 
-/**
- * @brief Initialize a ptk_address_t structure from an IP string and port.
- *
- * @param address
- * @param ip_string
- * @param port
- * @return ptk_err
- */
-ptk_err ptk_address_init(ptk_address_t *address, const char *ip_string, uint16_t port) {
-    if(!address) { return PTK_ERR_NULL_PTR; }
+//     char *str = ptk_alloc(INET_ADDRSTRLEN, NULL);
+//     if(!str) { return NULL; }
+//     if(address->family != AF_INET) {
+//         ptk_free(str);
+//         return NULL;  // Only supports IPv4 for now
+//     }
+//     struct in_addr addr;
+//     addr.s_addr = address->ip;
 
-    memset(address, 0, sizeof(ptk_address_t));
-    address->family = AF_INET;
-    address->port = port;
+//     if(!inet_ntop(AF_INET, &addr, str, INET_ADDRSTRLEN)) {
+//         ptk_free(str);
+//         return NULL;
+//     }
 
-    if(!ip_string || strcmp(ip_string, "0.0.0.0") == 0) {
-        address->ip = INADDR_ANY;
-    } else {
-        struct in_addr addr;
-        if(inet_pton(AF_INET, ip_string, &addr) != 1) { return PTK_ERR_INVALID_PARAM; }
-        address->ip = addr.s_addr;  // Already in network byte order
-    }
+//     return str;
+// }
 
-    return PTK_OK;
-}
+// uint16_t ptk_address_get_port(const ptk_address_t *address) {
+//     if(!address) { return 0; }
+//     return address->port;
+// }
 
-char *ptk_address_to_string(const ptk_address_t *address) {
-    if(!address) { return NULL; }
+// bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2) {
+//     if(!addr1 || !addr2) { return false; }
+//     return addr1->ip == addr2->ip && addr1->port == addr2->port && addr1->family == addr2->family;
+// }
 
-    char *str = ptk_alloc(INET_ADDRSTRLEN, NULL);
-    if(!str) { return NULL; }
-    if(address->family != AF_INET) {
-        ptk_free(str);
-        return NULL;  // Only supports IPv4 for now
-    }
-    struct in_addr addr;
-    addr.s_addr = address->ip;
+// /**
+//  * @brief Convert ptk_address_t to sockaddr_storage
+//  */
+// static ptk_err ptk_address_to_sockaddr(const ptk_address_t *address, struct sockaddr_storage *sockaddr, socklen_t *sockaddr_len) {
+//     if(!address || !sockaddr || !sockaddr_len) { return PTK_ERR_NULL_PTR; }
 
-    if(!inet_ntop(AF_INET, &addr, str, INET_ADDRSTRLEN)) {
-        ptk_free(str);
-        return NULL;
-    }
+//     struct sockaddr_in *addr_in = (struct sockaddr_in *)sockaddr;
+//     memset(addr_in, 0, sizeof(struct sockaddr_in));
+//     addr_in->sin_family = AF_INET;
+//     addr_in->sin_port = htons(address->port);
+//     addr_in->sin_addr.s_addr = address->ip;
+//     *sockaddr_len = sizeof(struct sockaddr_in);
 
-    return str;
-}
+//     return PTK_OK;
+// }
 
-uint16_t ptk_address_get_port(const ptk_address_t *address) {
-    if(!address) { return 0; }
-    return address->port;
-}
+// /**
+//  * @brief Convert sockaddr_storage to ptk_address_t
+//  */
+// static ptk_err ptk_sockaddr_to_address(const struct sockaddr_storage *sockaddr, socklen_t sockaddr_len, ptk_address_t *address) {
+//     if(!sockaddr || !address) { return PTK_ERR_NULL_PTR; }
 
-bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2) {
-    if(!addr1 || !addr2) { return false; }
-    return addr1->ip == addr2->ip && addr1->port == addr2->port && addr1->family == addr2->family;
-}
+//     if(sockaddr->ss_family != AF_INET) { return PTK_ERR_INVALID_PARAM; }
 
-ptk_err ptk_address_init_any(ptk_address_t *address, uint16_t port) {
-    if(!address) { return PTK_ERR_NULL_PTR; }
+//     const struct sockaddr_in *addr_in = (const struct sockaddr_in *)sockaddr;
+//     memset(address, 0, sizeof(ptk_address_t));
+//     address->family = AF_INET;
+//     address->port = ntohs(addr_in->sin_port);
+//     address->ip = addr_in->sin_addr.s_addr;
 
-    memset(address, 0, sizeof(ptk_address_t));
-    address->family = AF_INET;
-    address->port = port;
-    address->ip = INADDR_ANY;
-
-    return PTK_OK;
-}
-
-/**
- * @brief Convert ptk_address_t to sockaddr_storage
- */
-static ptk_err ptk_address_to_sockaddr(const ptk_address_t *address, struct sockaddr_storage *sockaddr, socklen_t *sockaddr_len) {
-    if(!address || !sockaddr || !sockaddr_len) { return PTK_ERR_NULL_PTR; }
-
-    struct sockaddr_in *addr_in = (struct sockaddr_in *)sockaddr;
-    memset(addr_in, 0, sizeof(struct sockaddr_in));
-    addr_in->sin_family = AF_INET;
-    addr_in->sin_port = htons(address->port);
-    addr_in->sin_addr.s_addr = address->ip;
-    *sockaddr_len = sizeof(struct sockaddr_in);
-
-    return PTK_OK;
-}
-
-/**
- * @brief Convert sockaddr_storage to ptk_address_t
- */
-static ptk_err ptk_sockaddr_to_address(const struct sockaddr_storage *sockaddr, socklen_t sockaddr_len, ptk_address_t *address) {
-    if(!sockaddr || !address) { return PTK_ERR_NULL_PTR; }
-
-    if(sockaddr->ss_family != AF_INET) { return PTK_ERR_INVALID_PARAM; }
-
-    const struct sockaddr_in *addr_in = (const struct sockaddr_in *)sockaddr;
-    memset(address, 0, sizeof(ptk_address_t));
-    address->family = AF_INET;
-    address->port = ntohs(addr_in->sin_port);
-    address->ip = addr_in->sin_addr.s_addr;
-
-    return PTK_OK;
-}
+//     return PTK_OK;
+// }
 
 
 /**
