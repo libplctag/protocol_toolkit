@@ -31,9 +31,113 @@ threadlet_t *current_threadlet;
 // Helper to set non-blocking mode
 int set_nonblocking(int fd) {
     int flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0) return -1;
+    if(flags < 0) { return -1; }
     return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
+
+//==============================================================================
+// Socket address conversion functions
+
+/**
+ * @brief Initialize a ptk_address_t structure from an IP string and port.
+ *
+ * @param address
+ * @param ip_string
+ * @param port
+ * @return ptk_err
+ */
+ptk_err ptk_address_init(ptk_address_t *address, const char *ip_string, uint16_t port) {
+    if(!address) { return PTK_ERR_NULL_PTR; }
+
+    memset(address, 0, sizeof(ptk_address_t));
+    address->family = AF_INET;
+    address->port = port;
+
+    if(!ip_string || strcmp(ip_string, "0.0.0.0") == 0) {
+        address->ip = INADDR_ANY;
+    } else {
+        struct in_addr addr;
+        if(inet_pton(AF_INET, ip_string, &addr) != 1) { return PTK_ERR_INVALID_PARAM; }
+        address->ip = addr.s_addr;  // Already in network byte order
+    }
+
+    return PTK_OK;
+}
+
+char *ptk_address_to_string(const ptk_address_t *address) {
+    if(!address) { return NULL; }
+
+    char *str = ptk_alloc(INET_ADDRSTRLEN, NULL);
+    if(!str) { return NULL; }
+    if(address->family != AF_INET) {
+        ptk_free(str);
+        return NULL;  // Only supports IPv4 for now
+    }
+    struct in_addr addr;
+    addr.s_addr = address->ip;
+
+    if(!inet_ntop(AF_INET, &addr, str, INET_ADDRSTRLEN)) {
+        ptk_free(str);
+        return NULL;
+    }
+
+    return str;
+}
+
+uint16_t ptk_address_get_port(const ptk_address_t *address) {
+    if(!address) { return 0; }
+    return address->port;
+}
+
+bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2) {
+    if(!addr1 || !addr2) { return false; }
+    return addr1->ip == addr2->ip && addr1->port == addr2->port && addr1->family == addr2->family;
+}
+
+ptk_err ptk_address_init_any(ptk_address_t *address, uint16_t port) {
+    if(!address) { return PTK_ERR_NULL_PTR; }
+
+    memset(address, 0, sizeof(ptk_address_t));
+    address->family = AF_INET;
+    address->port = port;
+    address->ip = INADDR_ANY;
+
+    return PTK_OK;
+}
+
+/**
+ * @brief Convert ptk_address_t to sockaddr_storage
+ */
+static ptk_err ptk_address_to_sockaddr(const ptk_address_t *address, struct sockaddr_storage *sockaddr, socklen_t *sockaddr_len) {
+    if(!address || !sockaddr || !sockaddr_len) { return PTK_ERR_NULL_PTR; }
+
+    struct sockaddr_in *addr_in = (struct sockaddr_in *)sockaddr;
+    memset(addr_in, 0, sizeof(struct sockaddr_in));
+    addr_in->sin_family = AF_INET;
+    addr_in->sin_port = htons(address->port);
+    addr_in->sin_addr.s_addr = address->ip;
+    *sockaddr_len = sizeof(struct sockaddr_in);
+
+    return PTK_OK;
+}
+
+/**
+ * @brief Convert sockaddr_storage to ptk_address_t
+ */
+static ptk_err ptk_sockaddr_to_address(const struct sockaddr_storage *sockaddr, socklen_t sockaddr_len, ptk_address_t *address) {
+    if(!sockaddr || !address) { return PTK_ERR_NULL_PTR; }
+
+    if(sockaddr->ss_family != AF_INET) { return PTK_ERR_INVALID_PARAM; }
+
+    const struct sockaddr_in *addr_in = (const struct sockaddr_in *)sockaddr;
+    memset(address, 0, sizeof(ptk_address_t));
+    address->family = AF_INET;
+    address->port = ntohs(addr_in->sin_port);
+    address->ip = addr_in->sin_addr.s_addr;
+
+    return PTK_OK;
+}
+
 
 /**
  * @brief Socket destructor called when ptk_free() is called on a socket
@@ -47,9 +151,9 @@ void ptk_socket_destructor(void *ptr) {
     debug("destroying socket");
 
     // If the current threadlet is waiting on this socket, abort it before closing fd
-    if (current_threadlet && sock->event_loop && current_threadlet->status == THREADLET_WAITING) {
+    if(current_threadlet && sock->event_loop && current_threadlet->status == THREADLET_WAITING) {
         event_registration_t *reg = event_registration_lookup(sock->event_loop->registrations, sock->fd);
-        if (reg && reg->waiting_threadlet == current_threadlet) {
+        if(reg && reg->waiting_threadlet == current_threadlet) {
             current_threadlet->status = THREADLET_ABORTED;
             threadlet_queue_enqueue(&sock->event_loop->ready_queue, current_threadlet);
             event_registration_remove(sock->event_loop->registrations, sock->fd);
@@ -58,7 +162,7 @@ void ptk_socket_destructor(void *ptr) {
         }
     }
 
-    if (sock->fd >= 0) {
+    if(sock->fd >= 0) {
         trace("Closing socket fd %d", sock->fd);
         // Remove from event loop if not already done
         event_registration_remove(sock->event_loop->registrations, sock->fd);
@@ -69,7 +173,7 @@ void ptk_socket_destructor(void *ptr) {
         sock->fd = -1;
     }
 
-    if (sock->type == PTK_SOCK_TCP_CLIENT || sock->type == PTK_SOCK_TCP_SERVER) {
+    if(sock->type == PTK_SOCK_TCP_CLIENT || sock->type == PTK_SOCK_TCP_SERVER) {
         // Additional cleanup if needed
     }
     sock->type = PTK_SOCK_INVALID;
@@ -209,8 +313,8 @@ static void network_info_dispose(void *ptr) {
 
 /**
  * Discover network interfaces on the local machine.
- * 
- * This function should return a list of network interfaces and their properties (IP addresses, etc).
+ *
+ * This function returns a list of network interfaces and their properties (IP addresses, etc).
  * The returned ptk_network_info structure must be freed by the caller using ptk_free().
  * If discovery fails, it returns NULL and sets an appropriate error code via ptk_set_err().
  * This is a stub implementation; platform-specific code is needed to actually discover interfaces.
@@ -274,7 +378,7 @@ ptk_network_info *ptk_socket_find_networks(void) {
  * @return Number of network entries, 0 if network_info is NULL
  */
 size_t ptk_socket_network_info_count(const ptk_network_info *network_info) {
-    if (!network_info) return 0;
+    if(!network_info) { return 0; }
     return network_info->interface_count;
 }
 
@@ -286,7 +390,7 @@ size_t ptk_socket_network_info_count(const ptk_network_info *network_info) {
  * @return Pointer to network entry, NULL if index is out of bounds or network_info is NULL
  */
 const ptk_network_info_entry *ptk_socket_network_info_get(const ptk_network_info *network_info, size_t index) {
-    if (!network_info || index >= network_info->interface_count) return NULL;
+    if(!network_info || index >= network_info->interface_count) { return NULL; }
     return &network_info->interfaces[index];
 }
 

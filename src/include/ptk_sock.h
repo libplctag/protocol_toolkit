@@ -4,13 +4,13 @@
  * @file ptk_sock.h
  *
  * This provides a blocking API for socket operations.  The operations can
- * be interrupted by other threads.  
- * 
+ * be interrupted by other threads.
+ *
  * Under the hood this is implemented by a platform-specific event loop.
  * Multiple threads run their own copies of the event look.  Each socket is
  * monitored by only one thread. Sockets cannot migrate.
- * 
- * Rather than OS threads, this uses 
+ *
+ * Rather than OS threads, this uses
  */
 
 #include <stdint.h>
@@ -28,10 +28,10 @@ typedef struct ptk_sock ptk_sock;
  * Socket types.
  */
 typedef enum {
-    PTK_SOCK_INVALID,           // Invalid socket type
-    PTK_SOCK_TCP_SERVER,        // TCP listening socket
-    PTK_SOCK_TCP_CLIENT,        // TCP client socket
-    PTK_SOCK_UDP,               // UDP socket
+    PTK_SOCK_INVALID,     // Invalid socket type
+    PTK_SOCK_TCP_SERVER,  // TCP listening socket
+    PTK_SOCK_TCP_CLIENT,  // TCP client socket
+    PTK_SOCK_UDP,         // UDP socket
 } ptk_sock_type;
 
 
@@ -49,10 +49,10 @@ PTK_ARRAY_DECLARE(ptk_buf, ptk_buf);
  * Network address structure
  */
 typedef struct {
-    uint32_t ip;        // IPv4 address in network byte order
-    uint16_t port;      // Port number in host byte order
-    uint8_t family;     // Address family (AF_INET for IPv4)
-    uint8_t reserved;   // Reserved for alignment/future use
+    uint32_t ip;       // IPv4 address in network byte order
+    uint16_t port;     // Port number in host byte order
+    uint8_t family;    // Address family (AF_INET for IPv4)
+    uint8_t reserved;  // Reserved for alignment/future use
 } ptk_address_t;
 
 /**
@@ -68,7 +68,6 @@ ptk_err ptk_address_init(ptk_address_t *address, const char *ip_string, uint16_t
 /**
  * @brief Convert an address structure to an IP string
  *
- * @param allocator The allocator to use for string allocation
  * @param address The address structure to convert
  * @return Allocated string containing IP address, or NULL on failure. Caller must free with ptk_free()
  */
@@ -174,7 +173,7 @@ ptk_err ptk_socket_abort(ptk_sock *sock);
 
 /**
  * @brief Wait until either the timeout occurs or the socket is signalled.
- * 
+ *
  * @return TIMEOUT err if timed out, ABORT if aborted, SIGNAL if signalled.
  */
 ptk_err ptk_socket_wait(ptk_sock *sock, ptk_duration_ms timeout_ms);
@@ -182,13 +181,13 @@ ptk_err ptk_socket_wait(ptk_sock *sock, ptk_duration_ms timeout_ms);
 
 /**
  * @brief Signal a socket
- * 
+ *
  * This causes the event infrastructure to wake up the socket.  The response
  * depends on the operation ongoing at that time.  Socket connect, read, write
  * and accept will ignore this.  ptk_socket_wait() will immediately return with
  * a SIGNAL error.
  */
-ptk_err pkt_socket_signal(ptk_sock *sock);
+ptk_err ptk_socket_signal(ptk_sock *sock);
 
 //=============================================================================
 // TCP Client Sockets
@@ -280,7 +279,8 @@ ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr, bool broadcast)
  * @return PTK_OK on success, PTK_ERR_TIMEOUT on timeout, PTK_ERR_NETWORK_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms);
+ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast,
+                               ptk_duration_ms timeout_ms);
 
 /**
  * Send UDP data to a specific address using vectored I/O (blocking).
@@ -345,13 +345,12 @@ typedef struct ptk_network_info ptk_network_info;
  *
  * This function discovers all active network interfaces on the system
  * and returns their IP addresses, netmasks, and calculated broadcast addresses.
- * 
+ *
  * Use ptk_free() to free the returned structure and its contents when done.
  *
- * @param allocator - the allocator to use to allocate memory for the results.
  * @return A valid network info pointer on success, NULL on failure, sets last error.
  */
-ptk_network_info *ptk_socket_find_networks(void);
+ptk_network_info *ptk_socket_list_networks(void);
 
 /**
  * Get the number of network interface entries
@@ -369,4 +368,3 @@ size_t ptk_socket_network_info_count(const ptk_network_info *network_info);
  * @return Pointer to network entry, NULL if index is out of bounds or network_info is NULL
  */
 const ptk_network_info_entry *ptk_socket_network_info_get(const ptk_network_info *network_info, size_t index);
-
