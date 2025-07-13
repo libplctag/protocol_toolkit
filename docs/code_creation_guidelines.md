@@ -1,3 +1,10 @@
+## Platform/Implementation-Specific File Naming
+
+Implementation-specific (private) source files must not use the `ptk_` prefix. Only public API headers and source files should use the `ptk_` prefix.
+
+- Example: Use `os_thread_posix.c` (not `ptk_os_thread_posix.c`) for POSIX-specific implementation, and `os_thread_windows.c` for Windows-specific implementation.
+
+This ensures a clear distinction between public API and private/platform-specific code, improving codebase clarity and maintainability.
 Rules for creating functions:
 
 - Functions must be spaced at least one blank line apart.
@@ -72,4 +79,5 @@ That means that the place where obj was created should have provided a destructo
     ```
   - This pattern allows single compilation unit while maintaining platform-specific optimizations
   - Example: src/lib/ptk_atomic.c includes platform-specific atomic operations from posix/atomic_operations.c or windows/atomic_operations.c
-
+- Never create stub or empty files unless explicitly requested. Always move or implement real code. If a file would be empty, do not create it. This applies to all platform/standard-specific implementations and refactors.
+- internal implementation functions and data definitions within a .c file should always be "static".  Header files that declare public functions and data must use "extern" explicitly.  
