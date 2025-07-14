@@ -4,9 +4,8 @@
  *
  * This file tests shared memory handle creation and usage. Logging uses ptk_log.h, not ptk_shared.h except for the functions under test.
  */
-#include <ptk_shared.h>
+#include <ptk_mem.h>
 #include <ptk_log.h>
-#include <ptk_alloc.h>
 #include <stdio.h>
 
 /*

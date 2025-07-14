@@ -6,7 +6,7 @@
  */
 #include <ptk_buf.h>
 #include <ptk_log.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <stdio.h>
 
 /*
@@ -36,7 +36,7 @@ int test_buf_alloc() {
         return 1;
     }
     info("Buffer allocated, freeing");
-    ptk_free(buf);
+    ptk_local_free(&buf);
     info("test_buf_alloc exit");
     return 0;
 }

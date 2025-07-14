@@ -27,7 +27,7 @@
 */ 
 #include <ptk_array.h>
 #include <ptk_log.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <stdio.h>
 
 typedef struct { int x; } test_elem_t;
@@ -48,34 +48,34 @@ int test_array_ops() {
     arr->elements[1].x = 20;
     if(test_elem_array_resize(arr, 4) != PTK_OK) {
         error("array resize failed");
-        ptk_free(arr);
+        ptk_local_free(arr);
         return 2;
     }
     if(test_elem_array_append(arr, (test_elem_t){.x=30}) != PTK_OK) {
         error("array append failed");
-        ptk_free(arr);
+        ptk_local_free(arr);
         return 3;
     }
     test_elem_t val;
     if(test_elem_array_get(arr, 2, &val) != PTK_OK || val.x != 30) {
         error("array get failed or value mismatch");
-        ptk_free(arr);
+        ptk_local_free(arr);
         return 4;
     }
     if(test_elem_array_set(arr, 1, (test_elem_t){.x=99}) != PTK_OK || arr->elements[1].x != 99) {
         error("array set failed or value mismatch");
-        ptk_free(arr);
+        ptk_local_free(arr);
         return 5;
     }
     test_elem_array_t *copy = test_elem_array_copy(arr);
     if(!copy || copy->len != arr->len || copy->elements[1].x != 99) {
         error("array copy failed or mismatch");
-        ptk_free(arr);
-        ptk_free(copy);
+        ptk_local_free(arr);
+        ptk_local_free(copy);
         return 6;
     }
-    ptk_free(arr);
-    ptk_free(copy);
+    ptk_local_free(arr);
+    ptk_local_free(copy);
     info("test_array_ops exit");
     return 0;
 }

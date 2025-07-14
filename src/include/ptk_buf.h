@@ -120,7 +120,7 @@ extern ptk_err ptk_buf_set_end(ptk_buf *buf, buf_size_t end);
  */
 extern ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position);
 
-/* no ptk_buf_free() because that it taken care of by ptk_alloc() */
+/* Use ptk_local_free() to free buffers allocated with ptk_buf_alloc() */
 
 //=============================================================================
 // SIMPLE BYTE ACCESS API

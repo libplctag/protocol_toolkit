@@ -28,10 +28,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-
 // Forward declarations to break circular dependencies
 typedef enum ptk_err ptk_err;
+typedef struct ptk_shared_handle ptk_shared_handle_t;
 typedef int64_t ptk_time_ms;
+
+// Timeout constants (from ptk_utils.h)
+#define PTK_TIME_WAIT_FOREVER (INT64_MAX)
+#define PTK_TIME_NO_WAIT (INT64_MIN)
 
 #if defined(_WIN32) && defined(_MSC_VER)
 #define ptk_thread_local __declspec(thread)
@@ -40,79 +44,47 @@ typedef int64_t ptk_time_ms;
 #endif
 
 
-/**
- * @brief Forward declaration of a mutex type.
+/* Mutex and condition variable types removed from public API.
+ * Use shared memory handles for synchronization instead:
+ * - Data protection: use_shared() macro provides automatic synchronization
+ * - Thread communication: ptk_thread_signal() and ptk_thread_wait()
+ * - OS-native mutexes used internally by shared memory implementation only
  */
-typedef struct ptk_mutex ptk_mutex;
 
 /**
- * @brief Forward declaration of a condition variable type.
+ * @brief Thread handle type (uses shared memory for safe cross-thread access)
  */
-typedef struct ptk_cond_var ptk_cond_var;
+typedef ptk_shared_handle_t ptk_thread_handle_t;
 
 /**
- * @brief Forward declaration of a thread type.
+ * @brief No parent constant for root threads
  */
-typedef struct ptk_thread ptk_thread;
-
-//============================
-// Mutex Functions
-//============================
+#define PTK_THREAD_NO_PARENT PTK_SHARED_INVALID_HANDLE
 
 /**
- * @brief Creates a new recursive mutex.
+ * @brief Thread signal types for unified signaling API
+ */
+typedef enum {
+    PTK_THREAD_SIGNAL_WAKEUP,      // General wake-up signal
+    PTK_THREAD_SIGNAL_ABORT,       // Request graceful shutdown  
+    PTK_THREAD_SIGNAL_TERMINATE,   // Force immediate termination
+    PTK_THREAD_SIGNAL_CHILD_DIED   // Child death notification (automatic)
+} ptk_thread_signal_t;
+
+/* Public mutex and condition variable APIs removed.
+ * Synchronization handled by shared memory system:
+ * 
+ * Instead of mutexes, use shared memory access patterns:
+ *   use_shared(data_handle, timeout, my_data_t *data) {
+ *       // Automatically synchronized access to data
+ *   } on_shared_fail {
+ *       // Handle timeout or failure
+ *   }
  *
- * @param allocator The allocator to use for creating the mutex
- * @return Pointer to the newly created mutex, or NULL on failure
+ * Instead of condition variables, use thread signals:
+ *   ptk_thread_signal(worker_thread);  // Wake up waiting thread
+ *   ptk_thread_wait(handle, timeout);  // Wait for signal
  */
-extern ptk_mutex *ptk_mutex_create(void);
-
-/**
- * @brief Attempts to lock the mutex, optionally waiting for a timeout.
- *
- * @param mutex Pointer to the mutex.
- * @param timeout_ms Timeout in milliseconds. Use PTK_TIME_NO_WAIT or PTK_TIME_WAIT_FOREVER for special cases.
- * @return Error code.
- */
-extern ptk_err ptk_mutex_wait_lock(ptk_mutex *mutex, ptk_time_ms timeout_ms);
-
-/**
- * @brief Unlocks the previously locked mutex.
- *
- * @param mutex Pointer to the mutex.
- * @return Error code.
- */
-extern ptk_err ptk_mutex_unlock(ptk_mutex *mutex);
-
-//============================
-// Condition Variable Functions
-//============================
-
-/**
- * @brief Creates a condition variable.
- *
- * @param allocator The allocator to use for creating the condition variable
- * @return Pointer to the created condition variable, or NULL on failure
- */
-extern ptk_cond_var *ptk_cond_var_create(void);
-
-/**
- * @brief Signals the condition variable, waking one waiting thread.
- *
- * @param cond_var Pointer to the condition variable.
- * @return Error code.
- */
-extern ptk_err ptk_cond_var_signal(ptk_cond_var *cond_var);
-
-/**
- * @brief Waits for the condition variable to be signaled.
- *
- * @param cond_var Pointer to the condition variable.
- * @param mutex Pointer to an already locked mutex that will be released during the wait.
- * @param timeout_ms Timeout in milliseconds. Use THREAD_NO_WAIT or THREAD_WAIT_FOREVER for special cases.
- * @return Error code.
- */
-extern ptk_err ptk_cond_var_wait(ptk_cond_var *cond_var, ptk_mutex *mutex, ptk_time_ms timeout_ms);
 
 //============================
 // Thread Functions
@@ -121,24 +93,107 @@ extern ptk_err ptk_cond_var_wait(ptk_cond_var *cond_var, ptk_mutex *mutex, ptk_t
 /**
  * @brief Function type for thread entry points.
  *
- * @param data Pointer to user data passed to the thread.
+ * @param data Shared memory handle containing user data for the thread.
  */
-typedef void (*ptk_thread_func)(void *data);
+typedef void (*ptk_thread_func)(ptk_shared_handle_t data);
 
 /**
- * @brief Creates and starts a new thread.
+ * @brief Creates and starts a new thread with parent-child relationship.
  *
- * @param func Entry point for the thread function.
- * @param data User data to pass to the thread function.
- * @return Pointer to the created thread handle, or NULL on failure
+ * Child threads automatically register with parent and signal parent when they die.
+ * Use PTK_THREAD_NO_PARENT for root threads.
+ *
+ * @param parent Parent thread handle, or PTK_THREAD_NO_PARENT for root threads
+ * @param func Entry point for the thread function
+ * @param data User data to pass to the thread function (shared memory handle)
+ * @return Thread handle for the new thread, or PTK_SHARED_INVALID_HANDLE on failure
  */
-extern ptk_thread *ptk_thread_create(ptk_thread_func func, void *data);
+extern ptk_thread_handle_t ptk_thread_create(ptk_thread_handle_t parent,
+                                             ptk_thread_func func, 
+                                             ptk_shared_handle_t data);
 
 /**
- * @brief Waits for the specified thread to complete.
+ * @brief Get the current thread's handle.
  *
- * @param thread Thread to join.
- * @return Error code.
+ * @return Handle for the calling thread
  */
-extern ptk_err ptk_thread_join(ptk_thread *thread);
+extern ptk_thread_handle_t ptk_thread_self(void);
+
+/**
+ * @brief Wait for signals or timeout (calling thread waits for itself).
+ *
+ * The calling thread waits until signaled or timeout occurs. Socket operations
+ * (like ptk_tcp_accept) also wake up on any signal for responsive server loops.
+ *
+ * @param timeout_ms Timeout in milliseconds 
+ * @return PTK_OK on timeout, PTK_SIGNAL if signaled (check ptk_thread_get_last_signal())
+ */
+extern ptk_err ptk_thread_wait(ptk_time_ms timeout_ms);
+
+/**
+ * @brief Send a signal to a thread.
+ *
+ * Signals cause the target thread to wake up from ptk_thread_wait() or socket
+ * operations like ptk_tcp_accept(). The thread can check the signal type.
+ *
+ * @param handle Thread handle to signal
+ * @param signal_type Type of signal to send
+ * @return Error code
+ */
+extern ptk_err ptk_thread_signal(ptk_thread_handle_t handle, ptk_thread_signal_t signal_type);
+
+/**
+ * @brief Get the last signal received by the calling thread.
+ *
+ * Call this after ptk_thread_wait() returns PTK_SIGNAL to determine what signal was received.
+ *
+ * @return The last signal type received, or PTK_THREAD_SIGNAL_WAKEUP if none
+ */
+extern ptk_thread_signal_t ptk_thread_get_last_signal(void);
+
+//============================
+// Parent-Child Thread Management
+//============================
+
+/**
+ * @brief Get the parent thread handle.
+ *
+ * @param thread Thread handle to query (use ptk_thread_self() for current thread)
+ * @return Parent thread handle, or PTK_THREAD_NO_PARENT if no parent
+ */
+extern ptk_thread_handle_t ptk_thread_get_parent(ptk_thread_handle_t thread);
+
+/**
+ * @brief Count the number of child threads.
+ *
+ * Child threads are automatically tracked. This returns the current count.
+ *
+ * @param parent Parent thread handle
+ * @return Number of active child threads
+ */
+extern int ptk_thread_count_children(ptk_thread_handle_t parent);
+
+/**
+ * @brief Signal all child threads.
+ *
+ * Sends the same signal to all children of the specified parent thread.
+ * Useful for coordinated shutdown or other broadcast operations.
+ *
+ * @param parent Parent thread handle
+ * @param signal_type Signal to send to all children
+ * @return Error code
+ */
+extern ptk_err ptk_thread_signal_all_children(ptk_thread_handle_t parent, ptk_thread_signal_t signal_type);
+
+/**
+ * @brief Clean up dead child threads.
+ *
+ * Attempts to release handles for child threads that have died. Uses timeout
+ * to avoid blocking. Call with PTK_TIME_NO_WAIT for immediate cleanup only.
+ *
+ * @param parent Parent thread handle
+ * @param timeout_ms Maximum time to wait for cleanup
+ * @return Error code
+ */
+extern ptk_err ptk_thread_cleanup_dead_children(ptk_thread_handle_t parent, ptk_time_ms timeout_ms);
 

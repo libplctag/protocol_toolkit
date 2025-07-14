@@ -16,9 +16,9 @@
 #include <stdbool.h>
 #include <ptk_buf.h>
 #include <ptk_err.h>
-#include <ptk_utils.h>
-#include <ptk_array.h>
 #include <ptk_mem.h>
+#include <ptk_os_thread.h>
+#include <ptk_utils.h>
 
 // Forward declarations
 typedef struct ptk_sock ptk_sock;
@@ -77,7 +77,7 @@ ptk_err ptk_address_init(ptk_address_t *address, const char *ip_string, uint16_t
  * @brief Convert an address structure to an IP string
  *
  * @param address The address structure to convert
- * @return Allocated string containing IP address, or NULL on failure. Caller must free with ptk_free()
+ * @return Allocated string containing IP address, or NULL on failure. Caller must free with ptk_local_free()
  */
 char *ptk_address_to_string(const ptk_address_t *address);
 
@@ -134,10 +134,10 @@ PTK_ARRAY_DECLARE(ptk_network_interface, ptk_network_interface_t);
  *
  * Returns information about all network interfaces on the system.
  * The returned array and all its contents are managed by a single allocation
- * that can be freed with ptk_free().
+ * that can be freed with ptk_local_free().
  *
  * @return Array of network interfaces, or NULL on error.
- *         Use ptk_free() to free all associated memory.
+ *         Use ptk_local_free() to free all associated memory.
  *         Check ptk_get_err() for error details on NULL return.
  *
  * @example
@@ -150,7 +150,7 @@ PTK_ARRAY_DECLARE(ptk_network_interface, ptk_network_interface_t);
  *         printf("Interface: %s IP: %s Broadcast: %s\n", 
  *                iface->interface_name, iface->ip_address, iface->broadcast);
  *     }
- *     ptk_free(&interfaces);  // Frees everything
+ *     ptk_local_free(&interfaces);  // Frees everything
  * }
  * ```
  */
@@ -163,32 +163,11 @@ ptk_network_interface_array_t *ptk_network_discover_interfaces(void);
 
 
 
-/**
- * Abort any ongoing socket operations.
- * Blocking calls will return PTK_WAIT_ERROR, and ptk_get_err() will be set to PTK_ERR_ABORT.
- *
- * @param sock The socket to abort.
- * @return PTK_OK on success, error code on failure.
+/* Socket signal/wait/abort functions moved to ptk_os_thread.h as:
+ * - ptk_thread_abort(thread_handle) 
+ * - ptk_thread_wait(thread_handle, timeout)
+ * - ptk_thread_signal(thread_handle)
  */
-ptk_err ptk_socket_abort(ptk_sock *sock);
-
-/**
- * @brief Wait until either the timeout occurs or the socket is signalled.
- *
- * @return TIMEOUT err if timed out, ABORT if aborted, SIGNAL if signalled.
- */
-ptk_err ptk_socket_wait(ptk_sock *sock, ptk_duration_ms timeout_ms);
-
-
-/**
- * @brief Signal a socket
- *
- * This causes the event infrastructure to wake up the socket.  The response
- * depends on the operation ongoing at that time.  Socket connect, read, write
- * and accept will ignore this.  ptk_socket_wait() will immediately return with
- * a SIGNAL error.
- */
-ptk_err ptk_socket_signal(ptk_sock *sock);
 
 /**
  * @brief Close a socket and stop its dedicated thread
@@ -339,7 +318,7 @@ typedef struct ptk_network_info ptk_network_info;
  * This function discovers all active network interfaces on the system
  * and returns their IP addresses, netmasks, and calculated broadcast addresses.
  *
- * Use ptk_free() to free the returned structure and its contents when done.
+ * Use ptk_local_free() to free the returned structure and its contents when done.
  *
  * @return A valid network info pointer on success, NULL on failure, sets last error.
  */

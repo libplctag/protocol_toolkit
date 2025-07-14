@@ -171,22 +171,48 @@ extern void ptk_local_free_impl(const char *file, int line, void **ptr_ref);
 
 
 typedef struct ptk_shared_handle {
-    uint64_t value;  // Opaque handle value
+    uintptr_t value;  // Opaque handle value
 } ptk_shared_handle_t;
 
 #define PTK_SHARED_INVALID_HANDLE ((ptk_shared_handle_t){0})
 #define PTK_SHARED_IS_VALID(h) ((h).value != 0)
 #define PTK_SHARED_HANDLE_EQUAL(a,b) ((a).value == (b).value)
 
-#define ptk_shared_create(ptr) ptk_shared_create_impl(__FILE__, __LINE__, ptr)
-extern ptk_shared_handle_t ptk_shared_create_impl(const char *file, int line, void *ptr);
-
+/**
+ * @brief Initialize the shared memory subsystem.
+ *
+ * @return ptk_err status code
+ * @retval PTK_OK on success
+ */
 extern ptk_err ptk_shared_init(void);
+
+/**
+ * @brief Shut down the shared memory subsystem.
+ *
+ * @return ptk_err status code
+ * @retval PTK_OK on success
+ */
 extern ptk_err ptk_shared_shutdown(void);
 
-extern void *ptk_shared_acquire(ptk_shared_handle_t handle);
-extern ptk_err ptk_shared_realloc(ptk_shared_handle_t handle, size_t new_size);  // reuses the existing handle.
-extern ptk_err ptk_shared_release(ptk_shared_handle_t handle);
+
+/**
+ * @brief Allocate a shared memory block.
+ *
+ * @param size Size of the memory block to allocate
+ * @param destructor Optional destructor function for the memory block
+ * @return ptk_shared_handle_t Handle to the allocated memory, or PTK_SHARED_INVALID_HANDLE on failure
+ */
+#define ptk_shared_alloc(size, destructor) ptk_shared_alloc_impl(__FILE__, __LINE__, size, destructor)
+extern ptk_shared_handle_t ptk_shared_alloc_impl(const char *file, int line, size_t size, void (*destructor)(void *ptr));
+
+#define ptk_shared_realloc(handle, new_size) ptk_shared_realloc_impl(__FILE__, __LINE__, handle, new_size)
+extern ptk_err ptk_shared_realloc_impl(const char *file, int line, ptk_shared_handle_t handle, size_t new_size);  // reuses the existing handle.
+
+#define ptk_shared_acquire(handle, timeout) ptk_shared_acquire_impl(__FILE__, __LINE__, handle, timeout)
+extern void *ptk_shared_acquire_impl(const char *file, int line, ptk_shared_handle_t handle, ptk_time_ms timeout);
+
+#define ptk_shared_release(handle) ptk_shared_release_impl(__FILE__, __LINE__, handle)
+extern ptk_err ptk_shared_release_impl(const char *file, int line, ptk_shared_handle_t handle);
 
 /**
  * @brief Macro for safely using shared memory with automatic acquire/release
@@ -195,22 +221,26 @@ extern ptk_err ptk_shared_release(ptk_shared_handle_t handle);
  * handling acquire/release operations and providing error handling.
  * 
  * Usage:
- * use_shared(handle, my_struct_t *obj) {
+ * use_shared(handle, timeout_ms, my_struct_t *obj) {
  *     // Code that uses obj - obj is automatically cast to the correct type
  *     obj->field = value;
  * } on_shared_fail {
- *     // Error handling code - runs if acquire fails
+ *     // Error handling code - runs if acquire fails or times out
  *     error("Failed to acquire shared memory");
  * }
  * 
  * @param handle The shared memory handle to acquire
+ * @param timeout_ms Timeout in milliseconds (use PTK_TIME_WAIT_FOREVER or PTK_TIME_NO_WAIT)
  * @param declaration The typed pointer declaration (e.g., "my_struct_t *obj")
+ * 
+ * NOTE: ptk_shared_release_impl must be called even if the return value is NULL, to avoid leaks.
+ *       The macro ensures this happens automatically.
  */
-#define use_shared(handle, declaration) \
+#define use_shared(handle, timeout_ms, declaration) \
     for (int _ptk_shared_once = 0; _ptk_shared_once < 1; _ptk_shared_once++) \
-        for (void *_ptk_shared_raw_ptr = ptk_shared_acquire(handle); \
+        for (void *_ptk_shared_raw_ptr = ptk_shared_acquire_impl(__FILE__, __LINE__, handle, timeout_ms); \
              _ptk_shared_once < 1; \
-             _ptk_shared_once++, (_ptk_shared_raw_ptr ? ptk_shared_release(handle) : (void)0)) \
+             _ptk_shared_once++, ptk_shared_release_impl(__FILE__, __LINE__, handle)) \
             if (_ptk_shared_raw_ptr != NULL) \
                 for (declaration = (typeof(declaration))_ptk_shared_raw_ptr; \
                      _ptk_shared_raw_ptr != NULL; \

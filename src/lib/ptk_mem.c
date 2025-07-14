@@ -213,12 +213,20 @@ void ptk_local_free_impl(const char *file, int line, void **ptr_ref) {
 // SHARED MEMORY API
 //==============================================================================
 
+#if UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFULL
 #define HANDLE_INDEX_MASK       0xFFFFFFFF
 #define HANDLE_GENERATION_SHIFT 32
+#elif UINTPTR_MAX == 0xFFFFFFFFULL
+#define HANDLE_INDEX_MASK       0xFFF
+#define HANDLE_GENERATION_SHIFT 12
+#else
+#error "Unsupported pointer size for shared handle"
+#endif
+
 #define INITIAL_TABLE_SIZE      1024
 
 typedef struct {
-    uint64_t handle_value;      // Combined generation + index
+    uintptr_t handle_value;      // Combined generation + index
     void *data_ptr;             // Points to ptk_alloc'd memory (NULL = free slot)
     uint32_t ref_count;         // Reference counter (protected by mutex)
     ptk_mutex *mutex;           // Per-entry mutex
@@ -346,7 +354,7 @@ static shared_entry_t *lookup_entry_unsafe(ptk_shared_handle_t handle) {
     return entry;
 }
 
-ptk_shared_handle_t ptk_shared_create_impl(const char *file, int line, size_t size, void (*destructor)(void *ptr)) {
+ptk_shared_handle_t ptk_shared_alloc_impl(const char *file, int line, size_t size, void (*destructor)(void *ptr)) {
     if (size == 0) {
         error("Cannot create shared memory segment of size 0 at %s:%d", file, line);
         ptk_set_err(PTK_ERR_INVALID_PARAM);
