@@ -1,0 +1,35 @@
+
+* Make sure "impl" functions are getting the _function_ name and not the file name as the arguments.
+this will change a lot of macros.
+* update the implemention of ptk_mem.c to match the new API.  
+* rename ptk_shared_acquire() and ptk_shared_release() to make sure it is obvious that they should not be called directly.  Maybe ptk_shared_acquire_internal()?
+* Make sure use of ptk_shared_free() is understood correctly.
+* Build documents for shared memory and threading.
+* Longer term:
+  * Refactor ab_server to use this.
+  * Refactor libplctag to use this.
+  * Generate .md docs for all APIs.
+  * Generate man pages for all APIs.
+  * Generate Debian packages with just the library.
+  * Generate Debian "-dev" package with library, headers and man pages.
+  * Same for RPM.
+  * Same for MSI.
+  * Same for Home Brew.
+  * Same for vcpkg.
+  * Same for Chocolaty?  Or is this needed if there is an MSI.
+  * What about signing?
+  * Make sure Android build works.
+  * C++ wrapper.  Easier use?
+  * Java wrapper.  Need higher level and how to deal with Java threads?
+  * Python wrapper.  Again, threading is a problem.
+  * RTOS ports: FreeRTOS, Zephyr.  Others?
+  * Rewrite Modbus example.
+  * Rethink code generator.  Is this needed?  Maybe not version 1.0.
+  * Set up GitHub Actions
+    *  automatic tagging and generating of a release if all the tests pass in prerelease.  Or should this be a manually triggered PR?
+    * Automatic version increment.  Just the patch level.
+    * Version comes from CMake file.  But just the major and minor version.
+    * CI runs all tests on prerelease and release branches.  No PR/merge without passing.
+    * Set up github.io pages?
+    * Set up read-the-docs pages?
+    * 
