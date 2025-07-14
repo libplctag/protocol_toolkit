@@ -70,11 +70,13 @@ static ptk_err set_nonblocking(int fd) {
 
 // Helper function to create epoll instance and add socket
 static ptk_err setup_epoll(ptk_sock *sock) {
+    debug("setup_epoll: sock=%p, sock->fd=%d", sock, sock->fd);
     sock->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     if (sock->epoll_fd == -1) {
-        error("epoll_create1 failed: %s", strerror(errno));
+        error("setup_epoll: epoll_create1 failed: %s", strerror(errno));
         return PTK_ERR_NETWORK_ERROR;
     }
+    debug("setup_epoll: created epoll_fd=%d", sock->epoll_fd);
     
     // Create signal eventfd
     sock->signal_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
@@ -93,9 +95,10 @@ static ptk_err setup_epoll(ptk_sock *sock) {
         return PTK_ERR_NETWORK_ERROR;
     }
     
-    // Add socket to epoll
+    // Add socket to epoll - only register for EPOLLIN initially
+    // EPOLLOUT will be added dynamically when needed for send operations
     struct epoll_event ev;
-    ev.events = EPOLLIN | EPOLLOUT | EPOLLET; // Edge-triggered
+    ev.events = EPOLLIN; // Only register for read events initially
     ev.data.fd = sock->fd;
     if (epoll_ctl(sock->epoll_fd, EPOLL_CTL_ADD, sock->fd, &ev) == -1) {
         error("epoll_ctl ADD socket failed: %s", strerror(errno));
@@ -161,37 +164,95 @@ static void socket_destructor(void *ptr) {
     }
 }
 
+// Helper to ensure socket is registered for specific events
+static ptk_err ensure_socket_events(ptk_sock *sock, uint32_t events) {
+    struct epoll_event ev;
+    ev.events = EPOLLIN | events; // Always include EPOLLIN, add requested events
+    ev.data.fd = sock->fd;
+    
+    // Modify existing registration
+    if (epoll_ctl(sock->epoll_fd, EPOLL_CTL_MOD, sock->fd, &ev) == -1) {
+        error("epoll_ctl MOD socket failed: %s", strerror(errno));
+        return PTK_ERR_NETWORK_ERROR;
+    }
+    
+    return PTK_OK;
+}
+
+// Helper to reset socket events back to EPOLLIN only
+static ptk_err reset_socket_events(ptk_sock *sock) {
+    struct epoll_event ev;
+    ev.events = EPOLLIN; // Only listen for incoming data
+    ev.data.fd = sock->fd;
+    
+    // Modify existing registration
+    if (epoll_ctl(sock->epoll_fd, EPOLL_CTL_MOD, sock->fd, &ev) == -1) {
+        error("epoll_ctl MOD socket failed: %s", strerror(errno));
+        return PTK_ERR_NETWORK_ERROR;
+    }
+    
+    return PTK_OK;
+}
+
 // Helper to wait for socket events
 static ptk_err wait_for_events(ptk_sock *sock, uint32_t events, ptk_duration_ms timeout_ms) {
+    info("wait_for_events: sock=%p, events=0x%x, timeout=%d", sock, events, timeout_ms);
+    if (!sock) {
+        error("wait_for_events: sock is NULL");
+        return PTK_ERR_INVALID_PARAM;
+    }
+    info("wait_for_events: sock->epoll_fd=%d, sock->fd=%d", sock->epoll_fd, sock->fd);
+    
     struct epoll_event epoll_events[8];
     int timeout = (timeout_ms == 0) ? -1 : (int)timeout_ms;
     
+    info("wait_for_events: calling epoll_wait with timeout=%d", timeout);
     int nfds = epoll_wait(sock->epoll_fd, epoll_events, 8, timeout);
+    info("wait_for_events: epoll_wait returned %d", nfds);
     if (nfds == -1) {
+        error("wait_for_events: epoll_wait failed: %s (errno=%d)", strerror(errno), errno);
         if (errno == EINTR) {
             return PTK_ERR_INTERRUPT;
         }
-        error("epoll_wait failed: %s", strerror(errno));
         return PTK_ERR_NETWORK_ERROR;
     }
     
     if (nfds == 0) {
+        info("wait_for_events: timeout occurred");
         return PTK_ERR_TIMEOUT;
     }
     
+    info("wait_for_events: processing %d events", nfds);
+    
     // Check for abort or signal
     for (int i = 0; i < nfds; i++) {
+        info("wait_for_events: event %d: fd=%d, events=0x%x", i, epoll_events[i].data.fd, epoll_events[i].events);
+        info("wait_for_events: comparing with sock->fd=%d, sock->abort_fd=%d, sock->signal_fd=%d", 
+             sock->fd, sock->abort_fd, sock->signal_fd);
+        
         if (epoll_events[i].data.fd == sock->abort_fd) {
+            info("wait_for_events: abort event detected");
             return PTK_ERR_ABORT;
         }
         if (epoll_events[i].data.fd == sock->signal_fd) {
+            info("wait_for_events: signal event detected");
             return PTK_ERR_SIGNAL;
         }
-        if (epoll_events[i].data.fd == sock->fd && (epoll_events[i].events & events)) {
-            return PTK_OK;
+        if (epoll_events[i].data.fd == sock->fd) {
+            info("wait_for_events: socket fd matched, checking events: got=0x%x, wanted=0x%x", 
+                 epoll_events[i].events, events);
+            if (epoll_events[i].events & events) {
+                info("wait_for_events: socket event matched, returning PTK_OK");
+                return PTK_OK;
+            } else {
+                info("wait_for_events: socket fd matched but events don't match");
+                // For edge-triggered mode, we need to consume the event even if it doesn't match
+                // what we're waiting for, so we continue processing other events
+            }
         }
     }
     
+    info("wait_for_events: no matching events found, returning PTK_ERR_WOULD_BLOCK");
     return PTK_ERR_WOULD_BLOCK;
 }
 
@@ -215,6 +276,7 @@ static void socket_thread_main(void *context) {
 static ptk_sock *create_socket_with_thread(int fd, ptk_sock_type type, 
                                           ptk_socket_thread_func thread_func,
                                           ptk_shared_handle_t shared_context) {
+    info("create_socket_with_thread: fd=%d, type=%d", fd, type);
     ptk_sock *sock = ptk_local_alloc(sizeof(ptk_sock), socket_destructor);
     if (!sock) {
         error("Failed to allocate socket structure");
@@ -230,6 +292,7 @@ static ptk_sock *create_socket_with_thread(int fd, ptk_sock_type type,
     sock->user_func = thread_func;
     sock->shared_context = shared_context;
     sock->should_stop = false;
+    info("create_socket_with_thread: socket created with type=%d", sock->type);
     
     // Set socket non-blocking
     if (set_nonblocking(fd) != PTK_OK) {
@@ -542,6 +605,12 @@ ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeo
     size_t sent = 0;
     
     while (sent < buf_size) {
+        // Ensure socket is registered for EPOLLOUT events
+        ptk_err setup_result = ensure_socket_events(sock, EPOLLOUT);
+        if (setup_result != PTK_OK) {
+            return setup_result;
+        }
+        
         // Wait for socket to be writable
         ptk_err wait_result = wait_for_events(sock, EPOLLOUT, timeout_ms);
         if (wait_result != PTK_OK) {
@@ -560,18 +629,35 @@ ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeo
         sent += result;
     }
     
+    // Reset socket events back to EPOLLIN only after sending
+    ptk_err reset_result = reset_socket_events(sock);
+    if (reset_result != PTK_OK) {
+        return reset_result;
+    }
+    
     return PTK_OK;
 }
 
 ptk_buf *ptk_tcp_socket_recv(ptk_sock *sock, ptk_duration_ms timeout_ms) {
-    if (!sock || sock->type != PTK_SOCK_TCP_CLIENT) {
+    debug("ptk_tcp_socket_recv: sock=%p, timeout=%d", sock, timeout_ms);
+    if (!sock) {
+        error("ptk_tcp_socket_recv: sock is NULL");
         ptk_set_err(PTK_ERR_INVALID_PARAM);
         return NULL;
     }
+    if (sock->type != PTK_SOCK_TCP_CLIENT) {
+        error("ptk_tcp_socket_recv: invalid socket type %d, expected %d", sock->type, PTK_SOCK_TCP_CLIENT);
+        ptk_set_err(PTK_ERR_INVALID_PARAM);
+        return NULL;
+    }
+    debug("ptk_tcp_socket_recv: validation passed, sock->fd=%d", sock->fd);
     
     // Wait for data to be available
+    debug("ptk_tcp_socket_recv: calling wait_for_events with EPOLLIN");
     ptk_err wait_result = wait_for_events(sock, EPOLLIN, timeout_ms);
+    debug("ptk_tcp_socket_recv: wait_for_events returned %d", wait_result);
     if (wait_result != PTK_OK) {
+        error("ptk_tcp_socket_recv: wait_for_events failed with %d", wait_result);
         ptk_set_err(wait_result);
         return NULL;
     }
@@ -621,6 +707,12 @@ ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_
         }
     }
     
+    // Ensure socket is registered for EPOLLOUT events  
+    ptk_err setup_result = ensure_socket_events(sock, EPOLLOUT);
+    if (setup_result != PTK_OK) {
+        return setup_result;
+    }
+    
     // Wait for socket to be writable
     ptk_err wait_result = wait_for_events(sock, EPOLLOUT, timeout_ms);
     if (wait_result != PTK_OK) {
@@ -652,14 +744,28 @@ ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_
         return PTK_ERR_NETWORK_ERROR;
     }
     
+    // Reset socket events back to EPOLLIN only after sending
+    ptk_err reset_result = reset_socket_events(sock);
+    if (reset_result != PTK_OK) {
+        return reset_result;
+    }
+    
     return PTK_OK;
 }
 
 ptk_buf *ptk_udp_socket_recv_from(ptk_sock *sock, ptk_address_t *sender_addr, ptk_duration_ms timeout_ms) {
-    if (!sock || sock->type != PTK_SOCK_UDP) {
+    debug("ptk_udp_socket_recv_from: sock=%p, sender_addr=%p, timeout=%d", sock, sender_addr, timeout_ms);
+    if (!sock) {
+        error("ptk_udp_socket_recv_from: sock is NULL");
         ptk_set_err(PTK_ERR_INVALID_PARAM);
         return NULL;
     }
+    if (sock->type != PTK_SOCK_UDP) {
+        error("ptk_udp_socket_recv_from: invalid socket type %d, expected %d", sock->type, PTK_SOCK_UDP);
+        ptk_set_err(PTK_ERR_INVALID_PARAM);
+        return NULL;
+    }
+    info("ptk_udp_socket_recv_from: validation passed, sock->fd=%d, sock->type=%d", sock->fd, sock->type);
     
     // If timeout is 0, loop to get all available packets
     if (timeout_ms == 0) {
@@ -669,8 +775,11 @@ ptk_buf *ptk_udp_socket_recv_from(ptk_sock *sock, ptk_address_t *sender_addr, pt
     }
     
     // Wait for data to be available
+    info("ptk_udp_socket_recv_from: calling wait_for_events with EPOLLIN");
     ptk_err wait_result = wait_for_events(sock, EPOLLIN, timeout_ms);
+    info("ptk_udp_socket_recv_from: wait_for_events returned %d", wait_result);
     if (wait_result != PTK_OK) {
+        error("ptk_udp_socket_recv_from: wait_for_events failed with %d", wait_result);
         ptk_set_err(wait_result);
         return NULL;
     }
