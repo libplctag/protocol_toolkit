@@ -13,7 +13,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_err.h>
 #include <ptk_log.h>
 
@@ -55,21 +55,21 @@
             } \
         } \
         if (arr->elements) { \
-            ptk_free(&arr->elements); \
+            ptk_local_free(&arr->elements); \
         } \
     } \
     \
     static inline PREFIX##_array_t * PREFIX##_array_create(size_t initial_size, void (*element_destructor)(T *element)) { \
         if (initial_size == 0) return NULL; \
         \
-        PREFIX##_array_t *arr = ptk_alloc(sizeof(PREFIX##_array_t), PREFIX##_PRIVATE_array_destructor); \
+        PREFIX##_array_t *arr = ptk_local_alloc(sizeof(PREFIX##_array_t), PREFIX##_PRIVATE_array_destructor); \
         if (!arr) return NULL; \
         \
         arr->len = initial_size; \
         arr->element_destructor = element_destructor; \
-        arr->elements = ptk_alloc(initial_size * sizeof(T), NULL); \
+        arr->elements = ptk_local_alloc(initial_size * sizeof(T), NULL); \
         if (!arr->elements) { \
-            ptk_free(&arr); \
+            ptk_local_free(&arr); \
             return NULL; \
         } \
         \
@@ -83,7 +83,7 @@
         if (!arr) return PTK_ERR_NULL_PTR; \
         if (new_len == 0) return PTK_ERR_INVALID_PARAM; \
         \
-        T *new_elements = ptk_realloc(arr->elements, new_len * sizeof(T)); \
+        T *new_elements = ptk_local_realloc(arr->elements, new_len * sizeof(T)); \
         if (!new_elements) { \
             error("Failed to allocate %zu bytes for " #PREFIX "_array", new_len * sizeof(T)); \
             return PTK_ERR_NO_RESOURCES; \

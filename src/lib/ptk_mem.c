@@ -6,12 +6,11 @@
  */
 
 #include <ptk_mem.h>
-#include <ptk_alloc.h>
-#include <ptk_shared.h>
 #include <ptk_utils.h>
 #include <ptk_err.h>
 #include <ptk_log.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 
 

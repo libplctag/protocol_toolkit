@@ -3,7 +3,7 @@
  * @brief Linux implementation of address-related functions for Protocol Toolkit
  */
 #include <ptk_sock.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_err.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -70,7 +70,7 @@ char *ptk_address_to_string(const ptk_address_t *address) {
         ptk_set_err(PTK_ERR_INVALID_PARAM);
         return NULL;
     }
-    char *result = ptk_alloc(strlen(buf) + 1, NULL);
+    char *result = ptk_local_alloc(strlen(buf) + 1, NULL);
     if (!result) {
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;

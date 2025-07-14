@@ -1,12 +1,12 @@
 #include <ptk.h>
-#include <ptk_shared.h>
+#include <ptk_mem.h>
 
-void ptk_startup(void) {
+ptk_err ptk_startup(void) {
     // Initialize shared memory system
-    ptk_shared_init();
+    return ptk_shared_init();
 }
 
-void ptk_shutdown(void) {
+ptk_err ptk_shutdown(void) {
     // Shutdown shared memory system
-    ptk_shared_shutdown();
+    return ptk_shared_shutdown();
 }

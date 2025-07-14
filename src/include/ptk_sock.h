@@ -7,10 +7,8 @@
  * be interrupted by other threads.
  *
  * Under the hood this is implemented by a platform-specific event loop.
- * Multiple threads run their own copies of the event look.  Each socket is
+ * Multiple threads run their own copies of the event loop.  Each socket is
  * monitored by only one thread. Sockets cannot migrate.
- *
- * Rather than OS threads, this uses
  */
 
 #include <stdint.h>
@@ -20,9 +18,21 @@
 #include <ptk_err.h>
 #include <ptk_utils.h>
 #include <ptk_array.h>
+#include <ptk_mem.h>
 
 // Forward declarations
 typedef struct ptk_sock ptk_sock;
+
+/**
+ * Socket thread function signature
+ * 
+ * This function is called in a dedicated thread for each socket.
+ * The thread has access to the socket and shared context data.
+ *
+ * @param socket The socket being handled in this thread
+ * @param shared_context Shared memory handle for cross-thread data
+ */
+typedef void (*ptk_socket_thread_func)(ptk_sock *socket, ptk_shared_handle_t shared_context);
 
 /**
  * Socket types.
@@ -38,8 +48,6 @@ typedef enum {
 //=============================================================================
 // COMMON DATA TYPES
 //=============================================================================
-
-PTK_ARRAY_DECLARE(ptk_buf, ptk_buf);
 
 //=============================================================================
 // ADDRESS STRUCTURES AND FUNCTIONS
@@ -153,13 +161,6 @@ ptk_network_interface_array_t *ptk_network_discover_interfaces(void);
 // GENERIC SOCKET OPERATIONS
 //=============================================================================
 
-/**
- * Get socket type.
- *
- * @param sock The socket to query.
- * @return Socket type.
- */
-ptk_sock_type ptk_socket_type(ptk_sock *sock);
 
 
 /**
@@ -189,87 +190,103 @@ ptk_err ptk_socket_wait(ptk_sock *sock, ptk_duration_ms timeout_ms);
  */
 ptk_err ptk_socket_signal(ptk_sock *sock);
 
+/**
+ * @brief Close a socket and stop its dedicated thread
+ *
+ * Closes the socket and signals its dedicated thread to terminate.
+ * This function is safe to call from any thread.
+ *
+ * @param socket The socket to close
+ */
+void ptk_socket_close(ptk_sock *socket);
+
 //=============================================================================
 // TCP Client Sockets
 //=============================================================================
 
 /**
- * Connect to a TCP server (blocking).
+ * Connect to a TCP server and start a dedicated thread.
  *
- * @param remote_addr The remote address to connect to.
- * @param timeout_ms Timeout in milliseconds (0 for infinite).
+ * Creates a TCP connection to the remote address and spawns a dedicated thread
+ * that will run the provided thread function with the socket and shared context.
+ *
+ * @param remote_addr The remote address to connect to
+ * @param thread_func Function to run in the socket's dedicated thread
+ * @param shared_context Shared memory handle for cross-thread data
  * @return A pointer to the connected TCP socket, or NULL on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_sock *ptk_tcp_socket_connect(const ptk_address_t *remote_addr, ptk_duration_ms timeout_ms);
+ptk_sock *ptk_tcp_connect(const ptk_address_t *remote_addr,
+                         ptk_socket_thread_func thread_func,
+                         ptk_shared_handle_t shared_context);
 
 /**
- * Write data to a TCP socket using vectored I/O (blocking).
+ * Write data to a TCP socket (blocking).
  *
  * @param sock TCP client socket.
- * @param data_array Array of buffers containing data to write.
+ * @param data Buffer containing data to write.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
  * @return PTK_OK on success, PTK_ERR_TIMEOUT on timeout, PTK_ERR_NETWORK_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf_array_t *data_array, ptk_duration_ms timeout_ms);
+ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms);
 
 /**
  * Read data from a TCP socket (blocking).
  *
  * @param sock TCP client socket.
- * @param wait_for_data If true, wait the entire timeout period and return as much data as is available.
  * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return Returns a buffer containing the received data on success (must be freed with ptk_buf_free()),
- *        or NULL on error. If NULL is returned, check ptk_get_err() for
+ * @return Returns a buffer containing the received data on success (must be freed with ptk_local_free()),
+ *         or NULL on error. If NULL is returned, check ptk_get_err() for error details.
  */
-ptk_buf *ptk_tcp_socket_recv(ptk_sock *sock, bool wait_for_data, ptk_duration_ms timeout_ms);
+ptk_buf *ptk_tcp_socket_recv(ptk_sock *sock, ptk_duration_ms timeout_ms);
 
 //=============================================================================
 // TCP Server Sockets
 //=============================================================================
 
 /**
- * Listen on a local address as a TCP server.
+ * Start a TCP server that accepts connections.
  *
- * @param local_addr Address to bind to.
- * @param backlog Maximum number of pending connections.
- * @return Valid server socket on success, NULL on failure (ptk_get_err() set).
- */
-ptk_sock *ptk_tcp_socket_listen(const ptk_address_t *local_addr, int backlog);
-
-/**
- * Accept a new TCP connection (blocking).
+ * Creates a listening socket, binds it to the local address, and spawns a thread
+ * to accept connections in a loop. For each accepted connection, spawns a dedicated 
+ * thread that runs the provided thread function with the client socket and shared context.
+ * 
+ * Returns immediately with a server socket handle that can be used to control the server.
  *
- * @param server Listening server socket.
- * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return Valid client socket on success, NULL on error.
- *         On error, ptk_get_err() provides the error code.
+ * @param local_addr Address to bind the server to
+ * @param thread_func Function to run for each accepted client connection
+ * @param shared_context Shared memory handle for cross-thread data
+ * @return Server socket handle for controlling the server, or NULL on error
  */
-ptk_sock *ptk_tcp_socket_accept(ptk_sock *server, ptk_duration_ms timeout_ms);
+ptk_sock *ptk_tcp_server_start(const ptk_address_t *local_addr,
+                              ptk_socket_thread_func thread_func,
+                              ptk_shared_handle_t shared_context);
 
 //=============================================================================
 // UDP Sockets
 //=============================================================================
 
-typedef struct ptk_udp_buf_entry_t {
-    ptk_buf *buf;                // Buffer containing UDP packet data
-    ptk_address_t sender_addr;   // Address of the sender of this packet
-} ptk_udp_buf_entry_t;
-
-PTK_ARRAY_DECLARE(ptk_udp_buf_entry, ptk_udp_buf_entry_t);
-
 
 /**
- * Create a UDP socket.
+ * Create a UDP socket with a dedicated thread.
  *
- * @param local_addr Address to bind to (NULL for client-only).
- * @return Valid UDP socket on success, NULL on failure (ptk_get_err() set).
+ * Creates a UDP socket and spawns a dedicated thread that will run the provided
+ * thread function with the socket and shared context.
+ *
+ * @param local_addr Address to bind to (NULL for client-only)
+ * @param broadcast Whether to enable broadcast support
+ * @param thread_func Function to run in the socket's dedicated thread
+ * @param shared_context Shared memory handle for cross-thread data
+ * @return Valid UDP socket on success, NULL on failure (ptk_get_err() set)
  */
-ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr, bool broadcast);
+ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr, 
+                               bool broadcast,
+                               ptk_socket_thread_func thread_func,
+                               ptk_shared_handle_t shared_context);
 
 /**
- * Send UDP data to a specific address using vectored I/O (blocking).
+ * Send UDP data to a specific address (blocking).
  *
  * @param sock UDP socket.
  * @param data Buffer containing data to send.
@@ -279,43 +296,19 @@ ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr, bool broadcast)
  * @return PTK_OK on success, PTK_ERR_TIMEOUT on timeout, PTK_ERR_NETWORK_ERROR on error.
  *         On error, ptk_get_err() provides the error code.
  */
-ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast,
-                               ptk_duration_ms timeout_ms);
+ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms);
 
 /**
- * Send UDP data to a specific address using vectored I/O (blocking).
+ * Receive UDP data (blocking).
  *
  * @param sock UDP socket.
- * @param data_array Array of buffers and addresses containing data to send.
- * @param broadcast Whether to send as broadcast.
- * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return PTK_OK on success, PTK_ERR_TIMEOUT on timeout, PTK_ERR_NETWORK_ERROR on error.
- *         On error, ptk_get_err() provides the error code.
- */
-ptk_err ptk_udp_socket_send_many_to(ptk_sock *sock, ptk_udp_buf_entry_array_t *data_array, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms);
-
-/**
- * Receive UDP data, returning an array of buffers (blocking).
- *
- * @param sock UDP socket.
- * @param sender_addr Output parameter for sender's address of last packet (can be NULL).
- * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return Buffer containing one received packet on success (must be freed with ptk_free()), 
+ * @param sender_addr Output parameter for sender's address (can be NULL).
+ * @param timeout_ms Timeout in milliseconds (0 to loop and get all available packets).
+ * @return Buffer containing received packet on success (must be freed with ptk_local_free()), 
  *         NULL on error. Check ptk_get_err() for error details.
+ *         When timeout_ms is 0, this function loops internally to collect all available packets.
  */
 ptk_buf *ptk_udp_socket_recv_from(ptk_sock *sock, ptk_address_t *sender_addr, ptk_duration_ms timeout_ms);
-
-/**
- * Receive UDP data, returning an array of buffers (blocking).
- *
- * @param sock UDP socket.
- * @param wait_for_packets If true, wait the entire timeout period and return all the packets. 
- *    If false, return as soon as any packets are available (may be one or more).
- * @param timeout_ms Timeout in milliseconds (0 for infinite).
- * @return Buffer entry array containing received packets on success (must be freed with ptk_free()), 
- *         NULL on error. Check ptk_get_err() for error details.
- */
-ptk_udp_buf_entry_array_t *ptk_udp_socket_recv_many_from(ptk_sock *sock, bool wait_for_packets, ptk_duration_ms timeout_ms);
 
 
 //=============================================================================

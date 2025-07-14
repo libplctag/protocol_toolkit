@@ -1,7 +1,7 @@
-#include "ptk_buf.h"
-#include "ptk_log.h"
-#include "ptk_alloc.h"
-#include "ptk_err.h"
+#include <ptk_buf.h>
+#include <ptk_log.h>
+#include <ptk_mem.h>
+#include <ptk_err.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -17,15 +17,15 @@ ptk_buf *ptk_buf_alloc(buf_size_t size) {
         return NULL;
     }
     
-    ptk_buf *buf = ptk_alloc(sizeof(ptk_buf), NULL);
+    ptk_buf *buf = ptk_local_alloc(sizeof(ptk_buf), NULL);
     if(!buf) { 
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL; 
     }
     
-    buf->data = ptk_alloc(size, NULL);
+    buf->data = ptk_local_alloc(size, NULL);
     if(!buf->data) {
-        ptk_free(buf);
+        ptk_local_free(&buf);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
@@ -63,7 +63,7 @@ ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size) {
         return NULL;
     }
     
-    u8 *new_data = ptk_realloc(buf->data, new_size);
+    u8 *new_data = ptk_local_realloc(buf->data, new_size);
     if(!new_data) { 
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL; 

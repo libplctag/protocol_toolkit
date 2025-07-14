@@ -15,7 +15,7 @@
 
 #include <ptk_err.h>
 #include <ptk_array.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 
 
 //=============================================================================

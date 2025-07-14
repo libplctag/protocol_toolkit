@@ -1,6 +1,6 @@
 // POSIX implementation of ptk_os_thread API
 #include <ptk_os_thread.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_log.h>
 #include <ptk_err.h>
 #include <pthread.h>
@@ -50,7 +50,7 @@ static void ptk_thread_destructor(void *ptr) {
 //============================
 
 ptk_mutex *ptk_mutex_create(void) {
-    ptk_mutex *m = ptk_alloc(sizeof(ptk_mutex), ptk_mutex_destructor);
+    ptk_mutex *m = ptk_local_alloc(sizeof(ptk_mutex), ptk_mutex_destructor);
     if (!m) {
         error("ptk_mutex_create: allocation failed");
         ptk_set_err(PTK_ERR_NO_RESOURCES);
@@ -59,21 +59,21 @@ ptk_mutex *ptk_mutex_create(void) {
     pthread_mutexattr_t attr;
     if (pthread_mutexattr_init(&attr) != 0) {
         error("ptk_mutex_create: pthread_mutexattr_init failed");
-        ptk_free(&m);
+        ptk_local_free(&m);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
     if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) != 0) {
         error("ptk_mutex_create: pthread_mutexattr_settype failed");
         pthread_mutexattr_destroy(&attr);
-        ptk_free(&m);
+        ptk_local_free(&m);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
     if (pthread_mutex_init(&m->mutex, &attr) != 0) {
         error("ptk_mutex_create: pthread_mutex_init failed");
         pthread_mutexattr_destroy(&attr);
-        ptk_free(&m);
+        ptk_local_free(&m);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
@@ -107,7 +107,7 @@ ptk_err ptk_mutex_unlock(ptk_mutex *mutex) {
 //============================
 
 ptk_cond_var *ptk_cond_var_create(void) {
-    ptk_cond_var *cv = ptk_alloc(sizeof(ptk_cond_var), ptk_cond_var_destructor);
+    ptk_cond_var *cv = ptk_local_alloc(sizeof(ptk_cond_var), ptk_cond_var_destructor);
     if (!cv) {
         error("ptk_cond_var_create: allocation failed");
         ptk_set_err(PTK_ERR_NO_RESOURCES);
@@ -115,7 +115,7 @@ ptk_cond_var *ptk_cond_var_create(void) {
     }
     if (pthread_cond_init(&cv->cond, NULL) != 0) {
         error("ptk_cond_var_create: pthread_cond_init failed");
-        ptk_free(&cv);
+        ptk_local_free(&cv);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
@@ -153,23 +153,23 @@ static void *ptk_thread_entry(void *arg) {
         void *data;
     } *info = arg;
     info->func(info->data);
-    ptk_free(&info);
+    ptk_local_free(&info);
     return NULL;
 }
 
 ptk_thread *ptk_thread_create(ptk_thread_func func, void *data) {
     if (!func) return NULL;
-    ptk_thread *t = ptk_alloc(sizeof(ptk_thread), ptk_thread_destructor);
+    ptk_thread *t = ptk_local_alloc(sizeof(ptk_thread), ptk_thread_destructor);
     if (!t) {
         error("ptk_thread_create: allocation failed");
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
     // Allocate info struct for entry
-    void *info = ptk_alloc(sizeof(ptk_thread_func) + sizeof(void *), NULL);
+    void *info = ptk_local_alloc(sizeof(ptk_thread_func) + sizeof(void *), NULL);
     if (!info) {
         error("ptk_thread_create: info allocation failed");
-        ptk_free(&t);
+        ptk_local_free(&t);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
@@ -178,8 +178,8 @@ ptk_thread *ptk_thread_create(ptk_thread_func func, void *data) {
     int res = pthread_create(&t->thread, NULL, ptk_thread_entry, info);
     if (res != 0) {
         error("ptk_thread_create: pthread_create failed: %s", strerror(res));
-        ptk_free(&info);
-        ptk_free(&t);
+        ptk_local_free(&info);
+        ptk_local_free(&t);
         ptk_set_err(PTK_ERR_CONFIGURATION_ERROR);
         return NULL;
     }
@@ -193,6 +193,6 @@ ptk_err ptk_thread_join(ptk_thread *thread) {
         error("ptk_thread_join: pthread_join failed: %s", strerror(res));
         return PTK_ERR_CONFIGURATION_ERROR;
     }
-    ptk_free(&thread);
+    ptk_local_free(&thread);
     return PTK_OK;
 }

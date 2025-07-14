@@ -3,7 +3,7 @@
  * @brief POSIX implementation of network interface listing for Protocol Toolkit
  */
 #include <ptk_sock.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_err.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
@@ -37,15 +37,15 @@ ptk_network_info *ptk_socket_network_list(void) {
         ptk_set_err(PTK_ERR_NETWORK_ERROR);
         return NULL;
     }
-    ptk_network_info *info = ptk_alloc(sizeof(ptk_network_info), NULL);
+    ptk_network_info *info = ptk_local_alloc(sizeof(ptk_network_info), NULL);
     if (!info) {
         freeifaddrs(ifaddr);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;
     }
-    info->entries = ptk_alloc(sizeof(ptk_network_info_entry) * count, NULL);
+    info->entries = ptk_local_alloc(sizeof(ptk_network_info_entry) * count, NULL);
     if (!info->entries) {
-        ptk_free(&info);
+        ptk_local_free(&info);
         freeifaddrs(ifaddr);
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL;

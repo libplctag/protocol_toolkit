@@ -3,12 +3,12 @@
 
 # Core sources (platform-independent)
 set(PTK_CORE_SOURCES
-    ptk_alloc.c
+    ptk.c
+    ptk_mem_simple.c
     ptk_buf.c
     ptk_err.c
     ptk_log.c
     ptk_utils.c
-    ptk_shared.c
     ptk_config.c
 )
 
@@ -28,14 +28,8 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         posix/atomic_operations.c
         posix/os_thread_posix.c
         posix/network_list.c
-        posix/socket.c
         linux/address.c
-        linux/linux_event_loop.c
-        linux/linux_integration.c
-        linux/socket_integration.c
-        linux/threadlet_api.c
-        linux/threadlet_core.c
-        linux/threadlet_scheduler.c
+        linux/ptk_sock_linux.c
     )
     message(STATUS "Building PTK for Linux")
     
@@ -44,7 +38,6 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "BSD|FreeBSD|OpenBSD|NetBSD")
         posix/atomic_operations.c
         posix/os_thread_posix.c
         posix/network_list.c
-        posix/socket.c
         # BSD-specific files would go in bsd/ directory
     )
     message(STATUS "Building PTK for BSD variant: ${CMAKE_SYSTEM_NAME}")
@@ -54,7 +47,6 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         posix/atomic_operations.c
         posix/os_thread_posix.c
         posix/network_list.c
-        posix/socket.c
         # macOS-specific files would go here
     )
     message(STATUS "Building PTK for macOS")
