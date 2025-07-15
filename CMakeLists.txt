@@ -11,6 +11,7 @@ endif()
 # Options
 option(PTK_BUILD_EXAMPLES "Build Protocol Toolkit examples" ${PTK_IS_MAIN_PROJECT})
 option(PTK_BUILD_TESTS "Build Protocol Toolkit tests" ${PTK_IS_MAIN_PROJECT})
+option(PTK_RUN_TESTS "Run Protocol Toolkit tests" ${PTK_IS_MAIN_PROJECT})
 option(PTK_INSTALL "Install Protocol Toolkit files" ${PTK_IS_MAIN_PROJECT})
 option(PTK_STATIC_BUILD "Build static libraries only" OFF)
 option(PTK_ENABLE_STATIC_ANALYSIS "Enable static analysis tools" OFF)
@@ -23,10 +24,22 @@ option(PTK_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+
 # Set build type if not specified
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
+
+# =============================
+# Versioning from VERSION file
+# =============================
+file(READ "${CMAKE_SOURCE_DIR}/VERSION" PROJECT_VERSION_STR)
+string(STRIP "${PROJECT_VERSION_STR}" PROJECT_VERSION_STR)
+string(REPLACE "." ";" VERSION_LIST ${PROJECT_VERSION_STR})
+list(GET VERSION_LIST 0 PROJECT_VERSION_MAJOR)
+list(GET VERSION_LIST 1 PROJECT_VERSION_MINOR)
+list(GET VERSION_LIST 2 PROJECT_VERSION_PATCH)
+set(PROJECT_VERSION "${PROJECT_VERSION_STR}")
 
 # Set output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -249,10 +262,13 @@ if(PTK_INSTALL)
         )
     endif()
 
+
+
+
     # Generate and install CMake config files
     write_basic_package_version_file(
         PTKConfigVersion.cmake
-        VERSION 1.0.0
+        VERSION ${PROJECT_VERSION}
         COMPATIBILITY AnyNewerVersion
     )
 
@@ -284,15 +300,68 @@ if(PTK_INSTALL)
     endif()
 endif()
 
+############################################################
+# Packaging (CPack) - always include, not just for install #
+############################################################
+include(CPack)
+set(CPACK_PACKAGE_NAME "protocol-toolkit")
+set(CPACK_PACKAGE_VENDOR "libplctag")
+set(CPACK_PACKAGE_CONTACT "kyle.hayes@gmail.com")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Protocol Toolkit: For creating clients and servers for industrial protocols.")
+set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE-1.MPL")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
+
+# DEB
+set(CPACK_GENERATOR "DEB;RPM;TGZ")
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Kyle Hayes")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.17)")
+set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
+set(CPACK_DEBIAN_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
+
+# RPM
+set(CPACK_RPM_PACKAGE_LICENSE "MPL-2.0")
+set(CPACK_RPM_PACKAGE_GROUP "Development/Tools")
+set(CPACK_RPM_PACKAGE_REQUIRES "libc.so.6")
+
+# Windows MSI/NSIS
+if(WIN32)
+    set(CPACK_GENERATOR "WIX;NSIS")
+    set(CPACK_WIX_UPGRADE_GUID "de49774c-8210-44be-bb1d-a461a442bdf1")
+    set(CPACK_PACKAGE_INSTALL_DIRECTORY "Protocol Toolkit")
+endif()
+
+# macOS Homebrew: build TGZ, provide formula separately
+if(APPLE)
+    set(CPACK_GENERATOR "TGZ")
+endif()
+
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "protocol-toolkit-${PROJECT_VERSION}")
+set(CPACK_SOURCE_IGNORE_FILES "/build/;/\\.git/;/\\.github/;/external_docs/;/docs/;/ideas/;/tools/attic/")
+
+
 #=============================================================================
 # TESTING
 #=============================================================================
 
-# Add test targets
-# add_custom_target(test_sockets
-#     COMMENT "Testing socket implementation"
-#     DEPENDS test_tcp_echo_abort test_udp_echo_abort
-# )
+# Run test_harness with all test binaries in build/bin (except test_harness)
+if(PTK_BUILD_TESTS AND PTK_RUN_TESTS AND UNIX)
+    set(TEST_BIN_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+    file(GLOB PTK_TEST_BINARIES RELATIVE "${TEST_BIN_DIR}" "${TEST_BIN_DIR}/test_*")
+    set(TEST_ARGS "")
+    foreach(testbin ${PTK_TEST_BINARIES})
+        if(NOT testbin STREQUAL "test_harness")
+            list(APPEND TEST_ARGS "${TEST_BIN_DIR}/${testbin}")
+        endif()
+    endforeach()
+    if(EXISTS "${TEST_BIN_DIR}/test_harness")
+        add_test(NAME run_all_ptk_tests COMMAND "${TEST_BIN_DIR}/test_harness" ${TEST_ARGS})
+    endif()
+endif()
 
 #=============================================================================
 # INFORMATION
