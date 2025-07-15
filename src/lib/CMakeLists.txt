@@ -4,7 +4,7 @@
 # Core sources (platform-independent)
 set(PTK_CORE_SOURCES
     ptk.c
-    ptk_mem_simple.c
+    ptk_mem.c
     ptk_buf.c
     ptk_err.c
     ptk_log.c
@@ -29,7 +29,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         posix/os_thread_posix.c
         posix/network_list.c
         linux/address.c
-        linux/ptk_sock_linux.c
+        # linux/ptk_sock_linux.c  # Temporarily disabled due to API changes
     )
     message(STATUS "Building PTK for Linux")
     

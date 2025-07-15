@@ -6,6 +6,10 @@ this will change a lot of macros.
 * Make sure use of ptk_shared_free() is understood correctly.
 * Build documents for shared memory and threading.
 * Longer term:
+  * Update EIP device discovery to make it work and to make it handle PLC5.
+  * macOS port.
+  * Windows port.
+  * Refactor code to reduce duplication.
   * Refactor ab_server to use this.
   * Refactor libplctag to use this.
   * Generate .md docs for all APIs.
@@ -30,6 +34,6 @@ this will change a lot of macros.
     * Automatic version increment.  Just the patch level.
     * Version comes from CMake file.  But just the major and minor version.
     * CI runs all tests on prerelease and release branches.  No PR/merge without passing.
-    * Set up github.io pages?
-    * Set up read-the-docs pages?
-    * 
+  * Set up github.io pages?
+  * Set up read-the-docs pages?
+  * 

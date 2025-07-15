@@ -38,10 +38,12 @@ int test_thread_create() {
     
     // Wait for thread to complete by waiting for signals
     ptk_err result = ptk_thread_wait(PTK_TIME_WAIT_FOREVER);
-    if(result == PTK_SIGNAL) {
-        ptk_thread_signal_t signal = ptk_thread_get_last_signal();
-        if (signal != PTK_THREAD_SIGNAL_CHILD_DIED) {
-            error("Expected child death signal, got %d", signal);
+    if(result == PTK_ERR_SIGNAL) {
+        if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
+            info("Received child death signal as expected");
+            ptk_thread_clear_signals(PTK_THREAD_SIGNAL_CHILD_DIED);
+        } else {
+            error("Expected child death signal, got 0x%lx", ptk_thread_get_pending_signals());
             ptk_shared_release(th);
             ptk_shared_release(data);
             return 3;
@@ -102,7 +104,7 @@ int test_thread_signal() {
     }
     
     // Test signaling the thread with different signal types
-    ptk_err result = ptk_thread_signal(thread, PTK_THREAD_SIGNAL_WAKEUP);
+    ptk_err result = ptk_thread_signal(thread, PTK_THREAD_SIGNAL_WAKE);
     if (result != PTK_OK) {
         error("ptk_thread_signal failed");
         ptk_shared_release(thread);
@@ -112,12 +114,12 @@ int test_thread_signal() {
     
     // Wait for child to die
     result = ptk_thread_wait(2000);  // 2 second timeout
-    if (result == PTK_SIGNAL) {
-        ptk_thread_signal_t signal = ptk_thread_get_last_signal();
-        if (signal == PTK_THREAD_SIGNAL_CHILD_DIED) {
+    if (result == PTK_ERR_SIGNAL) {
+        if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
             info("Received child death notification as expected");
+            ptk_thread_clear_signals(PTK_THREAD_SIGNAL_CHILD_DIED);
         } else {
-            error("Expected child death signal, got %d", signal);
+            error("Expected child death signal, got 0x%lx", ptk_thread_get_pending_signals());
             ptk_shared_release(thread);
             ptk_shared_release(signal_data);
             return 5;

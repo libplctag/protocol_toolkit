@@ -12,6 +12,12 @@ endif()
 option(PTK_BUILD_EXAMPLES "Build Protocol Toolkit examples" ${PTK_IS_MAIN_PROJECT})
 option(PTK_BUILD_TESTS "Build Protocol Toolkit tests" ${PTK_IS_MAIN_PROJECT})
 option(PTK_INSTALL "Install Protocol Toolkit files" ${PTK_IS_MAIN_PROJECT})
+option(PTK_STATIC_BUILD "Build static libraries only" OFF)
+option(PTK_ENABLE_STATIC_ANALYSIS "Enable static analysis tools" OFF)
+option(PTK_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(PTK_ENABLE_MSAN "Enable MemorySanitizer" OFF)
+option(PTK_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+option(PTK_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
 
 # Set C standard
 set(CMAKE_C_STANDARD 11)
@@ -38,6 +44,126 @@ elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
     set(CMAKE_C_FLAGS_DEBUG "/Zi /Od /DDEBUG")
     set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
+endif()
+
+#=============================================================================
+# SANITIZERS AND STATIC ANALYSIS
+#=============================================================================
+
+# Sanitizers are disabled for static builds as they typically don't work well together
+if(NOT PTK_STATIC_BUILD)
+    # Sanitizer configuration
+    set(SANITIZER_FLAGS "")
+    set(SANITIZER_LINK_FLAGS "")
+    
+    # AddressSanitizer
+    if(PTK_ENABLE_ASAN)
+        if(PTK_ENABLE_MSAN OR PTK_ENABLE_TSAN)
+            message(FATAL_ERROR "AddressSanitizer cannot be used with MemorySanitizer or ThreadSanitizer")
+        endif()
+        set(SANITIZER_FLAGS "${SANITIZER_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+        set(SANITIZER_LINK_FLAGS "${SANITIZER_LINK_FLAGS} -fsanitize=address")
+        message(STATUS "AddressSanitizer enabled")
+    endif()
+    
+    # MemorySanitizer
+    if(PTK_ENABLE_MSAN)
+        if(PTK_ENABLE_ASAN OR PTK_ENABLE_TSAN)
+            message(FATAL_ERROR "MemorySanitizer cannot be used with AddressSanitizer or ThreadSanitizer")
+        endif()
+        if(NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
+            message(FATAL_ERROR "MemorySanitizer requires Clang")
+        endif()
+        set(SANITIZER_FLAGS "${SANITIZER_FLAGS} -fsanitize=memory -fno-omit-frame-pointer")
+        set(SANITIZER_LINK_FLAGS "${SANITIZER_LINK_FLAGS} -fsanitize=memory")
+        message(STATUS "MemorySanitizer enabled")
+    endif()
+    
+    # UndefinedBehaviorSanitizer
+    if(PTK_ENABLE_UBSAN)
+        set(SANITIZER_FLAGS "${SANITIZER_FLAGS} -fsanitize=undefined")
+        set(SANITIZER_LINK_FLAGS "${SANITIZER_LINK_FLAGS} -fsanitize=undefined")
+        message(STATUS "UndefinedBehaviorSanitizer enabled")
+    endif()
+    
+    # ThreadSanitizer
+    if(PTK_ENABLE_TSAN)
+        if(PTK_ENABLE_ASAN OR PTK_ENABLE_MSAN)
+            message(FATAL_ERROR "ThreadSanitizer cannot be used with AddressSanitizer or MemorySanitizer")
+        endif()
+        set(SANITIZER_FLAGS "${SANITIZER_FLAGS} -fsanitize=thread")
+        set(SANITIZER_LINK_FLAGS "${SANITIZER_LINK_FLAGS} -fsanitize=thread")
+        message(STATUS "ThreadSanitizer enabled")
+    endif()
+    
+    # Apply sanitizer flags
+    if(SANITIZER_FLAGS)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZER_FLAGS}")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${SANITIZER_LINK_FLAGS}")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${SANITIZER_LINK_FLAGS}")
+    endif()
+else()
+    if(PTK_ENABLE_ASAN OR PTK_ENABLE_MSAN OR PTK_ENABLE_UBSAN OR PTK_ENABLE_TSAN)
+        message(WARNING "Sanitizers are disabled for static builds")
+    endif()
+endif()
+
+# Static Analysis Tools
+if(PTK_ENABLE_STATIC_ANALYSIS)
+    # Find cppcheck
+    find_program(CPPCHECK_EXECUTABLE cppcheck)
+    if(CPPCHECK_EXECUTABLE)
+        message(STATUS "Found cppcheck: ${CPPCHECK_EXECUTABLE}")
+        
+        # Create cppcheck target
+        add_custom_target(cppcheck
+            COMMAND ${CPPCHECK_EXECUTABLE}
+                --enable=all
+                --std=c11
+                --verbose
+                --quiet
+                --xml
+                --xml-version=2
+                --suppress=missingIncludeSystem
+                --suppress=unusedFunction
+                --suppress=unmatchedSuppression
+                src/
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Running cppcheck static analysis"
+        )
+    else()
+        message(WARNING "cppcheck not found. Static analysis will be limited.")
+    endif()
+    
+    # Find scan-build (Clang Static Analyzer)
+    find_program(SCAN_BUILD_EXECUTABLE scan-build)
+    if(SCAN_BUILD_EXECUTABLE)
+        message(STATUS "Found scan-build: ${SCAN_BUILD_EXECUTABLE}")
+        
+        # Create scan-build target
+        add_custom_target(scan-build
+            COMMAND ${SCAN_BUILD_EXECUTABLE}
+                --status-bugs
+                --use-cc=${CMAKE_C_COMPILER}
+                -o ${CMAKE_BINARY_DIR}/scan-build-reports
+                make -C ${CMAKE_BINARY_DIR}
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            COMMENT "Running Clang Static Analyzer"
+        )
+    else()
+        message(WARNING "scan-build not found. Install clang-tools for static analysis.")
+    endif()
+    
+    # Combined static analysis target
+    if(CPPCHECK_EXECUTABLE OR SCAN_BUILD_EXECUTABLE)
+        add_custom_target(static-analysis)
+        if(CPPCHECK_EXECUTABLE)
+            add_dependencies(static-analysis cppcheck)
+        endif()
+        if(SCAN_BUILD_EXECUTABLE)
+            add_dependencies(static-analysis scan-build)
+        endif()
+    endif()
 endif()
 
 # Platform-specific settings

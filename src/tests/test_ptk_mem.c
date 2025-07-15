@@ -343,9 +343,10 @@ int test_multithreaded_shared_memory() {
     ptk_shared_release(thread1_data_handle);
     ptk_shared_release(thread2_data_handle);
     
-    // Create and start threads
-    ptk_thread_handle_t thread1 = ptk_thread_create(increment_thread, thread1_data_handle);
-    ptk_thread_handle_t thread2 = ptk_thread_create(increment_thread, thread2_data_handle);
+    // Create and start threads with current thread as parent
+    ptk_thread_handle_t parent = ptk_thread_self();
+    ptk_thread_handle_t thread1 = ptk_thread_create(parent, increment_thread, thread1_data_handle);
+    ptk_thread_handle_t thread2 = ptk_thread_create(parent, increment_thread, thread2_data_handle);
     
     if (!PTK_SHARED_IS_VALID(thread1) || !PTK_SHARED_IS_VALID(thread2)) {
         error("Failed to create threads");
@@ -358,9 +359,21 @@ int test_multithreaded_shared_memory() {
     
     info("Waiting for threads to complete...");
     
-    // Wait for threads to complete
-    ptk_thread_wait(thread1, PTK_TIME_WAIT_FOREVER);
-    ptk_thread_wait(thread2, PTK_TIME_WAIT_FOREVER);
+    // Wait for child threads to complete via automatic death notification
+    int children_died = 0;
+    while (children_died < 2) {
+        ptk_err result = ptk_thread_wait(PTK_TIME_WAIT_FOREVER);
+        if (result == PTK_ERR_SIGNAL) {
+            if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
+                children_died++;
+                info("Child thread died (%d/2)", children_died);
+                ptk_thread_clear_signals(PTK_THREAD_SIGNAL_CHILD_DIED);
+            }
+        }
+    }
+    
+    // Clean up dead children
+    ptk_thread_cleanup_dead_children(parent, PTK_TIME_NO_WAIT);
     
     // Release thread handles and data
     ptk_shared_release(thread1);

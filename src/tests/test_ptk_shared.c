@@ -34,25 +34,36 @@
  */
 int test_shared_handle() {
     info("test_shared_handle entry");
-    int *obj = ptk_alloc(sizeof(int), NULL);
-    if(!obj) {
-        error("ptk_alloc failed");
+    
+    // Initialize shared memory system
+    ptk_err err = ptk_shared_init();
+    if (err != PTK_OK) {
+        error("ptk_shared_init failed");
         return 1;
     }
-    ptk_shared_handle_t handle = ptk_shared_wrap(obj);
+    
+    // Allocate shared memory directly
+    ptk_shared_handle_t handle = ptk_shared_alloc(sizeof(int), NULL);
     if(!PTK_SHARED_IS_VALID(handle)) {
-        error("ptk_shared_wrap failed");
-        ptk_free(obj);
+        error("ptk_shared_alloc failed");
+        ptk_shared_shutdown();
         return 2;
     }
-    int *acquired = (int*)ptk_shared_acquire(handle);
+    
+    int *acquired = (int*)ptk_shared_acquire(handle, PTK_TIME_WAIT_FOREVER);
     if(!acquired) {
         error("ptk_shared_acquire failed");
         ptk_shared_release(handle);
+        ptk_shared_shutdown();
         return 3;
     }
     *acquired = 42;
     ptk_shared_release(handle);
+    
+    // Clean up
+    ptk_shared_release(handle);
+    ptk_shared_shutdown();
+    
     info("test_shared_handle exit");
     return 0;
 }

@@ -62,13 +62,17 @@ typedef ptk_shared_handle_t ptk_thread_handle_t;
 #define PTK_THREAD_NO_PARENT PTK_SHARED_INVALID_HANDLE
 
 /**
- * @brief Thread signal types for unified signaling API
+ * @brief Thread signal types for unified signaling API (bitflags)
  */
 typedef enum {
-    PTK_THREAD_SIGNAL_WAKEUP,      // General wake-up signal
-    PTK_THREAD_SIGNAL_ABORT,       // Request graceful shutdown  
-    PTK_THREAD_SIGNAL_TERMINATE,   // Force immediate termination
-    PTK_THREAD_SIGNAL_CHILD_DIED   // Child death notification (automatic)
+    // Bottom 8 signals are all variations on ABORT (0x00 - 0xFF)
+    PTK_THREAD_SIGNAL_ABORT = (1 << 0),        // Request graceful shutdown  
+    PTK_THREAD_SIGNAL_TERMINATE = (1 << 1),    // Force immediate termination
+    PTK_THREAD_SIGNAL_CHILD_DIED = (1 << 2),   // Child death notification (automatic)
+    PTK_THREAD_SIGNAL_ABORT_MASK = 0xFF,       // Mask for all abort-type signals
+    
+    // Non-aborting signals (0x100 and above)
+    PTK_THREAD_SIGNAL_WAKE = (1 << 8),         // General wake-up signal
 } ptk_thread_signal_t;
 
 /* Public mutex and condition variable APIs removed.
@@ -143,13 +147,28 @@ extern ptk_err ptk_thread_wait(ptk_time_ms timeout_ms);
 extern ptk_err ptk_thread_signal(ptk_thread_handle_t handle, ptk_thread_signal_t signal_type);
 
 /**
- * @brief Get the last signal received by the calling thread.
+ * @brief Get all signals currently pending for the calling thread.
  *
- * Call this after ptk_thread_wait() returns PTK_SIGNAL to determine what signal was received.
+ * Call this after ptk_thread_wait() returns PTK_SIGNAL to determine what signals were received.
  *
- * @return The last signal type received, or PTK_THREAD_SIGNAL_WAKEUP if none
+ * @return Bitflags of all pending signals, or 0 if none
  */
-extern ptk_thread_signal_t ptk_thread_get_last_signal(void);
+extern uint64_t ptk_thread_get_pending_signals(void);
+
+/**
+ * @brief Check if a specific signal is pending for the calling thread.
+ *
+ * @param signal_bit The signal bit to check (e.g., PTK_THREAD_SIGNAL_ABORT)
+ * @return true if the signal is pending, false otherwise
+ */
+extern bool ptk_thread_has_signal(ptk_thread_signal_t signal_bit);
+
+/**
+ * @brief Clear specific signals for the calling thread.
+ *
+ * @param signal_mask Bitflags of signals to clear
+ */
+extern void ptk_thread_clear_signals(uint64_t signal_mask);
 
 //============================
 // Parent-Child Thread Management
