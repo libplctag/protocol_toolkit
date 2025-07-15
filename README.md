@@ -217,6 +217,34 @@ make test
 make install
 ```
 
+## Version Management
+
+This project uses an automated versioning system with semantic versioning (major.minor.patch). See [VERSIONING.md](VERSIONING.md) for complete details.
+
+### Quick Version Commands
+
+```bash
+# Get current version
+./scripts/version_manager.sh get
+
+# Set major/minor version (resets patch to 0)
+./scripts/version_manager.sh set-major-minor 2 0
+
+# Increment patch version
+./scripts/version_manager.sh increment-patch
+
+# Update all project files with current version
+./scripts/version_manager.sh update-files
+```
+
+### Release Process
+
+1. **Development**: Work on `dev` branch
+2. **Staging**: Merge to `prerelease` branch for testing
+3. **Validation**: Automated tests run and create PR to `release` branch
+4. **Release**: Manual merge to `release` branch triggers automatic release creation
+5. **Versioning**: Patch version auto-increments for next development cycle
+
 ## Status
 
 **Current Status**: Alpha Development

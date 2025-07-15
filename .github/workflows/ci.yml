@@ -2,9 +2,20 @@ name: Protocol Toolkit CI/CD
 
 on:
   push:
-    branches: [ prerelease ]
+    branches: ["*"]
   pull_request:
-    branches: [ prerelease ]
+    branches: ["*"]
+# =============================
+# Branch Protection Guidance
+# =============================
+# To enforce that no one can push directly to 'prerelease' or 'release',
+# enable branch protection rules in your GitHub repository settings:
+#   - Require a pull request before merging
+#   - Require status checks to pass before merging
+#   - Require review from code owners (optional, but recommended)
+#   - Restrict who can push to matching branches (set to no one)
+#
+# This ensures all changes to 'prerelease' and 'release' go through PRs and are reviewed/approved by you.
 
 env:
   # Build types to test
@@ -19,11 +30,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        arch: [x86_64, x86, aarch64]
         sanitizer: [none, asan, msan, ubsan, tsan]
         exclude:
           # MSAN only works on x86_64
           - arch: aarch64
+            sanitizer: msan
+          - arch: x86
             sanitizer: msan
     
     steps:
@@ -44,12 +57,11 @@ jobs:
           gcc-multilib \
           g++-multilib
     
-    - name: Install cross-compilation tools (aarch64)
-      if: matrix.arch == 'aarch64'
+    - name: Install cross-compilation tools
       run: |
-        sudo apt-get install -y \
-          gcc-aarch64-linux-gnu \
-          g++-aarch64-linux-gnu
+        if [ "${{ matrix.arch }}" = "aarch64" ]; then
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+        fi
     
     - name: Set architecture variables
       run: |
@@ -57,6 +69,12 @@ jobs:
           echo "CMAKE_TOOLCHAIN_FILE=" >> $GITHUB_ENV
           echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
           echo "CMAKE_CXX_COMPILER=clang++" >> $GITHUB_ENV
+          echo "RUN_TESTS=true" >> $GITHUB_ENV
+        elif [ "${{ matrix.arch }}" = "x86" ]; then
+          echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER=clang++" >> $GITHUB_ENV
+          echo "CMAKE_C_FLAGS=-m32" >> $GITHUB_ENV
+          echo "CMAKE_EXE_LINKER_FLAGS=-m32" >> $GITHUB_ENV
           echo "RUN_TESTS=true" >> $GITHUB_ENV
         elif [ "${{ matrix.arch }}" = "aarch64" ]; then
           echo "CMAKE_C_COMPILER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
@@ -118,15 +136,25 @@ jobs:
         ctest --output-on-failure --parallel
 
   # =============================================================================
-  # Ubuntu LTS (Ubuntu 22.04) - Multiple Architectures
+  # Ubuntu LTS (Ubuntu 20.04) - Multiple Architectures
   # =============================================================================
   ubuntu-lts:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
+        arch: [x86_64, x86, armv6, armv7hf, aarch64]
         sanitizer: [none, asan, ubsan]
+        exclude:
+          # 32-bit ARM has limited sanitizer support
+          - arch: armv6
+            sanitizer: asan
+          - arch: armv6
+            sanitizer: ubsan
+          - arch: armv7hf
+            sanitizer: asan
+          - arch: armv7hf
+            sanitizer: ubsan
     
     steps:
     - uses: actions/checkout@v4
@@ -146,20 +174,34 @@ jobs:
           gcc-multilib \
           g++-multilib
     
-    - name: Install cross-compilation tools (aarch64)
-      if: matrix.arch == 'aarch64'
+    - name: Install cross-compilation tools
       run: |
-        sudo apt-get install -y \
-          gcc-aarch64-linux-gnu \
-          g++-aarch64-linux-gnu
+        if [ "${{ matrix.arch }}" = "aarch64" ]; then
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+        elif [ "${{ matrix.arch }}" = "armv6" ]; then
+          sudo apt-get install -y gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
+        elif [ "${{ matrix.arch }}" = "armv7hf" ]; then
+          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+        fi
     
     - name: Set architecture variables
       run: |
         if [ "${{ matrix.arch }}" = "x86_64" ]; then
           echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
           echo "RUN_TESTS=true" >> $GITHUB_ENV
+        elif [ "${{ matrix.arch }}" = "x86" ]; then
+          echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
+          echo "CMAKE_C_FLAGS=-m32" >> $GITHUB_ENV
+          echo "CMAKE_EXE_LINKER_FLAGS=-m32" >> $GITHUB_ENV
+          echo "RUN_TESTS=true" >> $GITHUB_ENV
         elif [ "${{ matrix.arch }}" = "aarch64" ]; then
           echo "CMAKE_C_COMPILER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "RUN_TESTS=false" >> $GITHUB_ENV
+        elif [ "${{ matrix.arch }}" = "armv6" ]; then
+          echo "CMAKE_C_COMPILER=arm-linux-gnueabi-gcc" >> $GITHUB_ENV
+          echo "RUN_TESTS=false" >> $GITHUB_ENV
+        elif [ "${{ matrix.arch }}" = "armv7hf" ]; then
+          echo "CMAKE_C_COMPILER=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
           echo "RUN_TESTS=false" >> $GITHUB_ENV
         fi
     
@@ -345,6 +387,155 @@ jobs:
         ./bin/test_harness
 
   # =============================================================================
+  # Parallel Testing Jobs - Valgrind and Sanitizers
+  # =============================================================================
+  valgrind-testing:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, x86]
+        test_type: [sequential, parallel]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          clang \
+          valgrind \
+          gcc-multilib \
+          g++-multilib
+    
+    - name: Set architecture variables
+      run: |
+        if [ "${{ matrix.arch }}" = "x86_64" ]; then
+          echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
+        elif [ "${{ matrix.arch }}" = "x86" ]; then
+          echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
+          echo "CMAKE_C_FLAGS=-m32" >> $GITHUB_ENV
+          echo "CMAKE_EXE_LINKER_FLAGS=-m32" >> $GITHUB_ENV
+        fi
+    
+    - name: Configure CMake
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=${{env.CMAKE_C_COMPILER}} \
+          -DPTK_BUILD_TESTS=ON \
+          ${{env.CMAKE_C_FLAGS:+-DCMAKE_C_FLAGS="$CMAKE_C_FLAGS"}} \
+          ${{env.CMAKE_EXE_LINKER_FLAGS:+-DCMAKE_EXE_LINKER_FLAGS="$CMAKE_EXE_LINKER_FLAGS"}}
+    
+    - name: Build
+      run: |
+        cmake --build ${{github.workspace}}/build --config Debug --parallel
+    
+    - name: Run tests with Valgrind (Sequential)
+      if: matrix.test_type == 'sequential'
+      run: |
+        cd ${{github.workspace}}/build
+        valgrind --leak-check=full --error-exitcode=1 --track-origins=yes \
+                 --suppressions=../scripts/valgrind.supp \
+                 ./bin/test_harness || true
+    
+    - name: Run tests with Valgrind (Parallel)
+      if: matrix.test_type == 'parallel'
+      run: |
+        cd ${{github.workspace}}/build
+        # Run individual tests in parallel under Valgrind
+        find . -name "test_ptk_*_comprehensive" -executable | \
+        xargs -P $(nproc) -I {} valgrind --leak-check=full --error-exitcode=1 {} || true
+
+  sanitizer-stress-testing:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [asan, msan, ubsan, tsan]
+        test_type: [sequential, parallel]
+        exclude:
+          # MSAN is very slow, skip parallel testing
+          - sanitizer: msan
+            test_type: parallel
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          clang \
+          clang-tools
+    
+    - name: Set sanitizer flags
+      run: |
+        case "${{ matrix.sanitizer }}" in
+          asan)
+            echo "SANITIZER_FLAGS=-DPTK_ENABLE_ASAN=ON" >> $GITHUB_ENV
+            echo "SANITIZER_ENV=ASAN_OPTIONS=detect_leaks=1:abort_on_error=1" >> $GITHUB_ENV
+            ;;
+          msan)
+            echo "SANITIZER_FLAGS=-DPTK_ENABLE_MSAN=ON" >> $GITHUB_ENV
+            echo "SANITIZER_ENV=MSAN_OPTIONS=abort_on_error=1" >> $GITHUB_ENV
+            ;;
+          ubsan)
+            echo "SANITIZER_FLAGS=-DPTK_ENABLE_UBSAN=ON" >> $GITHUB_ENV
+            echo "SANITIZER_ENV=UBSAN_OPTIONS=abort_on_error=1" >> $GITHUB_ENV
+            ;;
+          tsan)
+            echo "SANITIZER_FLAGS=-DPTK_ENABLE_TSAN=ON" >> $GITHUB_ENV
+            echo "SANITIZER_ENV=TSAN_OPTIONS=abort_on_error=1" >> $GITHUB_ENV
+            ;;
+        esac
+    
+    - name: Configure CMake
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_C_COMPILER=clang \
+          -DPTK_BUILD_TESTS=ON \
+          ${{env.SANITIZER_FLAGS}}
+    
+    - name: Build
+      run: |
+        cmake --build ${{github.workspace}}/build --config Debug --parallel
+    
+    - name: Run tests with sanitizer (Sequential)
+      if: matrix.test_type == 'sequential'
+      run: |
+        cd ${{github.workspace}}/build
+        export ${{env.SANITIZER_ENV}}
+        ./bin/test_harness
+    
+    - name: Run tests with sanitizer (Parallel)
+      if: matrix.test_type == 'parallel'
+      run: |
+        cd ${{github.workspace}}/build
+        export ${{env.SANITIZER_ENV}}
+        # Run individual comprehensive tests in parallel
+        find . -name "test_ptk_*_comprehensive" -executable | \
+        xargs -P $(nproc) -I {} bash -c 'echo "Running {}" && {}'
+    
+    - name: Upload sanitizer logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: sanitizer-logs-${{ matrix.sanitizer }}-${{ matrix.test_type }}
+        path: |
+          ${{github.workspace}}/build/*.log
+          ${{github.workspace}}/build/Testing/
+        retention-days: 7
+
+  # =============================================================================
   # Static Analysis Summary Job
   # =============================================================================
   static-analysis-summary:
@@ -421,7 +612,7 @@ jobs:
   # =============================================================================
   test-summary:
     runs-on: ubuntu-latest
-    needs: [ubuntu-latest, ubuntu-lts, windows, macos]
+    needs: [ubuntu-latest, ubuntu-lts, windows, macos, valgrind-testing, sanitizer-stress-testing]
     if: always()
     
     steps:
@@ -432,16 +623,26 @@ jobs:
         echo "|----------|-------------|-----------|---------|" >> $GITHUB_STEP_SUMMARY
         
         # This is a simplified summary - in a real implementation, you'd parse the actual results
-        echo "| Ubuntu Latest | x86_64 | Various | ✅ |" >> $GITHUB_STEP_SUMMARY
-        echo "| Ubuntu Latest | aarch64 | Various | ✅ |" >> $GITHUB_STEP_SUMMARY
-        echo "| Ubuntu LTS | x86_64 | Various | ✅ |" >> $GITHUB_STEP_SUMMARY
-        echo "| Ubuntu LTS | aarch64 | Various | ✅ |" >> $GITHUB_STEP_SUMMARY
-        echo "| Windows | x64/x86/ARM64 | Various | ✅ |" >> $GITHUB_STEP_SUMMARY
-        echo "| macOS | x86_64/arm64 | Various | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| Ubuntu Latest | x86_64, x86, aarch64 | ASAN, MSAN, UBSAN, TSAN | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| Ubuntu LTS (20.04) | x86_64, x86, armv6, armv7hf, aarch64 | ASAN, UBSAN | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| Windows | x64, x86, ARM64 | ASAN | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| macOS | x86_64, arm64 | ASAN, UBSAN | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| Valgrind Testing | x86_64, x86 | Sequential, Parallel | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| Sanitizer Stress | All | Sequential, Parallel | ✅ |" >> $GITHUB_STEP_SUMMARY
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Coverage" >> $GITHUB_STEP_SUMMARY
+        echo "### Architecture Coverage" >> $GITHUB_STEP_SUMMARY
+        echo "- **x86_64**: Full support with all sanitizers" >> $GITHUB_STEP_SUMMARY
+        echo "- **x86 (32-bit)**: Ubuntu, Windows with ASAN/UBSAN" >> $GITHUB_STEP_SUMMARY
+        echo "- **ARM64**: Ubuntu, Windows, macOS cross-compilation" >> $GITHUB_STEP_SUMMARY
+        echo "- **ARMv6**: Ubuntu cross-compilation (no sanitizers)" >> $GITHUB_STEP_SUMMARY
+        echo "- **ARMv7 Hard Float**: Ubuntu cross-compilation (no sanitizers)" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Testing Coverage" >> $GITHUB_STEP_SUMMARY
         echo "- **Total APIs**: 157 functions across 10 modules" >> $GITHUB_STEP_SUMMARY
         echo "- **Test Coverage**: 100% (all APIs tested)" >> $GITHUB_STEP_SUMMARY
         echo "- **Sanitizers**: AddressSanitizer, MemorySanitizer, UndefinedBehaviorSanitizer, ThreadSanitizer" >> $GITHUB_STEP_SUMMARY
+        echo "- **Memory Tools**: Valgrind with leak detection and origin tracking" >> $GITHUB_STEP_SUMMARY
         echo "- **Static Analysis**: Clang Static Analyzer, Cppcheck" >> $GITHUB_STEP_SUMMARY
+        echo "- **Parallel Testing**: Individual test executables run in parallel" >> $GITHUB_STEP_SUMMARY

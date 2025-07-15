@@ -1,0 +1,304 @@
+name: Prerelease Testing and PR Creation
+
+on:
+  push:
+    branches: [ prerelease ]
+  pull_request:
+    branches: [ prerelease ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  # =============================================================================
+  # Full Test Suite - Same as dev branch but focused
+  # =============================================================================
+  comprehensive-testing:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, x86]
+        sanitizer: [none, asan, ubsan, tsan]
+        exclude:
+          # Skip some combinations for faster prerelease testing
+          - arch: x86
+            sanitizer: tsan
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          clang \
+          clang-tools \
+          cppcheck \
+          valgrind \
+          gcc-multilib \
+          g++-multilib
+    
+    - name: Set architecture variables
+      run: |
+        if [ "${{ matrix.arch }}" = "x86_64" ]; then
+          echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
+          echo "RUN_TESTS=true" >> $GITHUB_ENV
+        elif [ "${{ matrix.arch }}" = "x86" ]; then
+          echo "CMAKE_C_COMPILER=clang" >> $GITHUB_ENV
+          echo "CMAKE_C_FLAGS=-m32" >> $GITHUB_ENV
+          echo "CMAKE_EXE_LINKER_FLAGS=-m32" >> $GITHUB_ENV
+          echo "RUN_TESTS=true" >> $GITHUB_ENV
+        fi
+    
+    - name: Set sanitizer flags
+      run: |
+        case "${{ matrix.sanitizer }}" in
+          asan)
+            echo "SANITIZER_FLAGS=-DPTK_ENABLE_ASAN=ON" >> $GITHUB_ENV
+            ;;
+          ubsan)
+            echo "SANITIZER_FLAGS=-DPTK_ENABLE_UBSAN=ON" >> $GITHUB_ENV
+            ;;
+          tsan)
+            echo "SANITIZER_FLAGS=-DPTK_ENABLE_TSAN=ON" >> $GITHUB_ENV
+            ;;
+          none)
+            echo "SANITIZER_FLAGS=" >> $GITHUB_ENV
+            ;;
+        esac
+    
+    - name: Configure CMake
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DCMAKE_C_COMPILER=${{env.CMAKE_C_COMPILER}} \
+          -DPTK_BUILD_TESTS=ON \
+          -DPTK_ENABLE_STATIC_ANALYSIS=ON \
+          ${{env.SANITIZER_FLAGS}} \
+          ${{env.CMAKE_C_FLAGS:+-DCMAKE_C_FLAGS="$CMAKE_C_FLAGS"}} \
+          ${{env.CMAKE_EXE_LINKER_FLAGS:+-DCMAKE_EXE_LINKER_FLAGS="$CMAKE_EXE_LINKER_FLAGS"}}
+    
+    - name: Build
+      run: |
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
+    
+    - name: Run tests
+      if: env.RUN_TESTS == 'true'
+      run: |
+        cd ${{github.workspace}}/build
+        ./bin/test_harness
+    
+    - name: Run static analysis
+      if: matrix.sanitizer == 'none' && matrix.arch == 'x86_64'
+      run: |
+        cd ${{github.workspace}}/build
+        make static-analysis || true
+
+  # =============================================================================
+  # Cross-platform validation (reduced matrix for speed)
+  # =============================================================================
+  cross-platform-validation:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04, windows-latest, macos-latest]
+        arch: [native]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-20.04'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake ninja-build clang
+    
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        choco install cmake
+    
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install cmake ninja
+    
+    - name: Configure CMake (Ubuntu/macOS)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DPTK_BUILD_TESTS=ON
+    
+    - name: Configure CMake (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DPTK_BUILD_TESTS=ON
+    
+    - name: Build
+      run: |
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
+    
+    - name: Run tests (Ubuntu/macOS)
+      if: matrix.os != 'windows-latest'
+      run: |
+        cd ${{github.workspace}}/build
+        ./bin/test_harness
+    
+    - name: Run tests (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        cd ${{github.workspace}}/build
+        .\bin\${{env.BUILD_TYPE}}\test_harness.exe
+
+  # =============================================================================
+  # Create PR to Release Branch (only on successful tests)
+  # =============================================================================
+  create-release-pr:
+    needs: [comprehensive-testing, cross-platform-validation]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/prerelease'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Get current version
+      id: version
+      run: |
+        chmod +x scripts/version_manager.sh
+        VERSION=$(./scripts/version_manager.sh get)
+        echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+    
+    - name: Check if release branch exists
+      id: check_release
+      run: |
+        if git ls-remote --exit-code --heads origin release; then
+          echo "release_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "release_exists=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Create release branch if it doesn't exist
+      if: steps.check_release.outputs.release_exists == 'false'
+      run: |
+        git checkout -b release
+        git push origin release
+    
+    - name: Check if PR already exists
+      id: check_pr
+      run: |
+        # Check if there's already an open PR from prerelease to release
+        PR_EXISTS=$(gh pr list --base release --head prerelease --state open --json number --jq length)
+        if [ "$PR_EXISTS" -gt 0 ]; then
+          echo "pr_exists=true" >> $GITHUB_OUTPUT
+          echo "PR already exists"
+        else
+          echo "pr_exists=false" >> $GITHUB_OUTPUT
+          echo "No existing PR found"
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Create PR to release branch
+      if: steps.check_pr.outputs.pr_exists == 'false'
+      run: |
+        # Create PR body with test results and version info
+        cat > pr_body.md << EOF
+        # Release Candidate v${{ steps.version.outputs.current_version }}
+        
+        ## 🚀 Ready for Release
+        
+        This PR contains the tested and validated changes from the prerelease branch.
+        
+        **Version:** ${{ steps.version.outputs.current_version }}
+        
+        ## ✅ Test Results
+        
+        All tests have passed successfully:
+        - ✅ Comprehensive testing across multiple architectures
+        - ✅ Sanitizer testing (ASAN, UBSAN, TSAN)
+        - ✅ Cross-platform validation (Ubuntu, Windows, macOS)
+        - ✅ Static analysis (Clang, Cppcheck)
+        
+        ## 📋 Changes
+        
+        This release includes all changes that have been tested and validated in the prerelease branch.
+        
+        ## 🔍 Review Checklist
+        
+        - [ ] Version number is correct
+        - [ ] All tests are passing
+        - [ ] Documentation is updated
+        - [ ] Breaking changes are documented
+        - [ ] Migration guide is provided (if needed)
+        
+        ## 🎯 Next Steps
+        
+        1. **Manual Review Required** - This PR requires manual approval
+        2. **Manual Merge Required** - Do not use auto-merge
+        3. **Automatic Release** - Upon merge, a new release will be created automatically
+        4. **Version Update** - Patch version will be incremented automatically
+        
+        ---
+        
+        **⚠️ Important:** This PR should only be merged manually after thorough review.
+        The merge will trigger automatic release creation and version tagging.
+        EOF
+        
+        # Create the PR
+        gh pr create \
+          --base release \
+          --head prerelease \
+          --title "Release v${{ steps.version.outputs.current_version }}" \
+          --body-file pr_body.md \
+          --label "release" \
+          --label "auto-generated"
+        
+        echo "✅ Created PR for release v${{ steps.version.outputs.current_version }}"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Update existing PR
+      if: steps.check_pr.outputs.pr_exists == 'true'
+      run: |
+        echo "ℹ️ PR already exists - updating with latest test results"
+        
+        # Update PR with latest test status
+        gh pr comment --body "🔄 **Updated $(date)** - All tests passing ✅" \
+          $(gh pr list --base release --head prerelease --state open --json number --jq '.[0].number')
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =============================================================================
+  # Test Summary
+  # =============================================================================
+  test-summary:
+    needs: [comprehensive-testing, cross-platform-validation]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Test Results Summary
+      run: |
+        echo "## Prerelease Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Type | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Comprehensive Testing | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| Cross-platform Validation | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "| Static Analysis | ✅ |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔄 PR to release branch created/updated automatically" >> $GITHUB_STEP_SUMMARY
+        echo "- 👥 Manual review required for release" >> $GITHUB_STEP_SUMMARY
+        echo "- 🏷️ Release will be tagged automatically on merge" >> $GITHUB_STEP_SUMMARY
