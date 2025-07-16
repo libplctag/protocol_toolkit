@@ -1,3 +1,5 @@
+**DO NOT USE** This is pre-alpha. It will not work!
+
 # Protocol Toolkit
 
 A C library designed to make industrial network protocol implementations **simple**, **clear**, and **bulletproof**.
