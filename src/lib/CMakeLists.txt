@@ -4,7 +4,7 @@
 # Core sources (platform-independent)
 set(PTK_CORE_SOURCES
     ptk.c
-    ptk_mem.c
+    posix/mem.c
     ptk_buf.c
     ptk_err.c
     ptk_log.c
@@ -14,6 +14,7 @@ set(PTK_CORE_SOURCES
 
 # Platform-specific sources
 set(PTK_PLATFORM_SOURCES "")
+
 
 # Detect platform and add appropriate sources
 if(WIN32)
@@ -26,17 +27,17 @@ if(WIN32)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND PTK_PLATFORM_SOURCES
         posix/atomic_operations.c
-        posix/os_thread_posix.c
+        posix/thread.c
         posix/network_list.c
         linux/address.c
-        # linux/ptk_sock_linux.c  # Temporarily disabled due to API changes
+        linux/sock.c
     )
-    message(STATUS "Building PTK for Linux")
-    
+    message(STATUS "Building PTK for Linux with platform-specific sources: ${PTK_PLATFORM_SOURCES}")
+
 elseif(CMAKE_SYSTEM_NAME MATCHES "BSD|FreeBSD|OpenBSD|NetBSD")
     list(APPEND PTK_PLATFORM_SOURCES
         posix/atomic_operations.c
-        posix/os_thread_posix.c
+        posix/thread.c
         posix/network_list.c
         # BSD-specific files would go in bsd/ directory
     )
@@ -45,7 +46,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "BSD|FreeBSD|OpenBSD|NetBSD")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     list(APPEND PTK_PLATFORM_SOURCES
         posix/atomic_operations.c
-        posix/os_thread_posix.c
+        posix/thread.c
         posix/network_list.c
         # macOS-specific files would go here
     )
@@ -96,4 +97,18 @@ set_target_properties(ptk PROPERTIES
 # Add tests subdirectory (only if this is part of a main project build)
 if(PTK_BUILD_TESTS AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test)
     add_subdirectory(test)
+# Set default symbol visibility to hidden for GCC/Clang
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    set_target_properties(ptk PROPERTIES
+        C_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
+    )
+endif()
+
+# Set default symbol visibility to hidden for MSVC (Windows)
+if(MSVC)
+    set_target_properties(ptk PROPERTIES
+        WINDOWS_EXPORT_ALL_SYMBOLS OFF
+    )
+endif()
 endif()

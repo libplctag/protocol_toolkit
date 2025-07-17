@@ -90,7 +90,7 @@ jobs:
       if: env.RUN_TESTS == 'true'
       run: |
         cd ${{github.workspace}}/build
-        ./bin/test_harness
+        ctest --output-on-failure --parallel
     
     - name: Run static analysis
       if: matrix.sanitizer == 'none' && matrix.arch == 'x86_64'
@@ -150,13 +150,13 @@ jobs:
       if: matrix.os != 'windows-latest'
       run: |
         cd ${{github.workspace}}/build
-        ./bin/test_harness
+        ctest --output-on-failure --parallel
     
     - name: Run tests (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         cd ${{github.workspace}}/build
-        .\bin\${{env.BUILD_TYPE}}\test_harness.exe
+        ctest --output-on-failure --parallel
 
   # =============================================================================
   # Create PR to Release Branch (only on successful tests)

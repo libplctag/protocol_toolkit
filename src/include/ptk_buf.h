@@ -8,31 +8,10 @@
  * for stream processing operations.
  */
 
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
 #include <string.h>
-
-#include <ptk_err.h>
+#include <ptk_defs.h>
 #include <ptk_array.h>
 #include <ptk_mem.h>
-
-
-//=============================================================================
-// TYPE DEFINITIONS
-//=============================================================================
-
-// Standard type aliases for protocol definitions (without endian suffix)
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-typedef float f32;
-typedef double f64;
 
 //=============================================================================
 // SERIALIZABLE INTERFACE
@@ -42,8 +21,8 @@ typedef double f64;
  * @brief Interface for objects that can serialize/deserialize themselves
  */
 struct ptk_serializable {
-    ptk_err (*serialize)(ptk_buf *buf, struct ptk_serializable *obj);
-    ptk_err (*deserialize)(ptk_buf *buf, struct ptk_serializable *obj);
+    ptk_err_t (*serialize)(ptk_buf *buf, struct ptk_serializable *obj);
+    ptk_err_t (*deserialize)(ptk_buf *buf, struct ptk_serializable *obj);
 };
 
 typedef struct ptk_serializable ptk_serializable_t;
@@ -52,15 +31,13 @@ typedef struct ptk_serializable ptk_serializable_t;
 // BUFFER STRUCTURE
 //=============================================================================
 
-typedef uint16_t buf_size_t;
-
 /* note the small size! */
 
 typedef struct ptk_buf {
-    u8 *data;           // Pointer to start of buffer
-    buf_size_t data_len;  // Total length of buffer
-    buf_size_t start;
-    buf_size_t end;
+    ptk_u8_t *data;           // Pointer to start of buffer
+    ptk_buf_size_t data_len;  // Total length of buffer
+    ptk_buf_size_t start;
+    ptk_buf_size_t end;
 } ptk_buf;
 
 
@@ -76,12 +53,12 @@ typedef struct ptk_buf {
  * 
  * @return a new buffer or NULL if there was an error.  The thread error will be set.
  */
-extern ptk_buf *ptk_buf_alloc(buf_size_t size);
+PTK_API ptk_buf *ptk_buf_alloc(ptk_buf_size_t size);
 
 /**
  * @brief as for ptk_buf_alloc() but adds the passed data in.
  */
-extern ptk_buf *ptk_buf_alloc_from_data(const u8 *data, buf_size_t size);
+PTK_API ptk_buf *ptk_buf_alloc_from_data(const ptk_u8_t *data, ptk_buf_size_t size);
 
 /**
  * @brief Resizes the buffer.   
@@ -89,7 +66,7 @@ extern ptk_buf *ptk_buf_alloc_from_data(const u8 *data, buf_size_t size);
  * The size may not be zero.  The passed in buffer may not be NULL.
  * This does not act like POSIX realloc()!
  */
-extern ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size);
+PTK_API ptk_buf *ptk_buf_realloc(ptk_buf *buf, ptk_buf_size_t new_size);
 
 /**
  * @brief returns the length of data in the buffer (end - start).
@@ -97,7 +74,7 @@ extern ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size);
  * Returns zero if the buffer was NULL. Returns the amount of data
  * between start and end (exclusive for end).
  */
-extern buf_size_t ptk_buf_get_len(const ptk_buf *buf);
+PTK_API ptk_buf_size_t ptk_buf_get_len(const ptk_buf *buf);
 
 /**
  * @brief returns the total capacity of the buffer.
@@ -105,20 +82,20 @@ extern buf_size_t ptk_buf_get_len(const ptk_buf *buf);
  * Returns zero if the buffer was NULL. Returns the total allocated
  * size of the data block.
  */
-extern buf_size_t ptk_buf_get_capacity(const ptk_buf *buf);
+PTK_API ptk_buf_size_t ptk_buf_get_capacity(const ptk_buf *buf);
 
-extern buf_size_t ptk_buf_get_start(const ptk_buf *buf);
-extern ptk_err ptk_buf_set_start(ptk_buf *buf, buf_size_t start);
+PTK_API ptk_buf_size_t ptk_buf_get_start(const ptk_buf *buf);
+PTK_API ptk_err_t ptk_buf_set_start(ptk_buf *buf, ptk_buf_size_t start);
 
-extern buf_size_t ptk_buf_get_end(const ptk_buf *buf);
-extern ptk_err ptk_buf_set_end(ptk_buf *buf, buf_size_t end);
+PTK_API ptk_buf_size_t ptk_buf_get_end(const ptk_buf *buf);
+PTK_API ptk_err_t ptk_buf_set_end(ptk_buf *buf, ptk_buf_size_t end);
 
 /**
  * @brief Move the block of memory (start to end) to the new position in the buffer.
  * 
  * @return OK or OUT_OF_BOUNDS if the block would go out of bounds.
  */
-extern ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position);
+PTK_API ptk_err_t ptk_buf_move_block(ptk_buf *buf, ptk_buf_size_t new_position);
 
 /* Use ptk_local_free() to free buffers allocated with ptk_buf_alloc() */
 
@@ -133,7 +110,7 @@ extern ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position);
  * @param val The byte value to set
  * @return PTK_OK on success, error code on failure
  */
-extern ptk_err ptk_buf_set_u8(ptk_buf *buf, u8 val);
+PTK_API extern ptk_err_t ptk_buf_set_u8(ptk_buf *buf, ptk_u8_t val);
 
 /**
  * @brief Get a single byte from the current start position and advance start
@@ -141,7 +118,7 @@ extern ptk_err ptk_buf_set_u8(ptk_buf *buf, u8 val);
  * @param buf The buffer to read from
  * @return The byte value, or 0 if error (check ptk_get_err())
  */
-extern u8 ptk_buf_get_u8(ptk_buf *buf);
+PTK_API extern ptk_u8_t ptk_buf_get_u8(ptk_buf *buf);
 
 //=============================================================================
 // TYPE-SAFE SERIALIZATION API
@@ -175,7 +152,7 @@ typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endia
  * @param ... Alternating type_enum, value pairs
  * @return Error code
  */
-extern ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t count, ...);
+PTK_API extern ptk_err_t ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, ptk_buf_size_t count, ...);
 
 /**
  * Implementation function for type-safe deserialization
@@ -193,7 +170,7 @@ extern ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf
  * @param ... Alternating type_enum, pointer pairs
  * @return Error code
  */
-extern ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, buf_size_t count, ...);
+PTK_API extern ptk_err_t ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, ptk_buf_size_t count, ...);
 
 /* byte swap helpers */
 
@@ -201,14 +178,14 @@ extern ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_
  * @brief swap the bytes in each 16-bit word
  *
  * @param value
- * @return u32
+ * @return ptk_u32_t
  */
-static inline u32 ptk_buf_byte_swap_u32(u32 value) {
+static inline ptk_u32_t ptk_buf_byte_swap_u32(ptk_u32_t value) {
     return ((value & 0x000000FF) << 24) | ((value & 0x0000FF00) << 8) | ((value & 0x00FF0000) >> 8)
            | ((value & 0xFF000000) >> 24);
 }
 
-static inline u64 ptk_buf_byte_swap_u64(u64 value) {
+static inline ptk_u64_t ptk_buf_byte_swap_u64(ptk_u64_t value) {
     return ((value & 0x00000000000000FFULL) << 56) | ((value & 0x000000000000FF00ULL) << 40)
            | ((value & 0x0000000000FF0000ULL) << 24) | ((value & 0x00000000FF000000ULL) << 8)
            | ((value & 0x000000FF00000000ULL) >> 8) | ((value & 0x0000FF0000000000ULL) >> 24)
@@ -407,7 +384,7 @@ typedef struct {
 } eip_header_t;
 
 // Implementation of serialize method
-static ptk_err eip_header_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t eip_header_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     eip_header_t *header = (eip_header_t*)obj;
     return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
         header->command, header->length, header->session_handle,
@@ -415,7 +392,7 @@ static ptk_err eip_header_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
 }
 
 // Implementation of deserialize method
-static ptk_err eip_header_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t eip_header_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     eip_header_t *header = (eip_header_t*)obj;
     return ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
         &header->command, &header->length, &header->session_handle,
@@ -435,7 +412,7 @@ void example_usage(ptk_buf *buffer) {
     eip_header_init(&header);
 
     // Direct PDU serialization - just pass the PDU to ptk_buf_serialize
-    ptk_err err = ptk_buf_serialize(buffer, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_serialize(buffer, PTK_BUF_LITTLE_ENDIAN,
         (ptk_serializable_t*)&header);
 
     // Direct PDU deserialization - just pass the PDU to ptk_buf_deserialize

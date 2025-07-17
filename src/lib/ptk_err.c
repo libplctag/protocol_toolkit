@@ -1,8 +1,8 @@
 #include "ptk_err.h"
 
-ptk_thread_local ptk_err ptk_current_error = PTK_OK;
+ptk_thread_local ptk_err_t ptk_current_error = PTK_OK;
 
-const char *ptk_err_to_string(ptk_err err) {
+const char *ptk_err_to_string(ptk_err_t err) {
     switch(err) {
         case PTK_OK: return "Success";
         case PTK_ERR_ABORT: return "The current operation was aborted.";

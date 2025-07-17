@@ -1,177 +1,52 @@
 # Protocol Toolkit Tests
+cmake_minimum_required(VERSION 3.10)
+project(ProtocolToolkitTests C)
 
-# Test Harness - Main test runner
-add_executable(test_harness 
-    test_harness.c
-    test_ptk_array_comprehensive.c
-    test_ptk_atomic_comprehensive.c
-    test_ptk_buf_comprehensive.c
-    test_ptk_config_comprehensive.c
-    test_ptk_err_comprehensive.c
-    test_ptk_log_comprehensive.c
-    test_ptk_mem.c
-    test_ptk_os_thread_comprehensive.c
-    test_ptk_sock_comprehensive.c
-    test_ptk_utils_comprehensive.c
-)
-target_link_libraries(test_harness ptk::ptk)
+# Common settings for all test executables
+function(add_ptk_test TEST_NAME SOURCE_FILE)
+    add_executable(${TEST_NAME} ${SOURCE_FILE})
+    target_link_libraries(${TEST_NAME} PRIVATE ptk::ptk)
+    target_include_directories(${TEST_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/src/include")
+endfunction()
 
-# Basic tests (legacy)
-add_executable(test_ptk_config test_ptk_config.c)
-target_link_libraries(test_ptk_config ptk::ptk)
+# Individual test executables
+add_ptk_test(test_ptk_array test_ptk_array_comprehensive.c)
+add_ptk_test(test_ptk_atomic test_ptk_atomic_comprehensive.c)
+add_ptk_test(test_ptk_buf test_ptk_buf_comprehensive.c)
+add_ptk_test(test_ptk_config test_ptk_config_comprehensive.c)
+add_ptk_test(test_ptk_err test_ptk_err_comprehensive.c)
+add_ptk_test(test_ptk_log test_ptk_log_comprehensive.c)
+add_ptk_test(test_ptk_mem test_ptk_mem.c)
+add_ptk_test(test_ptk_os_thread test_ptk_os_thread_comprehensive.c)
+add_ptk_test(test_ptk_sock test_ptk_sock_comprehensive.c)
+add_ptk_test(test_ptk_utils test_ptk_utils_comprehensive.c)
 
-add_executable(test_ptk_os_thread test_ptk_os_thread.c)
-target_link_libraries(test_ptk_os_thread ptk::ptk)
+# Add individual tests to CTest
+add_test(NAME ptk_array COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_array)
+add_test(NAME ptk_atomic COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_atomic)
+add_test(NAME ptk_buf COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_buf)
+add_test(NAME ptk_config COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_config)
+add_test(NAME ptk_err_t COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_err)
+add_test(NAME ptk_log COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_log)
+add_test(NAME ptk_mem COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_mem)
+add_test(NAME ptk_os_thread COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_os_thread)
+add_test(NAME ptk_sock COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_sock)
+add_test(NAME ptk_utils COMMAND ${CMAKE_BINARY_DIR}/bin/test_ptk_utils)
 
-# Core library tests
-add_executable(test_ptk_mem test_ptk_mem.c)
-target_link_libraries(test_ptk_mem ptk::ptk)
-
-add_executable(test_ptk_array test_ptk_array.c)
-target_link_libraries(test_ptk_array ptk::ptk)
-
-add_executable(test_ptk_atomic test_ptk_atomic.c)
-target_link_libraries(test_ptk_atomic ptk::ptk)
-
-add_executable(test_ptk_buf test_ptk_buf.c)
-target_link_libraries(test_ptk_buf ptk::ptk)
-
-add_executable(test_ptk_err test_ptk_err.c)
-target_link_libraries(test_ptk_err ptk::ptk)
-
-add_executable(test_ptk_log test_ptk_log.c)
-target_link_libraries(test_ptk_log ptk::ptk)
-
-add_executable(test_ptk_shared test_ptk_shared.c)
-target_link_libraries(test_ptk_shared ptk::ptk)
-
-add_executable(test_ptk_utils test_ptk_utils.c)
-target_link_libraries(test_ptk_utils ptk::ptk)
-
-add_executable(test_ptk_sock test_ptk_sock.c)
-target_link_libraries(test_ptk_sock ptk::ptk)
-
-add_executable(test_ptk_sock_udp test_ptk_sock_udp.c)
-target_link_libraries(test_ptk_sock_udp ptk::ptk)
-
-# Comprehensive tests (individual executables)
-add_executable(test_ptk_array_comprehensive test_ptk_array_comprehensive.c)
-target_link_libraries(test_ptk_array_comprehensive ptk::ptk)
-
-add_executable(test_ptk_atomic_comprehensive test_ptk_atomic_comprehensive.c)
-target_link_libraries(test_ptk_atomic_comprehensive ptk::ptk)
-
-add_executable(test_ptk_buf_comprehensive test_ptk_buf_comprehensive.c)
-target_link_libraries(test_ptk_buf_comprehensive ptk::ptk)
-
-add_executable(test_ptk_config_comprehensive test_ptk_config_comprehensive.c)
-target_link_libraries(test_ptk_config_comprehensive ptk::ptk)
-
-add_executable(test_ptk_err_comprehensive test_ptk_err_comprehensive.c)
-target_link_libraries(test_ptk_err_comprehensive ptk::ptk)
-
-add_executable(test_ptk_log_comprehensive test_ptk_log_comprehensive.c)
-target_link_libraries(test_ptk_log_comprehensive ptk::ptk)
-
-add_executable(test_ptk_os_thread_comprehensive test_ptk_os_thread_comprehensive.c)
-target_link_libraries(test_ptk_os_thread_comprehensive ptk::ptk)
-
-add_executable(test_ptk_sock_comprehensive test_ptk_sock_comprehensive.c)
-target_link_libraries(test_ptk_sock_comprehensive ptk::ptk)
-
-add_executable(test_ptk_utils_comprehensive test_ptk_utils_comprehensive.c)
-target_link_libraries(test_ptk_utils_comprehensive ptk::ptk)
-
-# Type-safe serialization test (disabled - missing source file)
-# add_executable(test_type_safe_serialize test_type_safe_serialize.c)
-# target_link_libraries(test_type_safe_serialize ptk::ptk)
-
-# Enable CTest and add all test executables
-enable_testing()
-
-# Add the main test harness as the primary test
-add_test(NAME test_harness_all COMMAND test_harness)
-
-# Add tests with Valgrind on Linux if available
+# Add test with Valgrind on Linux if available
 if(UNIX AND NOT APPLE)
     find_program(VALGRIND_EXECUTABLE valgrind)
     if(VALGRIND_EXECUTABLE)
-        # Primary comprehensive test with Valgrind
-        add_test(NAME test_harness_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_harness)
-        
-        # Individual comprehensive tests with Valgrind
-        add_test(NAME test_ptk_array_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_array_comprehensive)
-        add_test(NAME test_ptk_atomic_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_atomic_comprehensive)
-        add_test(NAME test_ptk_buf_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_buf_comprehensive)
-        add_test(NAME test_ptk_config_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_config_comprehensive)
-        add_test(NAME test_ptk_err_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_err_comprehensive)
-        add_test(NAME test_ptk_log_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_log_comprehensive)
-        add_test(NAME test_ptk_os_thread_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_os_thread_comprehensive)
-        add_test(NAME test_ptk_sock_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_sock_comprehensive)
-        add_test(NAME test_ptk_utils_comprehensive_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_utils_comprehensive)
-        
-        # Legacy tests with Valgrind
-        add_test(NAME test_ptk_config_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_config)
-        add_test(NAME test_ptk_os_thread_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_os_thread)
-        add_test(NAME test_ptk_mem_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_mem)
-        add_test(NAME test_ptk_array_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_array)
-        add_test(NAME test_ptk_atomic_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_atomic)
-        add_test(NAME test_ptk_buf_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_buf)
-        add_test(NAME test_ptk_err_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_err)
-        add_test(NAME test_ptk_log_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_log)
-        add_test(NAME test_ptk_shared_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_shared)
-        add_test(NAME test_ptk_utils_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_utils)
-        add_test(NAME test_ptk_sock_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_sock)
-        add_test(NAME test_ptk_sock_udp_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 test_ptk_sock_udp)
-    else()
-        # Individual comprehensive tests without Valgrind
-        add_test(NAME test_ptk_array_comprehensive COMMAND test_ptk_array_comprehensive)
-        add_test(NAME test_ptk_atomic_comprehensive COMMAND test_ptk_atomic_comprehensive)
-        add_test(NAME test_ptk_buf_comprehensive COMMAND test_ptk_buf_comprehensive)
-        add_test(NAME test_ptk_config_comprehensive COMMAND test_ptk_config_comprehensive)
-        add_test(NAME test_ptk_err_comprehensive COMMAND test_ptk_err_comprehensive)
-        add_test(NAME test_ptk_log_comprehensive COMMAND test_ptk_log_comprehensive)
-        add_test(NAME test_ptk_os_thread_comprehensive COMMAND test_ptk_os_thread_comprehensive)
-        add_test(NAME test_ptk_sock_comprehensive COMMAND test_ptk_sock_comprehensive)
-        add_test(NAME test_ptk_utils_comprehensive COMMAND test_ptk_utils_comprehensive)
-        
-        # Legacy tests without Valgrind
-        add_test(NAME test_ptk_config COMMAND test_ptk_config)
-        add_test(NAME test_ptk_os_thread COMMAND test_ptk_os_thread)
-        add_test(NAME test_ptk_mem COMMAND test_ptk_mem)
-        add_test(NAME test_ptk_array COMMAND test_ptk_array)
-        add_test(NAME test_ptk_atomic COMMAND test_ptk_atomic)
-        add_test(NAME test_ptk_buf COMMAND test_ptk_buf)
-        add_test(NAME test_ptk_err COMMAND test_ptk_err)
-        add_test(NAME test_ptk_log COMMAND test_ptk_log)
-        add_test(NAME test_ptk_shared COMMAND test_ptk_shared)
-        add_test(NAME test_ptk_utils COMMAND test_ptk_utils)
-        add_test(NAME test_ptk_sock COMMAND test_ptk_sock)
-        add_test(NAME test_ptk_sock_udp COMMAND test_ptk_sock_udp)
+        # Add individual valgrind tests
+        add_test(NAME ptk_array_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_array)
+        add_test(NAME ptk_atomic_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_atomic)
+        add_test(NAME ptk_buf_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_buf)
+        add_test(NAME ptk_config_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_config)
+        add_test(NAME ptk_err_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_err)
+        add_test(NAME ptk_log_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_log)
+        add_test(NAME ptk_mem_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_mem)
+        add_test(NAME ptk_os_thread_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_os_thread)
+        add_test(NAME ptk_sock_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_sock)
+        add_test(NAME ptk_utils_valgrind COMMAND ${VALGRIND_EXECUTABLE} --leak-check=full --error-exitcode=1 ${CMAKE_BINARY_DIR}/bin/test_ptk_utils)
     endif()
-else()
-    # Individual comprehensive tests for non-Linux platforms
-    add_test(NAME test_ptk_array_comprehensive COMMAND test_ptk_array_comprehensive)
-    add_test(NAME test_ptk_atomic_comprehensive COMMAND test_ptk_atomic_comprehensive)
-    add_test(NAME test_ptk_buf_comprehensive COMMAND test_ptk_buf_comprehensive)
-    add_test(NAME test_ptk_config_comprehensive COMMAND test_ptk_config_comprehensive)
-    add_test(NAME test_ptk_err_comprehensive COMMAND test_ptk_err_comprehensive)
-    add_test(NAME test_ptk_log_comprehensive COMMAND test_ptk_log_comprehensive)
-    add_test(NAME test_ptk_os_thread_comprehensive COMMAND test_ptk_os_thread_comprehensive)
-    add_test(NAME test_ptk_sock_comprehensive COMMAND test_ptk_sock_comprehensive)
-    add_test(NAME test_ptk_utils_comprehensive COMMAND test_ptk_utils_comprehensive)
-    
-    # Legacy tests for non-Linux platforms
-    add_test(NAME test_ptk_config COMMAND test_ptk_config)
-    add_test(NAME test_ptk_os_thread COMMAND test_ptk_os_thread)
-    add_test(NAME test_ptk_mem COMMAND test_ptk_mem)
-    add_test(NAME test_ptk_array COMMAND test_ptk_array)
-    add_test(NAME test_ptk_atomic COMMAND test_ptk_atomic)
-    add_test(NAME test_ptk_buf COMMAND test_ptk_buf)
-    add_test(NAME test_ptk_err COMMAND test_ptk_err)
-    add_test(NAME test_ptk_log COMMAND test_ptk_log)
-    add_test(NAME test_ptk_shared COMMAND test_ptk_shared)
-    add_test(NAME test_ptk_utils COMMAND test_ptk_utils)
-    add_test(NAME test_ptk_sock COMMAND test_ptk_sock)
-    add_test(NAME test_ptk_sock_udp COMMAND test_ptk_sock_udp)
 endif()

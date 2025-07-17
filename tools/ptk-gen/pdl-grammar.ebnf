@@ -92,7 +92,7 @@ length_attribute = "decode" ":" expression_or_function |
 type_reference = identifier | namespaced_identifier ;
 namespaced_identifier = identifier "." identifier ;
 
-base_type = "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64" ;
+base_type = "ptk_u8_t" | "ptk_u16_t" | "ptk_u32_t" | "ptk_u64_t" | "ptk_i8_t" | "ptk_i16_t" | "ptk_i32_t" | "ptk_i64_t" | "ptk_f32_t" | "ptk_f64_t" ;
 
 aggregate_type_value = "message" ;
 
@@ -172,9 +172,9 @@ newline = (* newline character *) ;
  * - Array sizing: Simple shortcuts (type[field] or type[constant]) and complex length attribute
  * - Complex arrays: Use length: { decode: expr, encode: expr } for calculated sizes
  * - Safe array accessors: Generated bounds-checked accessors for all array types
- * - Bit arrays: Container-type specific bit arrays (u8, u16, u32 containers)
+ * - Bit arrays: Container-type specific bit arrays (ptk_u8_t, ptk_u16_t, ptk_u32_t containers)
  * - Bit fields: Individual bit and multi-bit field extraction from container fields
- * - Fixed arrays with byte ordering: Support for u8[N] with custom byte_order arrays
+ * - Fixed arrays with byte ordering: Support for ptk_u8_t[N] with custom byte_order arrays
  * - Array byte ordering: Handles complex wire formats like PLC5 word-swapped strings
  * - Byte order validation: Length must match type size (primitives) or array length (arrays)
  * - Expression support: Full expression language with operator precedence

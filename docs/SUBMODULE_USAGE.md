@@ -90,7 +90,7 @@ target_link_libraries(my_app PRIVATE ptk::ptk)
 
 int main() {
     // Initialize PTK
-    ptk_err err = ptk_startup();
+    ptk_err_t err = ptk_startup();
     if (err != PTK_OK) {
         return 1;
     }

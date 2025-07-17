@@ -115,11 +115,66 @@ int test_local_realloc() {
     return 0;
 }
 
+int test_local_is_allocated() {
+    info("test_local_is_allocated entry");
+    
+    // Test with a valid allocated pointer
+    void *ptr = ptk_local_alloc(100, NULL);
+    if (!ptr) {
+        error("ptk_local_alloc failed");
+        return 1;
+    }
+    
+    // Test that allocated pointer is recognized
+    if (!ptk_local_is_allocated(ptr)) {
+        error("ptk_local_is_allocated failed to recognize allocated pointer");
+        ptk_local_free(&ptr);
+        return 2;
+    }
+    
+    // Test with NULL pointer
+    if (ptk_local_is_allocated(NULL)) {
+        error("ptk_local_is_allocated should return false for NULL");
+        ptk_local_free(&ptr);
+        return 3;
+    }
+    
+    // Test with a stack pointer
+    int stack_var = 42;
+    if (ptk_local_is_allocated(&stack_var)) {
+        error("ptk_local_is_allocated should return false for stack pointer");
+        ptk_local_free(&ptr);
+        return 4;
+    }
+    
+    // Test with a malloc'd pointer (not ptk_local_alloc)
+    void *malloc_ptr = malloc(100);
+    if (malloc_ptr && ptk_local_is_allocated(malloc_ptr)) {
+        error("ptk_local_is_allocated should return false for malloc'd pointer");
+        free(malloc_ptr);
+        ptk_local_free(&ptr);
+        return 5;
+    }
+    if (malloc_ptr) {
+        free(malloc_ptr);
+    }
+    
+    // Free the pointer and test that it's no longer recognized
+    ptk_local_free(&ptr);
+    if (ptr != NULL) {
+        error("ptk_local_free should set pointer to NULL");
+        return 6;
+    }
+    
+    info("test_local_is_allocated exit");
+    return 0;
+}
+
 int test_shared_memory() {
     info("test_shared_memory entry");
     
     // Initialize shared memory subsystem
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -127,7 +182,7 @@ int test_shared_memory() {
     
     // Allocate shared memory directly
     ptk_shared_handle_t handle = ptk_shared_alloc(sizeof(int) * 10, NULL);
-    if (!PTK_SHARED_IS_VALID(handle)) {
+    if (!ptk_shared_is_valid(handle)) {
         error("ptk_shared_alloc failed");
         ptk_shared_shutdown();
         return 2;
@@ -181,7 +236,7 @@ int test_shared_memory() {
 int test_use_shared_macro() {
     info("test_use_shared_macro entry");
     
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -189,7 +244,7 @@ int test_use_shared_macro() {
     
     // Allocate shared memory for test
     ptk_shared_handle_t handle = ptk_shared_alloc(sizeof(int), NULL);
-    if (!PTK_SHARED_IS_VALID(handle)) {
+    if (!ptk_shared_is_valid(handle)) {
         error("ptk_shared_alloc failed");
         ptk_shared_shutdown();
         return 2;
@@ -264,7 +319,14 @@ typedef struct {
     int thread_id;
 } thread_data_t;
 
-void increment_thread(ptk_shared_handle_t param) {
+void increment_thread(void) {
+    // Use ptk_thread_get_handle_arg(0) to get the argument
+    ptk_shared_handle_t param = ptk_thread_get_handle_arg(0);
+    if (!ptk_shared_is_valid(param)) {
+        error("Thread failed to get parameter handle");
+        return;
+    }
+    
     // Acquire the thread data from shared memory
     thread_data_t *data = ptk_shared_acquire(param, PTK_TIME_WAIT_FOREVER);
     if (!data) {
@@ -292,7 +354,7 @@ int test_multithreaded_shared_memory() {
     info("test_multithreaded_shared_memory entry");
     
     // Initialize shared memory subsystem
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -300,7 +362,7 @@ int test_multithreaded_shared_memory() {
     
     // Allocate shared counter
     ptk_shared_handle_t handle = ptk_shared_alloc(sizeof(shared_counter_t), NULL);
-    if (!PTK_SHARED_IS_VALID(handle)) {
+    if (!ptk_shared_is_valid(handle)) {
         error("ptk_shared_alloc failed");
         ptk_shared_shutdown();
         return 2;
@@ -321,7 +383,7 @@ int test_multithreaded_shared_memory() {
     ptk_shared_handle_t thread1_data_handle = ptk_shared_alloc(sizeof(thread_data_t), NULL);
     ptk_shared_handle_t thread2_data_handle = ptk_shared_alloc(sizeof(thread_data_t), NULL);
     
-    if (!PTK_SHARED_IS_VALID(thread1_data_handle) || !PTK_SHARED_IS_VALID(thread2_data_handle)) {
+    if (!ptk_shared_is_valid(thread1_data_handle) || !ptk_shared_is_valid(thread2_data_handle)) {
         error("Failed to allocate thread data");
         ptk_shared_release(handle);
         ptk_shared_shutdown();
@@ -345,11 +407,86 @@ int test_multithreaded_shared_memory() {
     
     // Create and start threads with current thread as parent
     ptk_thread_handle_t parent = ptk_thread_self();
-    ptk_thread_handle_t thread1 = ptk_thread_create(parent, increment_thread, thread1_data_handle);
-    ptk_thread_handle_t thread2 = ptk_thread_create(parent, increment_thread, thread2_data_handle);
+    ptk_thread_handle_t thread1 = ptk_thread_create();
+    ptk_thread_handle_t thread2 = ptk_thread_create();
     
-    if (!PTK_SHARED_IS_VALID(thread1) || !PTK_SHARED_IS_VALID(thread2)) {
+    if (!ptk_shared_is_valid(thread1) || !ptk_shared_is_valid(thread2)) {
         error("Failed to create threads");
+        ptk_shared_release(thread1_data_handle);
+        ptk_shared_release(thread2_data_handle);
+        ptk_shared_release(handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    // Configure thread1
+    err = ptk_thread_add_handle_arg(thread1, 0, &thread1_data_handle);
+    if (err != PTK_OK) {
+        error("Failed to add handle arg to thread1: %d", err);
+        ptk_shared_release(thread1);
+        ptk_shared_release(thread2);
+        ptk_shared_release(thread1_data_handle);
+        ptk_shared_release(thread2_data_handle);
+        ptk_shared_release(handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    err = ptk_thread_set_run_function(thread1, increment_thread);
+    if (err != PTK_OK) {
+        error("Failed to set run function for thread1: %d", err);
+        ptk_shared_release(thread1);
+        ptk_shared_release(thread2);
+        ptk_shared_release(thread1_data_handle);
+        ptk_shared_release(thread2_data_handle);
+        ptk_shared_release(handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    // Configure thread2
+    err = ptk_thread_add_handle_arg(thread2, 0, &thread2_data_handle);
+    if (err != PTK_OK) {
+        error("Failed to add handle arg to thread2: %d", err);
+        ptk_shared_release(thread1);
+        ptk_shared_release(thread2);
+        ptk_shared_release(thread1_data_handle);
+        ptk_shared_release(thread2_data_handle);
+        ptk_shared_release(handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    err = ptk_thread_set_run_function(thread2, increment_thread);
+    if (err != PTK_OK) {
+        error("Failed to set run function for thread2: %d", err);
+        ptk_shared_release(thread1);
+        ptk_shared_release(thread2);
+        ptk_shared_release(thread1_data_handle);
+        ptk_shared_release(thread2_data_handle);
+        ptk_shared_release(handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    // Start both threads
+    err = ptk_thread_start(thread1);
+    if (err != PTK_OK) {
+        error("Failed to start thread1: %d", err);
+        ptk_shared_release(thread1);
+        ptk_shared_release(thread2);
+        ptk_shared_release(thread1_data_handle);
+        ptk_shared_release(thread2_data_handle);
+        ptk_shared_release(handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    err = ptk_thread_start(thread2);
+    if (err != PTK_OK) {
+        error("Failed to start thread2: %d", err);
+        ptk_shared_release(thread1);
+        ptk_shared_release(thread2);
         ptk_shared_release(thread1_data_handle);
         ptk_shared_release(thread2_data_handle);
         ptk_shared_release(handle);
@@ -362,7 +499,7 @@ int test_multithreaded_shared_memory() {
     // Wait for child threads to complete via automatic death notification
     int children_died = 0;
     while (children_died < 2) {
-        ptk_err result = ptk_thread_wait(PTK_TIME_WAIT_FOREVER);
+        ptk_err_t result = ptk_thread_wait(PTK_TIME_WAIT_FOREVER);
         if (result == PTK_ERR_SIGNAL) {
             if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
                 children_died++;
@@ -429,6 +566,12 @@ int main() {
     result = test_local_realloc();
     if (result != 0) {
         error("test_local_realloc failed with code %d", result);
+        return result;
+    }
+    
+    result = test_local_is_allocated();
+    if (result != 0) {
+        error("test_local_is_allocated failed with code %d", result);
         return result;
     }
     

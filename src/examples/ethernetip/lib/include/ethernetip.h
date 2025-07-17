@@ -2,7 +2,7 @@
 #pragma once
 
 
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_array.h>
 #include <ptk_err.h>
 #include <ptk_buf.h>
@@ -160,7 +160,7 @@ PTK_ARRAY_DECLARE(cip_segment, cip_segment_u);
  */
 
 // CIP Path functions
-ptk_err cip_ioi_path_pdu_create_from_string(cip_segment_array_t *path, const char *path_string);
+ptk_err_t cip_ioi_path_pdu_create_from_string(cip_segment_array_t *path, const char *path_string);
 
 
 //=============================================================================
@@ -278,20 +278,20 @@ eip_pdu_base_t *eip_pdu_send(eip_pdu_base_t **pdu, ptk_duration_ms timeout_ms);
 eip_connection_t *eip_client_connect(const char *host, int port);
 eip_connection_t *eip_client_connect_udp(const char *host, int port);
 eip_connection_t *eip_server_listen(const char *host, int port, int backlog);
-ptk_err eip_abort(eip_connection_t *conn);
-ptk_err eip_signal(eip_connection_t *conn);
-ptk_err eip_wait_for_signal(eip_connection_t *conn, ptk_duration_ms timeout_ms);
+ptk_err_t eip_abort(eip_connection_t *conn);
+ptk_err_t eip_signal(eip_connection_t *conn);
+ptk_err_t eip_wait_for_signal(eip_connection_t *conn, ptk_duration_ms timeout_ms);
 
 //=============================================================================
 // EIP PDU DEFINITIONS
 //=============================================================================
 
 // Function declaration for serialization functions
-ptk_err eip_list_identity_req_serialize(ptk_buf *buf, struct eip_list_identity_req_t *req);
-ptk_err eip_list_identity_resp_serialize(ptk_buf *buf, struct eip_list_identity_resp_t *resp);
-ptk_err eip_list_identity_resp_deserialize(ptk_buf *buf, struct eip_list_identity_resp_t *resp);
-ptk_err cip_segment_serialize(ptk_buf *buf, const union cip_segment_u *segment);
-ptk_err cip_segment_array_serialize(ptk_buf *buf, const cip_segment_array_t *segments);
+ptk_err_t eip_list_identity_req_serialize(ptk_buf *buf, struct eip_list_identity_req_t *req);
+ptk_err_t eip_list_identity_resp_serialize(ptk_buf *buf, struct eip_list_identity_resp_t *resp);
+ptk_err_t eip_list_identity_resp_deserialize(ptk_buf *buf, struct eip_list_identity_resp_t *resp);
+ptk_err_t cip_segment_serialize(ptk_buf *buf, const union cip_segment_u *segment);
+ptk_err_t cip_segment_array_serialize(ptk_buf *buf, const cip_segment_array_t *segments);
 
 //=============================================================================
 // CONVENIENCE FUNCTIONS

@@ -100,7 +100,7 @@ int test_array_get_set_operations(void) {
     
     // Test int_array_set
     for (int i = 0; i < 3; i++) {
-        ptk_err result = int_array_set(arr, i, i * 10);
+        ptk_err_t result = int_array_set(arr, i, i * 10);
         if (result != PTK_OK) {
             error("int_array_set failed at index %d", i);
             ptk_local_free(&arr);
@@ -110,31 +110,29 @@ int test_array_get_set_operations(void) {
     
     // Test int_array_get
     for (int i = 0; i < 3; i++) {
-        int value;
-        ptk_err result = int_array_get(arr, i, &value);
-        if (result != PTK_OK) {
+        int *value = int_array_get(arr, i);
+        if (ptk_get_err() != PTK_OK) {
             error("int_array_get failed at index %d", i);
             ptk_local_free(&arr);
             return 3;
         }
-        
-        if (value != i * 10) {
-            error("int_array_get returned wrong value at index %d: %d != %d", i, value, i * 10);
+
+        if (*value != i * 10) {
+            error("int_array_get returned wrong value at index %d: %d != %d", i, *value, i * 10);
             ptk_local_free(&arr);
             return 4;
         }
     }
     
     // Test out-of-bounds access
-    int dummy;
-    ptk_err result = int_array_get(arr, 10, &dummy);
-    if (result != PTK_ERR_OUT_OF_BOUNDS) {
+    (void)int_array_get(arr, 10);
+    if (ptk_get_err() != PTK_ERR_OUT_OF_BOUNDS) {
         error("int_array_get should return PTK_ERR_OUT_OF_BOUNDS for out-of-bounds access");
         ptk_local_free(&arr);
         return 5;
     }
-    
-    result = int_array_set(arr, 10, 42);
+
+    ptk_err_t result = int_array_set(arr, 10, 42);
     if (result != PTK_ERR_OUT_OF_BOUNDS) {
         error("int_array_set should return PTK_ERR_OUT_OF_BOUNDS for out-of-bounds access");
         ptk_local_free(&arr);
@@ -142,19 +140,13 @@ int test_array_get_set_operations(void) {
     }
     
     // Test NULL parameter handling
-    result = int_array_get(NULL, 0, &dummy);
-    if (result != PTK_ERR_NULL_PTR) {
+    (void)int_array_get(NULL, 0);
+    if (ptk_get_err() != PTK_ERR_NULL_PTR) {
         error("int_array_get should return PTK_ERR_NULL_PTR for NULL array");
         ptk_local_free(&arr);
         return 7;
     }
     
-    result = int_array_get(arr, 0, NULL);
-    if (result != PTK_ERR_NULL_PTR) {
-        error("int_array_get should return PTK_ERR_NULL_PTR for NULL element");
-        ptk_local_free(&arr);
-        return 8;
-    }
     
     result = int_array_set(NULL, 0, 42);
     if (result != PTK_ERR_NULL_PTR) {
@@ -184,7 +176,7 @@ int test_array_resize_operations(void) {
     }
     
     // Test expanding the array
-    ptk_err result = int_array_resize(arr, 5);
+    ptk_err_t result = int_array_resize(arr, 5);
     if (result != PTK_OK) {
         error("int_array_resize (expand) failed");
         ptk_local_free(&arr);
@@ -199,10 +191,9 @@ int test_array_resize_operations(void) {
     
     // Verify old values are preserved
     for (int i = 0; i < 3; i++) {
-        int value;
-        int_array_get(arr, i, &value);
-        if (value != i + 100) {
-            error("Value at index %d changed after resize: %d != %d", i, value, i + 100);
+        int *value = int_array_get(arr, i);
+        if (*value != i + 100) {
+            error("Value at index %d changed after resize: %d != %d", i, *value, i + 100);
             ptk_local_free(&arr);
             return 4;
         }
@@ -210,9 +201,8 @@ int test_array_resize_operations(void) {
     
     // Verify new elements are zero-initialized
     for (int i = 3; i < 5; i++) {
-        int value;
-        int_array_get(arr, i, &value);
-        if (value != 0) {
+        int *value = int_array_get(arr, i);
+        if (*value != 0) {
             error("New element at index %d not zero-initialized: %d != 0", i, value);
             ptk_local_free(&arr);
             return 5;
@@ -235,10 +225,9 @@ int test_array_resize_operations(void) {
     
     // Verify remaining values are preserved
     for (int i = 0; i < 2; i++) {
-        int value;
-        int_array_get(arr, i, &value);
-        if (value != i + 100) {
-            error("Value at index %d changed after shrink: %d != %d", i, value, i + 100);
+        int *value = int_array_get(arr, i);
+        if (*value != i + 100) {
+            error("Value at index %d changed after shrink: %d != %d", i, *value, i + 100);
             ptk_local_free(&arr);
             return 8;
         }
@@ -280,7 +269,7 @@ int test_array_append_operations(void) {
     int_array_set(arr, 1, 20);
     
     // Test appending elements
-    ptk_err result = int_array_append(arr, 30);
+    ptk_err_t result = int_array_append(arr, 30);
     if (result != PTK_OK) {
         error("int_array_append failed");
         ptk_local_free(&arr);
@@ -294,10 +283,9 @@ int test_array_append_operations(void) {
     }
     
     // Verify appended value
-    int value;
-    int_array_get(arr, 2, &value);
-    if (value != 30) {
-        error("Appended value incorrect: %d != 30", value);
+    int *value = int_array_get(arr, 2);
+    if (*value != 30) {
+        error("Appended value incorrect: %d != 30", *value);
         ptk_local_free(&arr);
         return 4;
     }
@@ -321,9 +309,9 @@ int test_array_append_operations(void) {
     // Verify all values
     int expected[] = {10, 20, 30, 40, 41, 42, 43, 44};
     for (size_t i = 0; i < 8; i++) {
-        int_array_get(arr, i, &value);
-        if (value != expected[i]) {
-            error("Value at index %zu incorrect: %d != %d", i, value, expected[i]);
+        value = int_array_get(arr, i);
+        if (*value != expected[i]) {
+            error("Value at index %zu incorrect: %d != %d", i, *value, expected[i]);
             ptk_local_free(&arr);
             return 7;
         }
@@ -376,11 +364,23 @@ int test_array_copy_operations(void) {
     
     // Verify copy has same values
     for (int i = 0; i < 4; i++) {
-        int original_value, copy_value;
-        int_array_get(original, i, &original_value);
-        int_array_get(copy, i, &copy_value);
-        
-        if (original_value != copy_value) {
+        int *original_value = int_array_get(original, i);
+        if(ptk_get_err() != PTK_OK) {
+            error("int_array_get failed at index %d", i);
+            ptk_local_free(&original);
+            ptk_local_free(&copy);
+            return 4;
+        }
+
+        int *copy_value = int_array_get(copy, i);
+        if (ptk_get_err() != PTK_OK) {
+            error("int_array_get failed at index %d", i);
+            ptk_local_free(&original);
+            ptk_local_free(&copy);
+            return 4;
+        }
+
+        if (*original_value != *copy_value) {
             error("Copy value differs from original at index %d: %d != %d", 
                   i, copy_value, original_value);
             ptk_local_free(&original);
@@ -392,11 +392,10 @@ int test_array_copy_operations(void) {
     // Verify copy is independent (modify original)
     int_array_set(original, 0, 999);
     
-    int original_value, copy_value;
-    int_array_get(original, 0, &original_value);
-    int_array_get(copy, 0, &copy_value);
-    
-    if (original_value == copy_value) {
+    int *original_value = int_array_get(original, 0);
+    int *copy_value = int_array_get(copy, 0);
+
+    if (*original_value == *copy_value) {
         error("Copy is not independent from original");
         ptk_local_free(&original);
         ptk_local_free(&copy);
@@ -453,9 +452,8 @@ int test_array_from_raw_operations(void) {
     
     // Verify values
     for (size_t i = 0; i < raw_count; i++) {
-        int value;
-        int_array_get(arr, i, &value);
-        if (value != raw_data[i]) {
+        int *value = int_array_get(arr, i);
+        if (*value != raw_data[i]) {
             error("Array from raw has wrong value at index %zu: %d != %d", 
                   i, value, raw_data[i]);
             ptk_local_free(&arr);
@@ -494,11 +492,10 @@ int test_array_from_raw_operations(void) {
         ptk_local_free(&single_arr);
         return 7;
     }
-    
-    int value;
-    int_array_get(single_arr, 0, &value);
-    if (value != 42) {
-        error("Single element array has wrong value: %d != 42", value);
+
+    int *value = int_array_get(single_arr, 0);
+    if (*value != 42) {
+        error("Single element array has wrong value: %d != 42", *value);
         ptk_local_free(&single_arr);
         return 8;
     }
@@ -541,16 +538,15 @@ int test_array_with_destructors(void) {
     test_struct_array_set(arr, 1, struct2);
     
     // Verify values
-    test_struct_t retrieved;
-    test_struct_array_get(arr, 0, &retrieved);
-    if (retrieved.value != 42 || strcmp(retrieved.name, "first") != 0) {
+    test_struct_t *retrieved = test_struct_array_get(arr, 0);
+    if (retrieved->value != 42 || strcmp(retrieved->name, "first") != 0) {
         error("Retrieved struct 1 has wrong values");
         ptk_local_free(&arr);
         return 3;
     }
     
-    test_struct_array_get(arr, 1, &retrieved);
-    if (retrieved.value != 84 || strcmp(retrieved.name, "second") != 0) {
+    retrieved = test_struct_array_get(arr, 1);
+    if (retrieved->value != 84 || strcmp(retrieved->name, "second") != 0) {
         error("Retrieved struct 2 has wrong values");
         ptk_local_free(&arr);
         return 4;
@@ -581,11 +577,10 @@ int test_array_with_different_types(void) {
     
     // Verify values
     for (int i = 0; i < 3; i++) {
-        double value;
-        double_array_get(double_arr, i, &value);
-        if (value != test_values[i]) {
+        double *value = double_array_get(double_arr, i);
+        if (*value != test_values[i]) {
             error("Double array value at index %d incorrect: %f != %f", 
-                  i, value, test_values[i]);
+                  i, *value, test_values[i]);
             ptk_local_free(&double_arr);
             return 2;
         }
@@ -601,13 +596,12 @@ int test_array_with_different_types(void) {
     
     // Verify copy
     for (int i = 0; i < 3; i++) {
-        double original_value, copy_value;
-        double_array_get(double_arr, i, &original_value);
-        double_array_get(double_copy, i, &copy_value);
-        
-        if (original_value != copy_value) {
-            error("Double array copy value differs at index %d: %f != %f", 
-                  i, copy_value, original_value);
+        double *original_value = double_array_get(double_arr, i);
+        double *copy_value = double_array_get(double_copy, i);
+
+        if (*original_value != *copy_value) {
+            error("Double array copy value differs at index %d: %f != %f",
+                  i, *copy_value, *original_value);
             ptk_local_free(&double_arr);
             ptk_local_free(&double_copy);
             return 4;
@@ -637,10 +631,9 @@ int test_array_edge_cases(void) {
     
     // Test setting and getting from large array
     int_array_set(large_arr, 999, 12345);
-    int value;
-    int_array_get(large_arr, 999, &value);
-    if (value != 12345) {
-        error("Large array value incorrect: %d != 12345", value);
+    int *value = int_array_get(large_arr, 999);
+    if (*value != 12345) {
+        error("Large array value incorrect: %d != 12345", *value);
         ptk_local_free(&large_arr);
         return 2;
     }
@@ -735,4 +728,8 @@ int test_ptk_array_main(void) {
     
     info("=== All PTK Array Tests Passed ===");
     return 0;
+}
+
+int main(void) {
+    return test_ptk_array_main();
 }

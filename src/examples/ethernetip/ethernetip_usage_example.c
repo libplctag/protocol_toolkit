@@ -8,7 +8,7 @@
  */
 
 #include "lib/include/ethernetip.h"
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -24,7 +24,7 @@ void example_device_discovery() {
 
     // Discover devices on the network (broadcast)
     eip_discovery_result_t *result = NULL;
-    ptk_err err = eip_discover_devices(parent, NULL, 5000, &result);
+    ptk_err_t err = eip_discover_devices(parent, NULL, 5000, &result);
 
     if(err != PTK_OK) {
         printf("Discovery failed: %d\n", err);
@@ -67,7 +67,7 @@ void example_cip_path_construction() {
 
     // Method 1: Parse from string (common case)
     cip_ioi_path_pdu_t *path1 = NULL;
-    ptk_err err = cip_ioi_path_pdu_create_from_string(parent, "1,0", &path1);
+    ptk_err_t err = cip_ioi_path_pdu_create_from_string(parent, "1,0", &path1);
     if(err == PTK_OK) {
         char path_str[256];
         cip_ioi_path_pdu_to_string(path1, path_str, sizeof(path_str));
@@ -118,7 +118,7 @@ void example_tcp_messaging() {
 
     // Create CIP path for routing (to slot 0 - controller)
     cip_ioi_path_pdu_t *path = NULL;
-    ptk_err err = cip_ioi_path_pdu_create_from_string(parent, "1,0", &path);
+    ptk_err_t err = cip_ioi_path_pdu_create_from_string(parent, "1,0", &path);
     if(err != PTK_OK) {
         printf("Failed to create CIP path\n");
         ptk_alloc_free(parent);
@@ -175,7 +175,7 @@ void example_targeted_discovery() {
 
     // Discover devices on specific subnet
     eip_discovery_result_t *result = NULL;
-    ptk_err err = eip_discover_devices_subnet(parent, "192.168.1.0/24", 3000, &result);
+    ptk_err_t err = eip_discover_devices_subnet(parent, "192.168.1.0/24", 3000, &result);
 
     if(err == PTK_OK && result->device_count > 0) {
         printf("Found %zu devices on 192.168.1.0/24 in %lu ms:\n", result->device_count, result->discovery_time_ms);

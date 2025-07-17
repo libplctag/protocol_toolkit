@@ -18,16 +18,13 @@ static ptk_atomic ptk_log_level global_debug_level = PTK_LOG_LEVEL_INFO;
 //=============================================================================
 
 ptk_log_level ptk_log_level_set(ptk_log_level level) {
-    ptk_log_level old_level;
-    ptk_atomic_load_u8((uint8_t *)&old_level, (ptk_atomic uint8_t *)&global_debug_level);
+    ptk_log_level old_level = (ptk_log_level)ptk_atomic_load_u8((ptk_atomic uint8_t *)&global_debug_level);
     ptk_atomic_store_u8((ptk_atomic uint8_t *)&global_debug_level, (uint8_t)level);
     return old_level;
 }
 
 ptk_log_level ptk_log_level_get(void) {
-    ptk_log_level level;
-    ptk_atomic_load_u8((uint8_t *)&level, (ptk_atomic uint8_t *)&global_debug_level);
-    return level;
+    return (ptk_log_level)ptk_atomic_load_u8((ptk_atomic uint8_t *)&global_debug_level);
 }
 
 //=============================================================================

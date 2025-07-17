@@ -41,7 +41,7 @@ int test_interrupt_handler_registration(void) {
     interrupt_count = 0;
     
     // Test registering an interrupt handler
-    ptk_err result = ptk_set_interrupt_handler(test_interrupt_handler);
+    ptk_err_t result = ptk_set_interrupt_handler(test_interrupt_handler);
     if (result != PTK_OK) {
         error("Failed to register interrupt handler");
         return 1;
@@ -86,7 +86,7 @@ int test_interrupt_handler_with_signal(void) {
     interrupt_count = 0;
     
     // Register handler
-    ptk_err result = ptk_set_interrupt_handler(test_interrupt_handler);
+    ptk_err_t result = ptk_set_interrupt_handler(test_interrupt_handler);
     if (result != PTK_OK) {
         error("Failed to register interrupt handler for signal test");
         return 1;
@@ -352,4 +352,8 @@ int test_ptk_utils_main(void) {
     
     info("=== All PTK Utils Tests Passed ===");
     return 0;
+}
+
+int main(void) {
+    return test_ptk_utils_main();
 }

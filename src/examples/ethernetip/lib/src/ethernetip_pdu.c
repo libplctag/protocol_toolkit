@@ -1,5 +1,5 @@
 #include "../include/ethernetip.h"
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_buf.h>
 #include <ptk_err.h>
 #include <ptk_utils.h>
@@ -47,7 +47,7 @@ typedef struct {
 // PDU BASE OPERATIONS
 //=============================================================================
 
-static ptk_err eip_pdu_base_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t eip_pdu_base_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     eip_pdu_base_t *pdu = (eip_pdu_base_t *)obj;
     
     // EIP PDUs serialize themselves based on their specific type
@@ -63,7 +63,7 @@ static ptk_err eip_pdu_base_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     }
 }
 
-static ptk_err eip_pdu_base_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t eip_pdu_base_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     // Deserialization is handled by specific PDU parsers
     return PTK_ERR_NOT_IMPLEMENTED;
 }
@@ -84,14 +84,14 @@ static void eip_pdu_destructor(void *ptr) {
 // LIST IDENTITY RESPONSE PDU
 //=============================================================================
 
-static ptk_err parse_cip_identity_item(ptk_buf *buffer, eip_list_identity_resp_t *resp, uint16_t item_length) {
+static ptk_err_t parse_cip_identity_item(ptk_buf *buffer, eip_list_identity_resp_t *resp, uint16_t item_length) {
     if (!buffer || !resp || item_length < 34) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
     
     // Parse encapsulation version
     uint16_t encap_version;
-    ptk_err err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &encap_version);
+    ptk_err_t err = ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &encap_version);
     if (err != PTK_OK) return err;
     
     // Parse socket address (big-endian for network fields)
@@ -195,14 +195,14 @@ static ptk_err parse_cip_identity_item(ptk_buf *buffer, eip_list_identity_resp_t
     return PTK_OK;
 }
 
-ptk_err eip_list_identity_resp_deserialize(ptk_buf *buf, eip_list_identity_resp_t *resp) {
+ptk_err_t eip_list_identity_resp_deserialize(ptk_buf *buf, eip_list_identity_resp_t *resp) {
     if (!buf || !resp) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
     
     // Parse EIP header
     eip_encap_header_t header;
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
                                      &header.command,
                                      &header.length,
                                      &header.session_handle,
@@ -240,7 +240,7 @@ ptk_err eip_list_identity_resp_deserialize(ptk_buf *buf, eip_list_identity_resp_
     return PTK_ERR_PROTOCOL_ERROR; // No identity item found
 }
 
-ptk_err eip_list_identity_resp_serialize(ptk_buf *buf, eip_list_identity_resp_t *resp) {
+ptk_err_t eip_list_identity_resp_serialize(ptk_buf *buf, eip_list_identity_resp_t *resp) {
     // Response serialization is typically not needed for client implementations
     return PTK_ERR_NOT_IMPLEMENTED;
 }
@@ -325,7 +325,7 @@ eip_pdu_u eip_pdu_recv(eip_connection_t *conn, ptk_duration_ms timeout_ms) {
     ptk_buf_set_start(buffer, 0);
     ptk_buf_set_end(buffer, 0);
     
-    ptk_err err;
+    ptk_err_t err;
     if (eip_connection_is_udp(conn)) {
         ptk_address_t sender_addr;
         err = ptk_udp_socket_recv_from(socket, buffer, &sender_addr, timeout_ms);
@@ -403,7 +403,7 @@ eip_pdu_base_t *eip_pdu_send(eip_pdu_base_t **pdu, ptk_duration_ms timeout_ms) {
     ptk_buf_set_end(buffer, 0);
     
     // Serialize the PDU
-    ptk_err err = request->base.serialize(buffer, &request->base);
+    ptk_err_t err = request->base.serialize(buffer, &request->base);
     if (err != PTK_OK) {
         ptk_set_err(err);
         ptk_free(pdu); // Free the request PDU

@@ -11,7 +11,7 @@
 // NON-INLINE BUFFER FUNCTIONS
 //=============================================================================
 
-ptk_buf *ptk_buf_alloc(buf_size_t size) {
+ptk_buf *ptk_buf_alloc(ptk_buf_size_t size) {
     if (size == 0) {
         ptk_set_err(PTK_ERR_INVALID_PARAM);
         return NULL;
@@ -36,7 +36,7 @@ ptk_buf *ptk_buf_alloc(buf_size_t size) {
     return buf;
 }
 
-ptk_buf *ptk_buf_alloc_from_data(const u8 *data, buf_size_t size) {
+ptk_buf *ptk_buf_alloc_from_data(const ptk_u8_t *data, ptk_buf_size_t size) {
     if (!data) {
         ptk_set_err(PTK_ERR_NULL_PTR);
         return NULL;
@@ -53,7 +53,7 @@ ptk_buf *ptk_buf_alloc_from_data(const u8 *data, buf_size_t size) {
     return buf;
 }
 
-ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size) {
+ptk_buf *ptk_buf_realloc(ptk_buf *buf, ptk_buf_size_t new_size) {
     if(!buf) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return NULL; 
@@ -63,7 +63,7 @@ ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size) {
         return NULL;
     }
     
-    u8 *new_data = ptk_local_realloc(buf->data, new_size);
+    ptk_u8_t *new_data = ptk_local_realloc(buf->data, new_size);
     if(!new_data) { 
         ptk_set_err(PTK_ERR_NO_RESOURCES);
         return NULL; 
@@ -79,22 +79,22 @@ ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size) {
     return buf;
 }
 
-buf_size_t ptk_buf_get_len(const ptk_buf *buf) {
+ptk_buf_size_t ptk_buf_get_len(const ptk_buf *buf) {
     if(!buf) { return 0; }
     return buf->end - buf->start;
 }
 
-buf_size_t ptk_buf_get_capacity(const ptk_buf *buf) {
+ptk_buf_size_t ptk_buf_get_capacity(const ptk_buf *buf) {
     if(!buf) { return 0; }
     return buf->data_len;
 }
 
-buf_size_t ptk_buf_get_start(const ptk_buf *buf) {
+ptk_buf_size_t ptk_buf_get_start(const ptk_buf *buf) {
     if(!buf) { return 0; }
     return buf->start;
 }
 
-ptk_err ptk_buf_set_start(ptk_buf *buf, buf_size_t start) {
+ptk_err_t ptk_buf_set_start(ptk_buf *buf, ptk_buf_size_t start) {
     if(!buf) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR; 
@@ -107,12 +107,12 @@ ptk_err ptk_buf_set_start(ptk_buf *buf, buf_size_t start) {
     return PTK_OK;
 }
 
-buf_size_t ptk_buf_get_end(const ptk_buf *buf) {
+ptk_buf_size_t ptk_buf_get_end(const ptk_buf *buf) {
     if(!buf) { return 0; }
     return buf->end;
 }
 
-ptk_err ptk_buf_set_end(ptk_buf *buf, buf_size_t end) {
+ptk_err_t ptk_buf_set_end(ptk_buf *buf, ptk_buf_size_t end) {
     if(!buf) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR; 
@@ -125,13 +125,13 @@ ptk_err ptk_buf_set_end(ptk_buf *buf, buf_size_t end) {
     return PTK_OK;
 }
 
-ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position) {
+ptk_err_t ptk_buf_move_block(ptk_buf *buf, ptk_buf_size_t new_position) {
     if(!buf || !buf->data) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR; 
     }
     
-    buf_size_t block_size = buf->end - buf->start;
+    ptk_buf_size_t block_size = buf->end - buf->start;
     if(new_position + block_size > buf->data_len) { 
         ptk_set_err(PTK_ERR_OUT_OF_BOUNDS);
         return PTK_ERR_OUT_OF_BOUNDS; 
@@ -148,7 +148,7 @@ ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position) {
 // SIMPLE BYTE ACCESS IMPLEMENTATION
 //=============================================================================
 
-ptk_err ptk_buf_set_u8(ptk_buf *buf, u8 val) {
+ptk_err_t ptk_buf_set_u8(ptk_buf *buf, ptk_u8_t val) {
     if (!buf) {
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR;
@@ -165,7 +165,7 @@ ptk_err ptk_buf_set_u8(ptk_buf *buf, u8 val) {
     return PTK_OK;
 }
 
-u8 ptk_buf_get_u8(ptk_buf *buf) {
+ptk_u8_t ptk_buf_get_u8(ptk_buf *buf) {
     if (!buf) {
         ptk_set_err(PTK_ERR_NULL_PTR);
         return 0;
@@ -176,7 +176,7 @@ u8 ptk_buf_get_u8(ptk_buf *buf) {
         return 0;
     }
     
-    u8 val = buf->data[buf->start];
+    ptk_u8_t val = buf->data[buf->start];
     buf->start++;
     
     return val;
@@ -264,10 +264,10 @@ static inline uint64_t ptk_buf_bytes_to_u64(const uint8_t *bytes, size_t size) {
 
 /**
  * Macro to generate type-specific write functions
- * Usage: PTK_BUF_GENERATE_WRITE_FUNC(u16, uint16_t, PTK_BUF_TYPE_U16)
+ * Usage: PTK_BUF_GENERATE_WRITE_FUNC(ptk_u16_t, uint16_t, PTK_BUF_TYPE_U16)
  */
 #define PTK_BUF_GENERATE_WRITE_FUNC(suffix, ctype, type_enum) \
-static inline ptk_err ptk_buf_write_##suffix(ptk_buf *buf, ctype value, ptk_buf_endian_t endian) { \
+static inline ptk_err_t ptk_buf_write_##suffix(ptk_buf *buf, ctype value, ptk_buf_endian_t endian) { \
     if(!buf) return PTK_ERR_NULL_PTR; \
     size_t type_size = ptk_buf_type_size(type_enum); \
     if(buf->end + type_size > buf->data_len) return PTK_ERR_BUFFER_TOO_SMALL; \
@@ -282,10 +282,10 @@ static inline ptk_err ptk_buf_write_##suffix(ptk_buf *buf, ctype value, ptk_buf_
 
 /**
  * Macro to generate type-specific read functions
- * Usage: PTK_BUF_GENERATE_READ_FUNC(u16, uint16_t, PTK_BUF_TYPE_U16)
+ * Usage: PTK_BUF_GENERATE_READ_FUNC(ptk_u16_t, uint16_t, PTK_BUF_TYPE_U16)
  */
 #define PTK_BUF_GENERATE_READ_FUNC(suffix, ctype, type_enum) \
-static inline ptk_err ptk_buf_read_##suffix(ptk_buf *buf, bool peek, ctype *dest, ptk_buf_endian_t endian) { \
+static inline ptk_err_t ptk_buf_read_##suffix(ptk_buf *buf, bool peek, ctype *dest, ptk_buf_endian_t endian) { \
     if(!buf || !dest) return PTK_ERR_NULL_PTR; \
     size_t type_size = ptk_buf_type_size(type_enum); \
     if(buf->start + type_size > buf->end) return PTK_ERR_BUFFER_TOO_SMALL; \
@@ -299,17 +299,17 @@ static inline ptk_err ptk_buf_read_##suffix(ptk_buf *buf, bool peek, ctype *dest
 }
 
 // Generate commonly used type-specific functions
-PTK_BUF_GENERATE_WRITE_FUNC(u8, uint8_t, PTK_BUF_TYPE_U8)
-PTK_BUF_GENERATE_WRITE_FUNC(u16, uint16_t, PTK_BUF_TYPE_U16)
-PTK_BUF_GENERATE_WRITE_FUNC(u32, uint32_t, PTK_BUF_TYPE_U32)
-PTK_BUF_GENERATE_WRITE_FUNC(u64, uint64_t, PTK_BUF_TYPE_U64)
+PTK_BUF_GENERATE_WRITE_FUNC(ptk_u8_t, uint8_t, PTK_BUF_TYPE_U8)
+PTK_BUF_GENERATE_WRITE_FUNC(ptk_u16_t, uint16_t, PTK_BUF_TYPE_U16)
+PTK_BUF_GENERATE_WRITE_FUNC(ptk_u32_t, uint32_t, PTK_BUF_TYPE_U32)
+PTK_BUF_GENERATE_WRITE_FUNC(ptk_u64_t, uint64_t, PTK_BUF_TYPE_U64)
 PTK_BUF_GENERATE_WRITE_FUNC(float, float, PTK_BUF_TYPE_FLOAT)
 PTK_BUF_GENERATE_WRITE_FUNC(double, double, PTK_BUF_TYPE_DOUBLE)
 
-PTK_BUF_GENERATE_READ_FUNC(u8, uint8_t, PTK_BUF_TYPE_U8)
-PTK_BUF_GENERATE_READ_FUNC(u16, uint16_t, PTK_BUF_TYPE_U16)
-PTK_BUF_GENERATE_READ_FUNC(u32, uint32_t, PTK_BUF_TYPE_U32)
-PTK_BUF_GENERATE_READ_FUNC(u64, uint64_t, PTK_BUF_TYPE_U64)
+PTK_BUF_GENERATE_READ_FUNC(ptk_u8_t, uint8_t, PTK_BUF_TYPE_U8)
+PTK_BUF_GENERATE_READ_FUNC(ptk_u16_t, uint16_t, PTK_BUF_TYPE_U16)
+PTK_BUF_GENERATE_READ_FUNC(ptk_u32_t, uint32_t, PTK_BUF_TYPE_U32)
+PTK_BUF_GENERATE_READ_FUNC(ptk_u64_t, uint64_t, PTK_BUF_TYPE_U64)
 PTK_BUF_GENERATE_READ_FUNC(float, float, PTK_BUF_TYPE_FLOAT)
 PTK_BUF_GENERATE_READ_FUNC(double, double, PTK_BUF_TYPE_DOUBLE)
 
@@ -330,7 +330,7 @@ static inline size_t get_type_size(ptk_buf_type_t type) {
 /**
  * Helper function to write value with endianness conversion
  */
-static ptk_err write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
+static ptk_err_t write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
     if(!buf || !args) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR; 
@@ -392,7 +392,7 @@ static ptk_err write_typed_value(ptk_buf *buf, ptk_buf_type_t type, ptk_buf_endi
 /**
  * Helper function to read value with endianness conversion
  */
-static ptk_err read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
+static ptk_err_t read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t type, ptk_buf_endian_t endian, va_list *args) {
     if(!buf || !args) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR; 
@@ -401,8 +401,8 @@ static ptk_err read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t type, pt
     if(type == PTK_BUF_TYPE_SERIALIZABLE) {
         ptk_serializable_t *obj = va_arg(*args, ptk_serializable_t *);
         if(!obj || !obj->deserialize) { return PTK_ERR_INVALID_PARAM; }
-        buf_size_t original_start = buf->start;
-        ptk_err result = obj->deserialize(buf, obj);
+        ptk_buf_size_t original_start = buf->start;
+        ptk_err_t result = obj->deserialize(buf, obj);
         if(peek) { buf->start = original_start; }
         return result;
     }
@@ -456,7 +456,7 @@ static ptk_err read_typed_value(ptk_buf *buf, bool peek, ptk_buf_type_t type, pt
 /**
  * Implementation function for type-safe serialization
  */
-ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t count, ...) {
+ptk_err_t ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, ptk_buf_size_t count, ...) {
     if(!buf) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR; 
@@ -464,9 +464,9 @@ ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t
     if(count == 0) { return PTK_OK; }
     va_list args;
     va_start(args, count);
-    buf_size_t original_end = buf->end;
-    ptk_err result = PTK_OK;
-    for(buf_size_t i = 0; i < count && result == PTK_OK; i++) {
+    ptk_buf_size_t original_end = buf->end;
+    ptk_err_t result = PTK_OK;
+    for(ptk_buf_size_t i = 0; i < count && result == PTK_OK; i++) {
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
         if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
             result = PTK_ERR_INVALID_PARAM;
@@ -487,7 +487,7 @@ ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t
 /**
  * Implementation function for type-safe deserialization
  */
-ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, buf_size_t count, ...) {
+ptk_err_t ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, ptk_buf_size_t count, ...) {
     if(!buf) { 
         ptk_set_err(PTK_ERR_NULL_PTR);
         return PTK_ERR_NULL_PTR; 
@@ -495,9 +495,9 @@ ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endia
     if(count == 0) { return PTK_OK; }
     va_list args;
     va_start(args, count);
-    buf_size_t original_start = buf->start;
-    ptk_err result = PTK_OK;
-    for(buf_size_t i = 0; i < count && result == PTK_OK; i++) {
+    ptk_buf_size_t original_start = buf->start;
+    ptk_err_t result = PTK_OK;
+    for(ptk_buf_size_t i = 0; i < count && result == PTK_OK; i++) {
         ptk_buf_type_t type = va_arg(args, ptk_buf_type_t);
         if(type < PTK_BUF_TYPE_U8 || type > PTK_BUF_TYPE_SERIALIZABLE) {
             result = PTK_ERR_INVALID_PARAM;

@@ -25,37 +25,48 @@ uint16_t ptk_address_get_port(const ptk_address_t *address) {
     return address->port;
 }
 
+
 /**
- * @brief Initialize an address structure from IP string and port
+ * @brief Create a new address structure from IP string and port
  */
-ptk_err ptk_address_init(ptk_address_t *address, const char *ip_string, uint16_t port) {
-    if (!address) return PTK_ERR_INVALID_PARAM;
+ptk_address_t *ptk_address_create(const char *ip_string, uint16_t port) {
+    ptk_address_t *address = ptk_local_alloc(sizeof(ptk_address_t), NULL);
+    if (!address) {
+        ptk_set_err(PTK_ERR_NO_RESOURCES);
+        return NULL;
+    }
     address->port = port;
     address->family = AF_INET;
     address->reserved = 0;
     if (!ip_string || strcmp(ip_string, "0.0.0.0") == 0) {
         address->ip = htonl(INADDR_ANY);
-        return PTK_OK;
+        return address;
     }
     struct in_addr addr;
     if (inet_aton(ip_string, &addr) == 0) {
         ptk_set_err(PTK_ERR_INVALID_PARAM);
-        return PTK_ERR_INVALID_PARAM;
+        ptk_local_free(&address);
+        return NULL;
     }
     address->ip = addr.s_addr;
-    return PTK_OK;
+    return address;
 }
 
+
 /**
- * @brief Initialize an address for any interface (INADDR_ANY)
+ * @brief Create a new address for any interface (INADDR_ANY)
  */
-ptk_err ptk_address_init_any(ptk_address_t *address, uint16_t port) {
-    if (!address) return PTK_ERR_INVALID_PARAM;
+ptk_address_t *ptk_address_create_any(uint16_t port) {
+    ptk_address_t *address = ptk_local_alloc(sizeof(ptk_address_t), NULL);
+    if (!address) {
+        ptk_set_err(PTK_ERR_NO_RESOURCES);
+        return NULL;
+    }
     address->ip = htonl(INADDR_ANY);
     address->port = port;
     address->family = AF_INET;
     address->reserved = 0;
-    return PTK_OK;
+    return address;
 }
 
 /**

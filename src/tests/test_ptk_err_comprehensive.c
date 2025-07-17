@@ -9,8 +9,10 @@
 #include <ptk_log.h>
 #include <ptk_os_thread.h>
 #include <ptk_mem.h>
+#include <ptk_utils.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 //=============================================================================
 // Basic Error Handling Tests
@@ -26,7 +28,7 @@ int test_error_basic_operations(void) {
     }
     
     // Test setting and getting various error codes
-    ptk_err test_errors[] = {
+    ptk_err_t test_errors[] = {
         PTK_ERR_INVALID_PARAM,
         PTK_ERR_NO_RESOURCES,
         PTK_ERR_TIMEOUT,
@@ -36,7 +38,7 @@ int test_error_basic_operations(void) {
     
     for (size_t i = 0; i < sizeof(test_errors)/sizeof(test_errors[0]); i++) {
         ptk_set_err(test_errors[i]);
-        ptk_err retrieved = ptk_get_err();
+        ptk_err_t retrieved = ptk_get_err();
         
         if (retrieved != test_errors[i]) {
             error("Error code mismatch: set %d, got %d", test_errors[i], retrieved);
@@ -100,7 +102,7 @@ int test_all_error_codes(void) {
     info("test_all_error_codes entry");
     
     // Test that all defined error codes have valid string representations
-    ptk_err all_errors[] = {
+    ptk_err_t all_errors[] = {
         PTK_OK,
         PTK_ERR_ABORT,
         PTK_ERR_ADDRESS_IN_USE,
@@ -163,13 +165,20 @@ int test_all_error_codes(void) {
 //=============================================================================
 
 typedef struct {
-    ptk_err error_to_set;
-    ptk_err expected_error;
+    ptk_err_t error_to_set;
+    ptk_err_t expected_error;
     int thread_id;
     bool test_passed;
 } error_thread_data_t;
 
-void error_thread_func(ptk_shared_handle_t param) {
+void error_thread_func(void) {
+    // Use ptk_thread_get_handle_arg(0) to get the argument
+    ptk_shared_handle_t param = ptk_thread_get_handle_arg(0);
+    if (!ptk_shared_is_valid(param)) {
+        error("Thread failed to get parameter handle");
+        return;
+    }
+    
     error_thread_data_t *data = ptk_shared_acquire(param, PTK_TIME_WAIT_FOREVER);
     if (!data) {
         ptk_shared_release(param);
@@ -191,7 +200,7 @@ void error_thread_func(ptk_shared_handle_t param) {
     ptk_set_err(data->error_to_set);
     
     // Verify it was set correctly
-    ptk_err retrieved = ptk_get_err();
+    ptk_err_t retrieved = ptk_get_err();
     if (retrieved != data->expected_error) {
         error("Thread %d: Error mismatch: set %d, expected %d, got %d", 
               data->thread_id, data->error_to_set, data->expected_error, retrieved);
@@ -201,8 +210,8 @@ void error_thread_func(ptk_shared_handle_t param) {
     }
     
     // Sleep briefly to ensure other threads can run
-    usleep(10000);  // 10ms
-    
+    ptk_sleep_ms(100);  // 100ms
+
     // Error should still be the same (thread-local)
     retrieved = ptk_get_err();
     if (retrieved != data->expected_error) {
@@ -222,7 +231,7 @@ int test_thread_local_errors(void) {
     info("test_thread_local_errors entry");
     
     // Initialize shared memory system
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -230,7 +239,7 @@ int test_thread_local_errors(void) {
     
     // Create thread data for multiple threads with different error codes
     const int num_threads = 3;
-    ptk_err error_codes[] = {PTK_ERR_INVALID_PARAM, PTK_ERR_TIMEOUT, PTK_ERR_NO_RESOURCES};
+    ptk_err_t error_codes[] = {PTK_ERR_INVALID_PARAM, PTK_ERR_TIMEOUT, PTK_ERR_NO_RESOURCES};
     
     ptk_shared_handle_t thread_data_handles[num_threads];
     ptk_thread_handle_t threads[num_threads];
@@ -238,7 +247,7 @@ int test_thread_local_errors(void) {
     // Set up thread data
     for (int i = 0; i < num_threads; i++) {
         thread_data_handles[i] = ptk_shared_alloc(sizeof(error_thread_data_t), NULL);
-        if (!PTK_SHARED_IS_VALID(thread_data_handles[i])) {
+        if (!ptk_shared_is_valid(thread_data_handles[i])) {
             error("Failed to allocate thread data %d", i);
             ptk_shared_shutdown();
             return 2;
@@ -258,9 +267,33 @@ int test_thread_local_errors(void) {
     // Create and start threads
     ptk_thread_handle_t parent = ptk_thread_self();
     for (int i = 0; i < num_threads; i++) {
-        threads[i] = ptk_thread_create(parent, error_thread_func, thread_data_handles[i]);
-        if (!PTK_SHARED_IS_VALID(threads[i])) {
+        threads[i] = ptk_thread_create();
+        if (!ptk_shared_is_valid(threads[i])) {
             error("Failed to create thread %d", i);
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        ptk_err_t err = ptk_thread_add_handle_arg(threads[i], 0, &thread_data_handles[i]);
+        if (err != PTK_OK) {
+            error("Failed to add handle arg to thread %d: %d", i, err);
+            ptk_shared_release(threads[i]);
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_set_run_function(threads[i], error_thread_func);
+        if (err != PTK_OK) {
+            error("Failed to set run function for thread %d: %d", i, err);
+            ptk_shared_release(threads[i]);
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_start(threads[i]);
+        if (err != PTK_OK) {
+            error("Failed to start thread %d: %d", i, err);
+            ptk_shared_release(threads[i]);
             ptk_shared_shutdown();
             return 3;
         }
@@ -271,7 +304,7 @@ int test_thread_local_errors(void) {
     // Wait for all threads to complete
     int threads_completed = 0;
     while (threads_completed < num_threads) {
-        ptk_err wait_result = ptk_thread_wait(5000);  // 5 second timeout
+        ptk_err_t wait_result = ptk_thread_wait(5000);  // 5 second timeout
         if (wait_result == PTK_ERR_SIGNAL) {
             if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
                 threads_completed++;
@@ -351,4 +384,8 @@ int test_ptk_err_main(void) {
     
     info("=== All PTK Error Handling Tests Passed ===");
     return 0;
+}
+
+int main(void) {
+    return test_ptk_err_main();
 }

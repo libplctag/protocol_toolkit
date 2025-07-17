@@ -20,15 +20,15 @@ The system provides a safe, ergonomic way to serialize and deserialize structure
 ### Serialization API
 ```c
 // Explicit endianness specification required
-ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, val1, val2, val3, ...);
-ptk_err err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, val1, val2, val3, ...);
+ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, val1, val2, val3, ...);
+ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, val1, val2, val3, ...);
 ```
 
 ### Deserialization API
 ```c
 // peek=false consumes data, peek=true does not advance buffer
-ptk_err err = ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, &var1, &var2, &var3, ...);
-ptk_err err = ptk_buf_deserialize(buf, peek, PTK_BUF_BIG_ENDIAN, &var1, &var2, &var3, ...);
+ptk_err_t err = ptk_buf_deserialize(buf, peek, PTK_BUF_LITTLE_ENDIAN, &var1, &var2, &var3, ...);
+ptk_err_t err = ptk_buf_deserialize(buf, peek, PTK_BUF_BIG_ENDIAN, &var1, &var2, &var3, ...);
 ```
 
 ## Implementation Architecture
@@ -90,7 +90,7 @@ typedef struct {
 } eip_header_t;
 
 // Explicit field serialization
-ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
+ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
     header.command, header.length, header.session_handle,
     header.status, header.sender_context, header.options);
 ```
@@ -99,7 +99,7 @@ ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
 ```c
 // Peek at command without consuming data
 uint16_t cmd;
-ptk_err err = ptk_buf_deserialize(buf, true, PTK_BUF_LITTLE_ENDIAN, &cmd);
+ptk_err_t err = ptk_buf_deserialize(buf, true, PTK_BUF_LITTLE_ENDIAN, &cmd);
 
 // Route based on command type
 switch(cmd) {
@@ -114,7 +114,7 @@ switch(cmd) {
 ### Buffer Overflow Protection
 ```c
 // Automatically detects and prevents buffer overflows
-ptk_err err = ptk_buf_serialize(small_buf, PTK_BUF_LITTLE_ENDIAN, large_data1, large_data2, large_data3);
+ptk_err_t err = ptk_buf_serialize(small_buf, PTK_BUF_LITTLE_ENDIAN, large_data1, large_data2, large_data3);
 if(err != PTK_OK) {
     // Buffer state is automatically rolled back
     printf("Buffer overflow detected: %s\n", ptk_err_to_string(err));

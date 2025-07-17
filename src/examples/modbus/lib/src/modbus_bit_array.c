@@ -1,7 +1,7 @@
 #include <modbus.h>
 #include <ptk_log.h>
 #include <ptk_err.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <string.h>
 
 //=============================================================================
@@ -88,7 +88,7 @@ modbus_bit_array_t *modbus_bit_array_create(size_t num_bits) {
  * @param value Output parameter for the bit value
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_bit_array_get(const modbus_bit_array_t *arr, size_t index, bool *value) {
+ptk_err_t modbus_bit_array_get(const modbus_bit_array_t *arr, size_t index, bool *value) {
     if (!arr || !value) {
         warn("null parameters passed to bit array get");
         return PTK_ERR_INVALID_PARAM;
@@ -114,7 +114,7 @@ ptk_err modbus_bit_array_get(const modbus_bit_array_t *arr, size_t index, bool *
  * @param value Bit value to set
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_bit_array_set(modbus_bit_array_t *arr, size_t index, bool value) {
+ptk_err_t modbus_bit_array_set(modbus_bit_array_t *arr, size_t index, bool value) {
     if (!arr) {
         warn("null bit array passed to set");
         return PTK_ERR_INVALID_PARAM;
@@ -154,7 +154,7 @@ size_t modbus_bit_array_len(const modbus_bit_array_t *arr) {
  * @param new_len New length in bits
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_bit_array_resize(modbus_bit_array_t *arr, size_t new_len) {
+ptk_err_t modbus_bit_array_resize(modbus_bit_array_t *arr, size_t new_len) {
     info("resizing bit array from %zu to %zu bits", arr ? arr->len : 0, new_len);
     
     if (!arr) {
@@ -230,7 +230,7 @@ bool modbus_bit_array_is_valid(const modbus_bit_array_t *arr) {
  * @param arr Output parameter for created bit array
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_bit_array_from_bytes(const uint8_t *bytes, size_t num_bits, modbus_bit_array_t **arr) {
+ptk_err_t modbus_bit_array_from_bytes(const uint8_t *bytes, size_t num_bits, modbus_bit_array_t **arr) {
     info("creating bit array from %zu bits of wire format data", num_bits);
     
     if (!bytes || !arr || num_bits == 0) {
@@ -259,7 +259,7 @@ ptk_err modbus_bit_array_from_bytes(const uint8_t *bytes, size_t num_bits, modbu
  * @param byte_count Output parameter for number of bytes
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_bit_array_to_bytes(const modbus_bit_array_t *arr, uint8_t **bytes, size_t *byte_count) {
+ptk_err_t modbus_bit_array_to_bytes(const modbus_bit_array_t *arr, uint8_t **bytes, size_t *byte_count) {
     if (!arr || !bytes || !byte_count) {
         warn("invalid parameters for bit array to bytes");
         return PTK_ERR_INVALID_PARAM;

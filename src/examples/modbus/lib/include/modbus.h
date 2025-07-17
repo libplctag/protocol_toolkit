@@ -2,7 +2,7 @@
 #pragma once
 
 
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_array.h>
 #include <ptk_err.h>
 #include <ptk_buf.h>
@@ -25,9 +25,9 @@ typedef struct modbus_connection_t modbus_connection_t;
 // Connection management functions
 modbus_connection_t *modbus_client_connect(const char *host, int port);
 modbus_connection_t *modbus_server_listen(const char *host, int port, uint8_t unit_id, int backlog);
-ptk_err modbus_abort(modbus_connection_t *conn);
-ptk_err modbus_signal(modbus_connection_t *conn);
-ptk_err modbus_wait_for_signal(modbus_connection_t *conn, ptk_duration_ms timeout_ms);
+ptk_err_t modbus_abort(modbus_connection_t *conn);
+ptk_err_t modbus_signal(modbus_connection_t *conn);
+ptk_err_t modbus_wait_for_signal(modbus_connection_t *conn, ptk_duration_ms timeout_ms);
 
 //=============================================================================
 // ARRAY TYPE DECLARATIONS
@@ -43,16 +43,16 @@ typedef struct modbus_bit_array modbus_bit_array_t;
 
 // Bit array interface functions (similar to PTK_ARRAY_DECLARE pattern)
 modbus_bit_array_t *modbus_bit_array_create(size_t num_bits);
-ptk_err modbus_bit_array_get(const modbus_bit_array_t *arr, size_t index, bool *value);
-ptk_err modbus_bit_array_set(modbus_bit_array_t *arr, size_t index, bool value);
+ptk_err_t modbus_bit_array_get(const modbus_bit_array_t *arr, size_t index, bool *value);
+ptk_err_t modbus_bit_array_set(modbus_bit_array_t *arr, size_t index, bool value);
 size_t modbus_bit_array_len(const modbus_bit_array_t *arr);
-ptk_err modbus_bit_array_resize(modbus_bit_array_t *arr, size_t new_len);
+ptk_err_t modbus_bit_array_resize(modbus_bit_array_t *arr, size_t new_len);
 modbus_bit_array_t *modbus_bit_array_copy(const modbus_bit_array_t *src);
 bool modbus_bit_array_is_valid(const modbus_bit_array_t *arr);
 
 // Modbus-specific functions for wire format conversion
-ptk_err modbus_bit_array_from_bytes(const uint8_t *bytes, size_t num_bits, modbus_bit_array_t **arr);
-ptk_err modbus_bit_array_to_bytes(const modbus_bit_array_t *arr, uint8_t **bytes, size_t *byte_count);
+ptk_err_t modbus_bit_array_from_bytes(const uint8_t *bytes, size_t num_bits, modbus_bit_array_t **arr);
+ptk_err_t modbus_bit_array_to_bytes(const modbus_bit_array_t *arr, uint8_t **bytes, size_t *byte_count);
 
 //=============================================================================
 // BASE PDU STRUCTURE

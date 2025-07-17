@@ -1,3 +1,17 @@
+# Ensure all build products are placed in the build directory, not the source tree
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# For multi-config generators (e.g., Visual Studio)
+if(CMAKE_CONFIGURATION_TYPES)
+    foreach(OUTPUT_CONFIG ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER ${OUTPUT_CONFIG} OUTPUT_CONFIG)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUT_CONFIG} ${CMAKE_BINARY_DIR}/bin)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUT_CONFIG} ${CMAKE_BINARY_DIR}/lib)
+        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUT_CONFIG} ${CMAKE_BINARY_DIR}/lib)
+    endforeach()
+endif()
 cmake_minimum_required(VERSION 3.18)
 project(protocol_toolkit)
 
@@ -211,14 +225,16 @@ add_subdirectory(src/lib)
 # EXAMPLES
 #=============================================================================
 
-# Add examples (only if requested)
-if(PTK_BUILD_EXAMPLES)
-    add_subdirectory(src/examples)
-endif()
-
 # Add tests (only if requested)
 if(PTK_BUILD_TESTS)
     add_subdirectory(src/tests)
+endif()
+
+
+message(STATUS "Building examples: ${PTK_BUILD_EXAMPLES}")
+# Add examples (only if requested)
+if(PTK_BUILD_EXAMPLES)
+    add_subdirectory(src/examples)
 endif()
 
 #=============================================================================
@@ -240,17 +256,15 @@ if(PTK_INSTALL)
     # Install headers
     install(FILES
         src/include/ptk.h
-        src/include/ptk_alloc.h
         src/include/ptk_array.h
         src/include/ptk_atomic.h
         src/include/ptk_buf.h
         src/include/ptk_config.h
         src/include/ptk_err.h
         src/include/ptk_log.h
+        src/include/ptk_mem.h
         src/include/ptk_os_thread.h
-        src/include/ptk_shared.h
         src/include/ptk_sock.h
-        src/include/ptk_threadlet.h
         src/include/ptk_utils.h
         DESTINATION include
     )
@@ -348,19 +362,9 @@ set(CPACK_SOURCE_IGNORE_FILES "/build/;/\\.git/;/\\.github/;/external_docs/;/doc
 # TESTING
 #=============================================================================
 
-# Run test_harness with all test binaries in build/bin (except test_harness)
-if(PTK_BUILD_TESTS AND PTK_RUN_TESTS AND UNIX)
-    set(TEST_BIN_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-    file(GLOB PTK_TEST_BINARIES RELATIVE "${TEST_BIN_DIR}" "${TEST_BIN_DIR}/test_*")
-    set(TEST_ARGS "")
-    foreach(testbin ${PTK_TEST_BINARIES})
-        if(NOT testbin STREQUAL "test_harness")
-            list(APPEND TEST_ARGS "${TEST_BIN_DIR}/${testbin}")
-        endif()
-    endforeach()
-    if(EXISTS "${TEST_BIN_DIR}/test_harness")
-        add_test(NAME run_all_ptk_tests COMMAND "${TEST_BIN_DIR}/test_harness" ${TEST_ARGS})
-    endif()
+# Enable CTest for individual test executables
+if(PTK_BUILD_TESTS AND PTK_RUN_TESTS)
+    enable_testing()
 endif()
 
 #=============================================================================

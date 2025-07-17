@@ -1,96 +1,169 @@
-<!-- TODO: API-level Test Coverage Checklist
- - [ ] Ensure every public API function and data element is tested.
- - [ ] Add tests for any missing functions or data elements in existing test files.
- - [ ] Add Valgrind runs for tests that check memory/resource reclamation.
- - [ ] Review and update tests for `ptk_sock.h` (no test file found).
- - [ ] Review and update tests for any new or changed public APIs.
--->
-## Platform/Implementation-Specific File Naming
+# Protocol Toolkit Code Creation Guidelines
 
-Implementation-specific (private) source files must not use the `ptk_` prefix. Only public API headers and source files should use the `ptk_` prefix.
+## Table of Contents
 
-- Example: Use `os_thread_posix.c` (not `ptk_os_thread_posix.c`) for POSIX-specific implementation, and `os_thread_windows.c` for Windows-specific implementation.
+- [Protocol Toolkit Code Creation Guidelines](#protocol-toolkit-code-creation-guidelines)
+  - [Table of Contents](#table-of-contents)
+  - [1. File Naming and Structure](#1-file-naming-and-structure)
+  - [2. Function Design and Documentation](#2-function-design-and-documentation)
+  - [3. Error Handling](#3-error-handling)
+  - [4. Memory Management](#4-memory-management)
+  - [5. Logging and Debugging](#5-logging-and-debugging)
+  - [6. Platform-Specific Code and Build](#6-platform-specific-code-and-build)
+  - [7. Testing Guidelines](#7-testing-guidelines)
+  - [8. General Coding Practices](#8-general-coding-practices)
 
-This ensures a clear distinction between public API and private/platform-specific code, improving codebase clarity and maintainability.
-Rules for creating functions:
+---
 
-- Functions must be spaced at least one blank line apart.
-- Functions must have comments in Doxygen-compatible format that include all parameters and the return value.
-- Where error handling is a bit non-standard (i.e. use of errno or code like in ptk_err.h) document where and how the error can be retrieved.
-- Creating or finding functions should return their creations. Use a different channel for error.
-- Use the functions and definitions in ptk_log.h for all logging. The macros defined there will automatically include the surrounding function name and the line number in the file so do not put the
-function name or line number in the log messages.
-- Failures that are somewhat recoverable like running out of filedescriptors should log with warn().
-- Failures that are catastrophic like malloc returning NULL should be logged with error().
-- Function entry and exit should be logged at level info().
-- Important steps within functions should be logged at debug().
-- Code that would generate a lot of logging (i.e. big loops, callbacks every 10ms) should be logged at level trace().
-- all allocation of memory should be done with ptk_alloc() and a destructor should be included if there is any attached data that needs to be freed or disposed of safely.  If you find yourself writing code that looks like this:
+## 1. File Naming and Structure
+**Note:** All public types (usually via typedef) should be named with a `_t` suffix (e.g., `ptk_buf_t`, `ptk_err_t`).
+Some existing types in `ptk_defs.h` do not follow this rule for historical reasons (e.g., `ptk_u8_t` should be `ptk_u8_t`). New public types must follow the `_t` naming convention.
+
+- **Public API files** use the `ptk_` prefix (e.g., `ptk_sock.h`, `ptk_mem.c`).
+- **Private/implementation files** must NOT use the `ptk_` prefix, and no platform-specific suffix (e.g., `os_thread.c`, `linux/address.c`).
+- Platform-specific code is organized as:
+  - `src/lib/posix/` for POSIX-shared code
+  - `src/lib/bsd/` for BSD/macOS
+  - `src/lib/linux/` for Linux
+  - `src/lib/windows/` for Windows
+- Never include stub or empty files unless explicitly needed for some build-related purpose.  Generally just do not do this.
+
+**Note:** Only public structs and typedefs should be defined in public header files. Any implementation-specific or private struct should be forward declared in the public header (if needed) and defined only in the private implementation file (e.g., the corresponding `.c` file). This ensures encapsulation and prevents leaking internal details into the public API.
+
+
+---
+
+## 2. Function Design and Documentation
+
+- Functions must be separated by at least one blank line.
+- All functions must have Doxygen-compatible comments, including all parameters and the return value.
+- Public functions are those declared in `src/include/ptk_*.h` and must use the `ptk_` prefix.
+- Internal (non-public) functions must not use the `ptk_` prefix and should not appear in public headers.
+- Internal functions and data in `.c` files should always be `static`.
+- All public functions and data in headers must use `extern` explicitly.
+
+---
+
+## 3. Error Handling
+
+- If error handling is non-standard (e.g., uses something other than `errno` or its equivalents or `ptk_err.h`), document how and where the error can be retrieved.
+- Functions that create or find resources should return the resource, and use a separate channel for errors:
+  - Pointer return: return `NULL` on error.
+  - Unsigned int: return the maximum value on error.
+  - Signed int: return the minimum value on error.
+  - Float/double: return negative infinity on error.
+  - Shared memory handle: return the value PTK_SHARED_INVALID_HANDLE on error.
+
+---
+
+## 4. Memory Management
+
+- All thread-local memory allocation must use `ptk_local_alloc()` (not `malloc()`/`free()`).
+- All data to be accessed by more than one thread must use `ptk_shared_alloc()` and use the `use_shared()` helper macro to avoid many errors with shared memory and locks.
+- Always provide a destructor if any attached data needs to be freed or disposed of safely.
+- If you find code like:
+  ```c
+  if(obj->field) { ptk_free(obj->field); }
+  ptk_free(obj);
+  ```
+  then a destructor should have been provided at allocation.
+- Do not provide public destructors; use the destructor callback with `ptk_local_alloc()` and `ptk_shared_alloc()`.
+- All local memory should be freed with `ptk_local_free()`.
+- All shared memory should be freed with `pkt_shared_free()`.
+- Ownership rules:
+  - If a function returns a pointer, the caller owns it and must free it with `ptk_local_free()`.
+  - If a function takes a pointer-to-pointer, it owns the value and will null out your pointer.
+
+**IMPORTANT: When using `use_shared()` or `on_shared_fail` blocks, you MUST NOT use `return` to exit the block. Only `break` is allowed for early exit.**
+
+> **WARNING:**
+>   Using `return` inside a `use_shared()` or `on_shared_fail` block will result in undefined behavior and may leak resources. The macro relies on structured control flow to ensure proper resource release. Always use `break` to exit these blocks early.
+
+**Example (correct):**
 ```c
-     if(obj->field) { ptk_free(obj->field); }
-     ptk_free(obj);
-```
-That means that the place where obj was created should have provided a destructor function.  There should only be one place that all the details of disposing of an object are known.
-- if there is more than 10% of a file to change, rewrite it in a different file and mv it over.
-- do not provide publically accessible destructor functions for your data.  Use the destructor callback with ptk_alloc().  All memory should be freed just with ptk_free().
-- Only public functions have the ptk_ prefix.  Anything internal should not have that prefix.  Public functions are those that are in the public header files in src/include.
-- non-public functions should not appear in one of the ptk_XYZ.h files.  they should have their own .h file in src/lib somewhere.
-- Ownership of memory/data:
-  - if a function returns a pointer, it was created with ptk_alloc() and you own it and need to free it with ptk_free().
-  - if you pass a parameter to a function that is a pointer to a pointer, then the function owns the value and will NULL out your pointer to the data.  Obviously this does not help if you make multiple copies of the point. So don't do that.
-- Code that is largely shared between all the POSIX platforms goes in src/lib/posix.  Source that is shared between BSD-like platforms goes in src/lib/bsd and includes all the BSD variants and macOS.   Source that is specific to Windows goes in src/lib/windows.
-- Platform-specific event loop implementations:
-  - Linux-specific code (epoll) goes in src/lib/linux
-  - BSD/macOS-specific code (kqueue/kevent) goes in src/lib/bsd  
-  - Windows-specific code (IOCP) goes in src/lib/windows
-  - Cross-platform event loop interface goes in src/lib/posix
-- Green thread (threadlet) implementation:
-  - Use 64KiB stack size for threadlets
-  - Threadlets are bound to OS threads and cannot migrate
-  - Socket operations that would block should yield the threadlet and resume via event loop
-  - Platform detection macros should be defined for conditional compilation 
-- Shared memory/pointer usage (ptk_shared.h):
-  - Only wrap memory that was allocated with ptk_alloc() - never wrap stack variables or static memory
-  - Use ptk_shared_wrap() immediately after ptk_alloc() to avoid double-wrapping errors
-  - Prefer the use_shared() macro over manual acquire/release for automatic lifecycle management
-  - Always provide error handling with on_shared_fail when using use_shared() macro
-  - Never store the raw pointer returned by ptk_shared_acquire() beyond the acquire/release pair
-  - Handle reference count overflow gracefully - it indicates a design problem if you hit UINT32_MAX references
-  - Shared memory is thread-safe but the data it points to may not be - add your own synchronization if needed
-  - Example usage:
-    ```c
-    // Create and wrap memory
-    my_struct_t *obj = ptk_alloc(sizeof(my_struct_t), my_struct_destructor);
-    ptk_shared_handle_t handle = ptk_shared_wrap(obj);
-    
-    // Use with automatic lifecycle management
-    use_shared(handle, my_struct_t *ptr) {
-        ptr->field = 42;
-        // ptr automatically released when block exits
-    } on_shared_fail {
-        error("Failed to acquire shared memory");
+use_shared(handle, 100, my_struct_t *ptr) {
+    if(ptr->field == 0) {
+        break; // OK: releases resources properly
     }
-    ```
-- Platform-specific implementation dispatching:
-  - When a feature requires different implementations per platform, create a main dispatcher file in src/lib that uses #ifdef to include the platform-specific implementation
-  - Platform-specific implementation files should NOT have the ptk_ prefix - they are internal implementation details
-  - Use comprehensive platform detection that covers all major platforms:
-    ```c
-    #ifdef _WIN32
-        #include "windows/feature_implementation.c"
-    #elif defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__) || defined(__unix__)
-        #include "posix/feature_implementation.c"  
-    #else
-        #error "Unsupported platform for this feature"
-    #endif
-    ```
-  - This pattern allows single compilation unit while maintaining platform-specific optimizations
-  - Example: src/lib/ptk_atomic.c includes platform-specific atomic operations from posix/atomic_operations.c or windows/atomic_operations.c
-- Never create stub or empty files unless explicitly requested. Always move or implement real code. If a file would be empty, do not create it. This applies to all platform/standard-specific implementations and refactors.
-- internal implementation functions and data definitions within a .c file should always be "static".  Header files that declare public functions and data must use "extern" explicitly.  
-- For test files:
-    - Use the APIs you are NOT testing.
-    - When testing a specific API file, do not use any function from that file except the one(s) under test.
-    - Test programs must return 0 on success and a non-zero value on failure.
-- Tests should test every function and data element of a public API.  Unit tests are nice, but the public APIs are generally more useful and less fragile.
-- Tests that test memory or reclamation of resources should be run under Valgrind on platforms that support it.
+    // ...
+} on_shared_fail {
+    // ...
+}
+```
+
+**Example (incorrect, do NOT do this):**
+```c
+use_shared(handle, 100, my_struct_t *ptr) {
+    if(ptr->field == 0) {
+        return; // ERROR: do NOT use return here!
+    }
+    // ...
+} on_shared_fail {
+    // ...
+}
+```
+
+This restriction is required for correct resource management!
+
+---
+
+## 5. Logging and Debugging
+
+- Use the logging functions/macros in `ptk_log.h` for all logging.
+- Do not include function names or line numbers in log messages (the macros do this automatically).
+- Log levels:
+  - `info()`: function entry/exit
+  - `debug()`: important steps within functions
+  - `warn()`: recoverable failures (e.g., out of file descriptors)
+  - `error()`: catastrophic failures (e.g., allocation failure)
+  - `trace()`: very frequent events (e.g., tight loops, frequent callbacks)
+
+---
+
+## 6. Platform-Specific Code and Build
+
+- **Do not use C preprocessor dispatchers** (e.g., `#ifdef _WIN32 ... #elif defined(__linux__) ...`) in source files to select platform-specific implementations unless it is a small amount of code.  Use the platform directories and platform-specific code when more than 20% is platform specific.
+- **Use CMake** to select and include the correct source files for the target platform.
+  - CMake should append the appropriate files to the build using variables and platform checks (e.g., `if(WIN32) ... elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux") ...`).
+  - This ensures only the correct implementation is compiled and linked for each platform, and avoids unnecessary code in the final binary.
+- **Example:**
+  In `src/lib/CMakeLists.txt`:
+  ```cmake
+  if(WIN32)
+      list(APPEND PTK_PLATFORM_SOURCES windows/atomic_operations.c windows/os_thread_win.c)
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      list(APPEND PTK_PLATFORM_SOURCES posix/atomic_operations.c posix/thread.c linux/address.c linux/sock.c)
+  elseif(CMAKE_SYSTEM_NAME MATCHES "BSD|FreeBSD|OpenBSD|NetBSD")
+      list(APPEND PTK_PLATFORM_SOURCES posix/atomic_operations.c posix/thread.c posix/network_list.c)
+  endif()
+  ```
+- This approach keeps platform-specific code out of the build for other platforms, reduces binary size, and avoids accidental symbol conflicts.
+- It also makes it clear in the build system which files are used for which platform.
+
+---
+
+## 7. Testing Guidelines
+
+- Every public API function and data element must be tested.
+- When testing a specific API file, do not use any function from that file except the one(s) under test.
+- Test programs must return 0 on success and non-zero on failure.
+- Tests that check memory/resource reclamation should be run under Valgrind (on supported platforms).
+- Tests should use the APIs they are NOT testing.
+- Unit tests are useful, but public API tests are more important and less fragile.
+- Perform no pointer arithmetic in tests; use bounds-checked built-ins.
+
+---
+
+## 8. General Coding Practices
+
+- All code must be bounds-checked; avoid pointer arithmetic.
+- Use safe array/buffer accessors.
+- Do not store raw pointers from shared memory beyond their acquire/release block.
+- Handle reference count overflow gracefully in shared memory APIs.
+- Shared memory is thread-safe, but the data it points to may not be—add your own synchronization if needed.
+- Internal implementation functions and data definitions within a `.c` file should always be `static`.
+- Header files that declare public functions and data must use `extern` explicitly.
+- Static inline functions are typesafe.  Macros are not.  Do not use macros when it would be just as easy to add a static inline function.
+- Use the safe array template.
+
+---

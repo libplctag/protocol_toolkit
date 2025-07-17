@@ -127,12 +127,6 @@ jobs:
       if: env.RUN_TESTS == 'true'
       run: |
         cd ${{github.workspace}}/build
-        ./bin/test_harness
-    
-    - name: Run CTest
-      if: env.RUN_TESTS == 'true'
-      run: |
-        cd ${{github.workspace}}/build
         ctest --output-on-failure --parallel
 
   # =============================================================================

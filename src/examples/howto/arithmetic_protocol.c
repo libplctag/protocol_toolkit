@@ -14,51 +14,49 @@ static void arithmetic_response_destructor(void *ptr) {
     }
 }
 
-arithmetic_request_t *arithmetic_request_create(arithmetic_operation_t op, f32 op1, f32 op2) {
-    arithmetic_request_t *req = ptk_alloc(sizeof(arithmetic_request_t), arithmetic_request_destructor);
+
+arithmetic_request_t *arithmetic_request_create(arithmetic_operation_t op, ptk_f32_t op1, ptk_f32_t op2) {
+    arithmetic_request_t *req = ptk_local_alloc(sizeof(arithmetic_request_t), arithmetic_request_destructor);
     if (!req) {
         error("Failed to allocate arithmetic request");
         return NULL;
     }
-    
     req->base.serialize = arithmetic_request_serialize;
     req->base.deserialize = arithmetic_request_deserialize;
-    req->operation = (u8)op;
+    req->operation = (ptk_u8_t)op;
     req->operand1 = op1;
     req->operand2 = op2;
     req->crc = 0;
-    
     return req;
 }
 
-arithmetic_response_t *arithmetic_response_create(arithmetic_operation_t original_op, f64 result) {
-    arithmetic_response_t *resp = ptk_alloc(sizeof(arithmetic_response_t), arithmetic_response_destructor);
+
+arithmetic_response_t *arithmetic_response_create(arithmetic_operation_t original_op, ptk_f64_t result) {
+    arithmetic_response_t *resp = ptk_local_alloc(sizeof(arithmetic_response_t), arithmetic_response_destructor);
     if (!resp) {
         error("Failed to allocate arithmetic response");
         return NULL;
     }
-    
     resp->base.serialize = arithmetic_response_serialize;
     resp->base.deserialize = arithmetic_response_deserialize;
-    resp->operation_inverted = ~((u8)original_op);
+    resp->operation_inverted = ~((ptk_u8_t)original_op);
     resp->result = result;
     resp->crc = 0;
-    
     return resp;
 }
 
-ptk_err arithmetic_request_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+ptk_err_t arithmetic_request_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     arithmetic_request_t *req = (arithmetic_request_t*)obj;
     
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, 
+    ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, 
                                    req->operation, req->operand1, req->operand2);
     if (err != PTK_OK) {
         error("Failed to serialize request fields: %d", err);
         return err;
     }
     
-    buf_size_t data_len = ptk_buf_get_len(buf) - 2;
-    u8 *data_start = buf->data + buf->start;
+    ptk_buf_size_t data_len = ptk_buf_get_len(buf) - 2;
+    ptk_u8_t *data_start = buf->data + buf->start;
     req->crc = crc16_calculate(data_start, data_len);
     
     err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, req->crc);
@@ -73,21 +71,21 @@ ptk_err arithmetic_request_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     return PTK_OK;
 }
 
-ptk_err arithmetic_request_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+ptk_err_t arithmetic_request_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     arithmetic_request_t *req = (arithmetic_request_t*)obj;
     
-    buf_size_t start_pos = ptk_buf_get_start(buf);
+    ptk_buf_size_t start_pos = ptk_buf_get_start(buf);
     
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN,
+    ptk_err_t err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN,
                                      &req->operation, &req->operand1, &req->operand2, &req->crc);
     if (err != PTK_OK) {
         error("Failed to deserialize request: %d", err);
         return err;
     }
     
-    buf_size_t data_len = 9;
-    u8 *data_start = buf->data + start_pos;
-    u16 calculated_crc = crc16_calculate(data_start, data_len);
+    ptk_buf_size_t data_len = 9;
+    ptk_u8_t *data_start = buf->data + start_pos;
+    ptk_u16_t calculated_crc = crc16_calculate(data_start, data_len);
     
     if (calculated_crc != req->crc) {
         error("CRC mismatch: calculated=0x%04x, received=0x%04x", calculated_crc, req->crc);
@@ -101,18 +99,18 @@ ptk_err arithmetic_request_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     return PTK_OK;
 }
 
-ptk_err arithmetic_response_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+ptk_err_t arithmetic_response_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     arithmetic_response_t *resp = (arithmetic_response_t*)obj;
     
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
                                    resp->operation_inverted, resp->result);
     if (err != PTK_OK) {
         error("Failed to serialize response fields: %d", err);
         return err;
     }
     
-    buf_size_t data_len = ptk_buf_get_len(buf) - 1;
-    u8 *data_start = buf->data + buf->start;
+    ptk_buf_size_t data_len = ptk_buf_get_len(buf) - 1;
+    ptk_u8_t *data_start = buf->data + buf->start;
     resp->crc = crc8_calculate(data_start, data_len);
     
     err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, resp->crc);
@@ -127,21 +125,21 @@ ptk_err arithmetic_response_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     return PTK_OK;
 }
 
-ptk_err arithmetic_response_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+ptk_err_t arithmetic_response_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     arithmetic_response_t *resp = (arithmetic_response_t*)obj;
     
-    buf_size_t start_pos = ptk_buf_get_start(buf);
+    ptk_buf_size_t start_pos = ptk_buf_get_start(buf);
     
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
                                      &resp->operation_inverted, &resp->result, &resp->crc);
     if (err != PTK_OK) {
         error("Failed to deserialize response: %d", err);
         return err;
     }
     
-    buf_size_t data_len = 9;
-    u8 *data_start = buf->data + start_pos;
-    u8 calculated_crc = crc8_calculate(data_start, data_len);
+    ptk_buf_size_t data_len = 9;
+    ptk_u8_t *data_start = buf->data + start_pos;
+    ptk_u8_t calculated_crc = crc8_calculate(data_start, data_len);
     
     if (calculated_crc != resp->crc) {
         error("CRC mismatch: calculated=0x%02x, received=0x%02x", calculated_crc, resp->crc);

@@ -4,329 +4,398 @@
 !_TAG_PROGRAM_NAME	Exuberant Ctags	//
 !_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
 !_TAG_PROGRAM_VERSION	5.9~svn20110310	//
-PTK_ARRAY_DECLARE	src/include/ptk_array.h	42;"	kind:macro	line:42	language:C++
-PTK_BUF_ARG_COUNT	src/include/ptk_buf.h	254;"	kind:macro	line:254	language:C++
-PTK_BUF_ARG_COUNT_IMPL	src/include/ptk_buf.h	259;"	kind:macro	line:259	language:C++
-PTK_BUF_BIG_ENDIAN	src/include/ptk_buf.h	/^typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endian_t;$/;"	kind:enumerator	line:165	language:C++	enum:__anon7
-PTK_BUF_EXPAND	src/include/ptk_buf.h	319;"	kind:macro	line:319	language:C++
-PTK_BUF_EXPAND_1	src/include/ptk_buf.h	275;"	kind:macro	line:275	language:C++
-PTK_BUF_EXPAND_10	src/include/ptk_buf.h	307;"	kind:macro	line:307	language:C++
-PTK_BUF_EXPAND_2	src/include/ptk_buf.h	278;"	kind:macro	line:278	language:C++
-PTK_BUF_EXPAND_3	src/include/ptk_buf.h	281;"	kind:macro	line:281	language:C++
-PTK_BUF_EXPAND_4	src/include/ptk_buf.h	284;"	kind:macro	line:284	language:C++
-PTK_BUF_EXPAND_5	src/include/ptk_buf.h	288;"	kind:macro	line:288	language:C++
-PTK_BUF_EXPAND_6	src/include/ptk_buf.h	292;"	kind:macro	line:292	language:C++
-PTK_BUF_EXPAND_7	src/include/ptk_buf.h	297;"	kind:macro	line:297	language:C++
-PTK_BUF_EXPAND_8	src/include/ptk_buf.h	302;"	kind:macro	line:302	language:C++
-PTK_BUF_EXPAND_DISPATCH	src/include/ptk_buf.h	318;"	kind:macro	line:318	language:C++
-PTK_BUF_EXPAND_PTR	src/include/ptk_buf.h	370;"	kind:macro	line:370	language:C++
-PTK_BUF_EXPAND_PTR_1	src/include/ptk_buf.h	331;"	kind:macro	line:331	language:C++
-PTK_BUF_EXPAND_PTR_2	src/include/ptk_buf.h	334;"	kind:macro	line:334	language:C++
-PTK_BUF_EXPAND_PTR_3	src/include/ptk_buf.h	337;"	kind:macro	line:337	language:C++
-PTK_BUF_EXPAND_PTR_4	src/include/ptk_buf.h	340;"	kind:macro	line:340	language:C++
-PTK_BUF_EXPAND_PTR_5	src/include/ptk_buf.h	344;"	kind:macro	line:344	language:C++
-PTK_BUF_EXPAND_PTR_6	src/include/ptk_buf.h	349;"	kind:macro	line:349	language:C++
-PTK_BUF_EXPAND_PTR_7	src/include/ptk_buf.h	354;"	kind:macro	line:354	language:C++
-PTK_BUF_EXPAND_PTR_8	src/include/ptk_buf.h	359;"	kind:macro	line:359	language:C++
-PTK_BUF_EXPAND_PTR_DISPATCH	src/include/ptk_buf.h	369;"	kind:macro	line:369	language:C++
-PTK_BUF_EXPAND_PTR_SELECT	src/include/ptk_buf.h	368;"	kind:macro	line:368	language:C++
-PTK_BUF_EXPAND_SELECT	src/include/ptk_buf.h	317;"	kind:macro	line:317	language:C++
-PTK_BUF_LITTLE_ENDIAN	src/include/ptk_buf.h	/^typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endian_t;$/;"	kind:enumerator	line:165	language:C++	enum:__anon7
-PTK_BUF_TYPE_DOUBLE	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_DOUBLE,        \/\/ double$/;"	kind:enumerator	line:161	language:C++	enum:__anon6
-PTK_BUF_TYPE_FLOAT	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_FLOAT,         \/\/ float$/;"	kind:enumerator	line:160	language:C++	enum:__anon6
-PTK_BUF_TYPE_OF	src/include/ptk_buf.h	225;"	kind:macro	line:225	language:C++
-PTK_BUF_TYPE_OF_PTR	src/include/ptk_buf.h	244;"	kind:macro	line:244	language:C++
-PTK_BUF_TYPE_S16	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S16,           \/\/ int16_t$/;"	kind:enumerator	line:157	language:C++	enum:__anon6
-PTK_BUF_TYPE_S32	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S32,           \/\/ int32_t$/;"	kind:enumerator	line:158	language:C++	enum:__anon6
-PTK_BUF_TYPE_S64	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S64,           \/\/ int64_t$/;"	kind:enumerator	line:159	language:C++	enum:__anon6
-PTK_BUF_TYPE_S8	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S8,            \/\/ int8_t$/;"	kind:enumerator	line:156	language:C++	enum:__anon6
-PTK_BUF_TYPE_SERIALIZABLE	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_SERIALIZABLE,  \/\/ struct ptk_serializable*$/;"	kind:enumerator	line:162	language:C++	enum:__anon6
-PTK_BUF_TYPE_U16	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U16,           \/\/ uint16_t$/;"	kind:enumerator	line:153	language:C++	enum:__anon6
-PTK_BUF_TYPE_U32	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U32,           \/\/ uint32_t$/;"	kind:enumerator	line:154	language:C++	enum:__anon6
-PTK_BUF_TYPE_U64	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U64,           \/\/ uint64_t$/;"	kind:enumerator	line:155	language:C++	enum:__anon6
-PTK_BUF_TYPE_U8	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U8 = 1,        \/\/ uint8_t$/;"	kind:enumerator	line:152	language:C++	enum:__anon6
-PTK_CONFIG_BOOL	src/include/ptk_config.h	/^    PTK_CONFIG_BOOL,     \/\/ bool*$/;"	kind:enumerator	line:22	language:C++	enum:__anon1
-PTK_CONFIG_END	src/include/ptk_config.h	41;"	kind:macro	line:41	language:C++
-PTK_CONFIG_HELP	src/include/ptk_config.h	/^    PTK_CONFIG_HELP      \/\/ Special type for help flag$/;"	kind:enumerator	line:23	language:C++	enum:__anon1
-PTK_CONFIG_INT	src/include/ptk_config.h	/^    PTK_CONFIG_INT,      \/\/ int*$/;"	kind:enumerator	line:20	language:C++	enum:__anon1
-PTK_CONFIG_STRING	src/include/ptk_config.h	/^    PTK_CONFIG_STRING,   \/\/ char*$/;"	kind:enumerator	line:19	language:C++	enum:__anon1
-PTK_CONFIG_UINT16	src/include/ptk_config.h	/^    PTK_CONFIG_UINT16,   \/\/ uint16_t*$/;"	kind:enumerator	line:21	language:C++	enum:__anon1
-PTK_ERR_ABORT	src/include/ptk_err.h	/^    PTK_ERR_ABORT,              \/\/ The current operation was aborted.$/;"	kind:enumerator	line:15	language:C++	enum:ptk_err
-PTK_ERR_ADDRESS_IN_USE	src/include/ptk_err.h	/^    PTK_ERR_ADDRESS_IN_USE,     \/\/ Address already in use$/;"	kind:enumerator	line:16	language:C++	enum:ptk_err
-PTK_ERR_AUTHENTICATION_FAILED	src/include/ptk_err.h	/^    PTK_ERR_AUTHENTICATION_FAILED, \/\/ Authentication failed$/;"	kind:enumerator	line:17	language:C++	enum:ptk_err
-PTK_ERR_AUTHORIZATION_FAILED	src/include/ptk_err.h	/^    PTK_ERR_AUTHORIZATION_FAILED,  \/\/ Authorization failed$/;"	kind:enumerator	line:18	language:C++	enum:ptk_err
-PTK_ERR_BAD_FORMAT	src/include/ptk_err.h	/^    PTK_ERR_BAD_FORMAT,         \/\/ Invalid format in a format string$/;"	kind:enumerator	line:19	language:C++	enum:ptk_err
-PTK_ERR_BAD_INTERNAL_STATE	src/include/ptk_err.h	/^    PTK_ERR_BAD_INTERNAL_STATE, \/\/ Internal state is inconsistent$/;"	kind:enumerator	line:20	language:C++	enum:ptk_err
-PTK_ERR_BUFFER_TOO_SMALL	src/include/ptk_err.h	/^    PTK_ERR_BUFFER_TOO_SMALL,   \/\/ Buffer too small for operation$/;"	kind:enumerator	line:23	language:C++	enum:ptk_err
-PTK_ERR_BUSY	src/include/ptk_err.h	/^    PTK_ERR_BUSY,               \/\/ Resource is busy$/;"	kind:enumerator	line:21	language:C++	enum:ptk_err
-PTK_ERR_CANCELED	src/include/ptk_err.h	/^    PTK_ERR_CANCELED,           \/\/ Operation was canceled$/;"	kind:enumerator	line:22	language:C++	enum:ptk_err
-PTK_ERR_CHECKSUM_FAILED	src/include/ptk_err.h	/^    PTK_ERR_CHECKSUM_FAILED,    \/\/ Checksum\/CRC verification failed$/;"	kind:enumerator	line:24	language:C++	enum:ptk_err
-PTK_ERR_CLOSED	src/include/ptk_err.h	/^    PTK_ERR_CLOSED,             \/\/ Socket is closed$/;"	kind:enumerator	line:25	language:C++	enum:ptk_err
-PTK_ERR_CONFIGURATION_ERROR	src/include/ptk_err.h	/^    PTK_ERR_CONFIGURATION_ERROR,\/\/ Configuration error$/;"	kind:enumerator	line:26	language:C++	enum:ptk_err
-PTK_ERR_CONNECTION_REFUSED	src/include/ptk_err.h	/^    PTK_ERR_CONNECTION_REFUSED, \/\/ Connection refused by remote$/;"	kind:enumerator	line:27	language:C++	enum:ptk_err
-PTK_ERR_DEVICE_BUSY	src/include/ptk_err.h	/^    PTK_ERR_DEVICE_BUSY,        \/\/ Device is busy$/;"	kind:enumerator	line:28	language:C++	enum:ptk_err
-PTK_ERR_DEVICE_FAILURE	src/include/ptk_err.h	/^    PTK_ERR_DEVICE_FAILURE,     \/\/ Device failure$/;"	kind:enumerator	line:29	language:C++	enum:ptk_err
-PTK_ERR_HOST_UNREACHABLE	src/include/ptk_err.h	/^    PTK_ERR_HOST_UNREACHABLE,   \/\/ Host unreachable$/;"	kind:enumerator	line:30	language:C++	enum:ptk_err
-PTK_ERR_INTERRUPT	src/include/ptk_err.h	/^    PTK_ERR_INTERRUPT,          \/\/ The current operation was interrupted.$/;"	kind:enumerator	line:31	language:C++	enum:ptk_err
-PTK_ERR_INVALID_PARAM	src/include/ptk_err.h	/^    PTK_ERR_INVALID_PARAM,      \/\/ Invalid parameter passed$/;"	kind:enumerator	line:32	language:C++	enum:ptk_err
-PTK_ERR_NETWORK_ERROR	src/include/ptk_err.h	/^    PTK_ERR_NETWORK_ERROR,      \/\/ Network operation failed$/;"	kind:enumerator	line:33	language:C++	enum:ptk_err
-PTK_ERR_NO_RESOURCES	src/include/ptk_err.h	/^    PTK_ERR_NO_RESOURCES,       \/\/ No resources available, memory, file descriptors etc.$/;"	kind:enumerator	line:34	language:C++	enum:ptk_err
-PTK_ERR_NULL_PTR	src/include/ptk_err.h	/^    PTK_ERR_NULL_PTR,           \/\/ Null pointer in params or returns$/;"	kind:enumerator	line:35	language:C++	enum:ptk_err
-PTK_ERR_OUT_OF_BOUNDS	src/include/ptk_err.h	/^    PTK_ERR_OUT_OF_BOUNDS,      \/\/ Index out of bounds$/;"	kind:enumerator	line:36	language:C++	enum:ptk_err
-PTK_ERR_PARSE_ERROR	src/include/ptk_err.h	/^    PTK_ERR_PARSE_ERROR,        \/\/ Failed to parse data$/;"	kind:enumerator	line:37	language:C++	enum:ptk_err
-PTK_ERR_PROTOCOL_ERROR	src/include/ptk_err.h	/^    PTK_ERR_PROTOCOL_ERROR,     \/\/ Protocol-specific error$/;"	kind:enumerator	line:38	language:C++	enum:ptk_err
-PTK_ERR_RATE_LIMITED	src/include/ptk_err.h	/^    PTK_ERR_RATE_LIMITED,       \/\/ Rate limit exceeded$/;"	kind:enumerator	line:39	language:C++	enum:ptk_err
-PTK_ERR_SEQUENCE_ERROR	src/include/ptk_err.h	/^    PTK_ERR_SEQUENCE_ERROR,     \/\/ Sequence\/ordering error$/;"	kind:enumerator	line:40	language:C++	enum:ptk_err
-PTK_ERR_SIGNAL	src/include/ptk_err.h	/^    PTK_ERR_SIGNAL,             \/\/ Socket operation was signaled\/interrupted by external thread$/;"	kind:enumerator	line:41	language:C++	enum:ptk_err
-PTK_ERR_TIMEOUT	src/include/ptk_err.h	/^    PTK_ERR_TIMEOUT,            \/\/ Operation timed out$/;"	kind:enumerator	line:42	language:C++	enum:ptk_err
-PTK_ERR_UNSUPPORTED	src/include/ptk_err.h	/^    PTK_ERR_UNSUPPORTED,        \/\/ Operation not supported$/;"	kind:enumerator	line:43	language:C++	enum:ptk_err
-PTK_ERR_UNSUPPORTED_VERSION	src/include/ptk_err.h	/^    PTK_ERR_UNSUPPORTED_VERSION, \/\/ Unsupported protocol version$/;"	kind:enumerator	line:44	language:C++	enum:ptk_err
-PTK_ERR_VALIDATION	src/include/ptk_err.h	/^    PTK_ERR_VALIDATION,         \/\/ Validation error$/;"	kind:enumerator	line:45	language:C++	enum:ptk_err
-PTK_ERR_WOULD_BLOCK	src/include/ptk_err.h	/^    PTK_ERR_WOULD_BLOCK,        \/\/ Operation would block$/;"	kind:enumerator	line:46	language:C++	enum:ptk_err
-PTK_LOG_LEVEL_DEBUG	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_DEBUG,     \/**< Debugging messages. *\/$/;"	kind:enumerator	line:39	language:C++	enum:__anon8
-PTK_LOG_LEVEL_END	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_END,       \/**< Sentinel value (not a valid level). *\/$/;"	kind:enumerator	line:42	language:C++	enum:__anon8
-PTK_LOG_LEVEL_ERROR	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_ERROR,     \/**< Error conditions. *\/$/;"	kind:enumerator	line:36	language:C++	enum:__anon8
-PTK_LOG_LEVEL_INFO	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_INFO,      \/**< Informational messages. *\/$/;"	kind:enumerator	line:38	language:C++	enum:__anon8
-PTK_LOG_LEVEL_NONE	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_NONE = 0,  \/**< Logging disabled. *\/$/;"	kind:enumerator	line:35	language:C++	enum:__anon8
-PTK_LOG_LEVEL_TRACE	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_TRACE,     \/**< Fine-grained tracing messages. *\/$/;"	kind:enumerator	line:40	language:C++	enum:__anon8
-PTK_LOG_LEVEL_WARN	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_WARN,      \/**< Warning conditions. *\/$/;"	kind:enumerator	line:37	language:C++	enum:__anon8
-PTK_OK	src/include/ptk_err.h	/^    PTK_OK,                     \/\/ Status\/error was OK$/;"	kind:enumerator	line:14	language:C++	enum:ptk_err
-PTK_SHARED_HANDLE_EQUAL	src/include/ptk_mem.h	179;"	kind:macro	line:179	language:C++
-PTK_SHARED_INVALID_HANDLE	src/include/ptk_mem.h	177;"	kind:macro	line:177	language:C++
-PTK_SHARED_IS_VALID	src/include/ptk_mem.h	178;"	kind:macro	line:178	language:C++
-PTK_SOCK_INVALID	src/include/ptk_sock.h	/^    PTK_SOCK_INVALID,     \/\/ Invalid socket type$/;"	kind:enumerator	line:41	language:C++	enum:__anon3
-PTK_SOCK_TCP_CLIENT	src/include/ptk_sock.h	/^    PTK_SOCK_TCP_CLIENT,  \/\/ TCP client socket$/;"	kind:enumerator	line:43	language:C++	enum:__anon3
-PTK_SOCK_TCP_SERVER	src/include/ptk_sock.h	/^    PTK_SOCK_TCP_SERVER,  \/\/ TCP listening socket$/;"	kind:enumerator	line:42	language:C++	enum:__anon3
-PTK_SOCK_UDP	src/include/ptk_sock.h	/^    PTK_SOCK_UDP,         \/\/ UDP socket$/;"	kind:enumerator	line:44	language:C++	enum:__anon3
-PTK_THREAD_NO_PARENT	src/include/ptk_os_thread.h	62;"	kind:macro	line:62	language:C++
-PTK_THREAD_SIGNAL_ABORT	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_ABORT = (1 << 0),        \/\/ Request graceful shutdown  $/;"	kind:enumerator	line:69	language:C++	enum:__anon9
-PTK_THREAD_SIGNAL_ABORT_MASK	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_ABORT_MASK = 0xFF,       \/\/ Mask for all abort-type signals$/;"	kind:enumerator	line:72	language:C++	enum:__anon9
-PTK_THREAD_SIGNAL_CHILD_DIED	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_CHILD_DIED = (1 << 2),   \/\/ Child death notification (automatic)$/;"	kind:enumerator	line:71	language:C++	enum:__anon9
-PTK_THREAD_SIGNAL_TERMINATE	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_TERMINATE = (1 << 1),    \/\/ Force immediate termination$/;"	kind:enumerator	line:70	language:C++	enum:__anon9
-PTK_THREAD_SIGNAL_WAKE	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_WAKE = (1 << 8),         \/\/ General wake-up signal$/;"	kind:enumerator	line:75	language:C++	enum:__anon9
-PTK_TIME_NO_WAIT	src/include/ptk_os_thread.h	38;"	kind:macro	line:38	language:C++
-PTK_TIME_NO_WAIT	src/include/ptk_utils.h	21;"	kind:macro	line:21	language:C++
-PTK_TIME_WAIT_FOREVER	src/include/ptk_os_thread.h	37;"	kind:macro	line:37	language:C++
-PTK_TIME_WAIT_FOREVER	src/include/ptk_utils.h	15;"	kind:macro	line:15	language:C++
-__func__	src/include/ptk_log.h	27;"	kind:macro	line:27	language:C++
-broadcast	src/include/ptk_sock.h	/^    char broadcast[16];          \/\/ Broadcast address (e.g., "192.168.1.255")$/;"	kind:member	line:121	language:C++	struct:ptk_network_interface	access:public
-broadcast	src/include/ptk_sock.h	/^    char broadcast[16];          \/\/ Broadcast address (e.g., "192.168.1.255")$/;"	kind:member	line:307	language:C++	struct:__anon5	access:public
-buf_size_t	src/include/ptk_buf.h	/^typedef uint16_t buf_size_t;$/;"	kind:typedef	line:55	language:C++
-data	src/include/ptk_buf.h	/^    u8 *data;           \/\/ Pointer to start of buffer$/;"	kind:member	line:60	language:C++	struct:ptk_buf	access:public
-data_len	src/include/ptk_buf.h	/^    buf_size_t data_len;  \/\/ Total length of buffer$/;"	kind:member	line:61	language:C++	struct:ptk_buf	access:public
-debug	src/include/ptk_log.h	95;"	kind:macro	line:95	language:C++
-debug_buf	src/include/ptk_log.h	140;"	kind:macro	line:140	language:C++
-default_str	src/include/ptk_config.h	/^    const char *default_str;    \/\/ Default value as string (for display)$/;"	kind:member	line:35	language:C++	struct:__anon2	access:public
-deserialize	src/include/ptk_buf.h	/^    ptk_err (*deserialize)(ptk_buf *buf, struct ptk_serializable *obj);$/;"	kind:member	line:46	language:C++	struct:ptk_serializable	access:public
-end	src/include/ptk_buf.h	/^    buf_size_t end;$/;"	kind:member	line:63	language:C++	struct:ptk_buf	access:public
-error	src/include/ptk_log.h	74;"	kind:macro	line:74	language:C++
-error_buf	src/include/ptk_log.h	119;"	kind:macro	line:119	language:C++
-f32	src/include/ptk_buf.h	/^typedef float f32;$/;"	kind:typedef	line:34	language:C++
-f64	src/include/ptk_buf.h	/^typedef double f64;$/;"	kind:typedef	line:35	language:C++
-family	src/include/ptk_sock.h	/^    uint8_t family;    \/\/ Address family (AF_INET for IPv4)$/;"	kind:member	line:62	language:C++	struct:__anon4	access:public
-help	src/include/ptk_config.h	/^    const char *help;           \/\/ Help text$/;"	kind:member	line:34	language:C++	struct:__anon2	access:public
-i16	src/include/ptk_buf.h	/^typedef int16_t i16;$/;"	kind:typedef	line:31	language:C++
-i32	src/include/ptk_buf.h	/^typedef int32_t i32;$/;"	kind:typedef	line:32	language:C++
-i64	src/include/ptk_buf.h	/^typedef int64_t i64;$/;"	kind:typedef	line:33	language:C++
-i8	src/include/ptk_buf.h	/^typedef int8_t i8;$/;"	kind:typedef	line:30	language:C++
-info	src/include/ptk_log.h	88;"	kind:macro	line:88	language:C++
-info_buf	src/include/ptk_log.h	133;"	kind:macro	line:133	language:C++
-interface_name	src/include/ptk_sock.h	/^    char interface_name[32];     \/\/ Interface name (e.g., "eth0", "wlan0") $/;"	kind:member	line:118	language:C++	struct:ptk_network_interface	access:public
-interface_name	src/include/ptk_sock.h	/^    char interface_name[32];     \/\/ Interface name (e.g., "eth0", "wlan0")$/;"	kind:member	line:304	language:C++	struct:__anon5	access:public
-ip	src/include/ptk_sock.h	/^    uint32_t ip;       \/\/ IPv4 address in network byte order$/;"	kind:member	line:60	language:C++	struct:__anon4	access:public
-ip_address	src/include/ptk_sock.h	/^    char ip_address[16];         \/\/ IP address (e.g., "192.168.1.100")$/;"	kind:member	line:119	language:C++	struct:ptk_network_interface	access:public
-ip_address	src/include/ptk_sock.h	/^    char ip_address[16];         \/\/ IP address (e.g., "192.168.1.100")$/;"	kind:member	line:305	language:C++	struct:__anon5	access:public
-is_loopback	src/include/ptk_sock.h	/^    bool is_loopback;            \/\/ True if this is loopback interface$/;"	kind:member	line:125	language:C++	struct:ptk_network_interface	access:public
-is_loopback	src/include/ptk_sock.h	/^    bool is_loopback;            \/\/ True if this is loopback interface$/;"	kind:member	line:309	language:C++	struct:__anon5	access:public
-is_up	src/include/ptk_sock.h	/^    bool is_up;                  \/\/ True if interface is up$/;"	kind:member	line:124	language:C++	struct:ptk_network_interface	access:public
-is_up	src/include/ptk_sock.h	/^    bool is_up;                  \/\/ True if interface is up$/;"	kind:member	line:308	language:C++	struct:__anon5	access:public
-name	src/include/ptk_config.h	/^    const char *name;           \/\/ Long option name (without --)$/;"	kind:member	line:30	language:C++	struct:__anon2	access:public
-netmask	src/include/ptk_sock.h	/^    char netmask[16];            \/\/ Subnet mask (e.g., "255.255.255.0")$/;"	kind:member	line:120	language:C++	struct:ptk_network_interface	access:public
-netmask	src/include/ptk_sock.h	/^    char netmask[16];            \/\/ Subnet mask (e.g., "255.255.255.0")$/;"	kind:member	line:306	language:C++	struct:__anon5	access:public
-network	src/include/ptk_sock.h	/^    char network[16];            \/\/ Network address (e.g., "192.168.1.0")$/;"	kind:member	line:122	language:C++	struct:ptk_network_interface	access:public
-on_shared_fail	src/include/ptk_mem.h	254;"	kind:macro	line:254	language:C++
-port	src/include/ptk_sock.h	/^    uint16_t port;     \/\/ Port number in host byte order$/;"	kind:member	line:61	language:C++	struct:__anon4	access:public
-prefix_length	src/include/ptk_sock.h	/^    uint8_t prefix_length;       \/\/ CIDR prefix length (e.g., 24 for \/24)$/;"	kind:member	line:123	language:C++	struct:ptk_network_interface	access:public
-ptk_address_equals	src/include/ptk_sock.h	/^bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2);$/;"	kind:prototype	line:99	language:C++	signature:(const ptk_address_t *addr1, const ptk_address_t *addr2)
-ptk_address_get_port	src/include/ptk_sock.h	/^uint16_t ptk_address_get_port(const ptk_address_t *address);$/;"	kind:prototype	line:90	language:C++	signature:(const ptk_address_t *address)
-ptk_address_init	src/include/ptk_sock.h	/^ptk_err ptk_address_init(ptk_address_t *address, const char *ip_string, uint16_t port);$/;"	kind:prototype	line:74	language:C++	signature:(ptk_address_t *address, const char *ip_string, uint16_t port)
-ptk_address_init_any	src/include/ptk_sock.h	/^ptk_err ptk_address_init_any(ptk_address_t *address, uint16_t port);$/;"	kind:prototype	line:108	language:C++	signature:(ptk_address_t *address, uint16_t port)
-ptk_address_t	src/include/ptk_sock.h	/^} ptk_address_t;$/;"	kind:typedef	line:64	language:C++	typeref:struct:__anon4
-ptk_address_to_string	src/include/ptk_sock.h	/^char *ptk_address_to_string(const ptk_address_t *address);$/;"	kind:prototype	line:82	language:C++	signature:(const ptk_address_t *address)
-ptk_atomic	src/include/ptk_atomic.h	43;"	kind:macro	line:43	language:C++
-ptk_atomic_add_fetch_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_add_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:62	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_add_fetch_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_add_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:76	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_add_fetch_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_add_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:90	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_add_fetch_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_add_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:48	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_and_fetch_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_and_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:66	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_and_fetch_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_and_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:80	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_and_fetch_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_and_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:94	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_and_fetch_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_and_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:52	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_compare_and_swap_ptr	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_compare_and_swap_ptr(ptk_atomic void **dest_value, void *old_value, void *new_value);$/;"	kind:prototype	line:103	language:C++	signature:(ptk_atomic void **dest_value, void *old_value, void *new_value)
-ptk_atomic_compare_and_swap_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_compare_and_swap_u16(ptk_atomic uint16_t *dest_value, uint16_t old_value, uint16_t new_value);$/;"	kind:prototype	line:71	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t old_value, uint16_t new_value)
-ptk_atomic_compare_and_swap_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_compare_and_swap_u32(ptk_atomic uint32_t *dest_value, uint32_t old_value, uint32_t new_value);$/;"	kind:prototype	line:85	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t old_value, uint32_t new_value)
-ptk_atomic_compare_and_swap_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_compare_and_swap_u64(ptk_atomic uint64_t *dest_value, uint64_t old_value, uint64_t new_value);$/;"	kind:prototype	line:99	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t old_value, uint64_t new_value)
-ptk_atomic_compare_and_swap_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_compare_and_swap_u8(ptk_atomic uint8_t *dest_value, uint8_t old_value, uint8_t new_value);$/;"	kind:prototype	line:57	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t old_value, uint8_t new_value)
-ptk_atomic_fetch_add_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_add_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:61	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_fetch_add_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_add_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:75	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_fetch_add_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_add_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:89	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_fetch_add_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_add_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:47	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_fetch_and_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_and_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:65	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_fetch_and_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_and_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:79	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_fetch_and_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_and_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:93	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_fetch_and_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_and_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:51	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_fetch_or_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_or_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:67	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_fetch_or_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_or_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:81	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_fetch_or_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_or_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:95	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_fetch_or_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_or_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:53	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_fetch_sub_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_sub_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:63	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_fetch_sub_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_sub_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:77	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_fetch_sub_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_sub_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:91	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_fetch_sub_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_sub_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:49	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_fetch_xor_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_xor_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:69	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_fetch_xor_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_xor_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:83	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_fetch_xor_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_xor_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:97	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_fetch_xor_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_fetch_xor_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:55	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_load_ptr	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_load_ptr(void **dest_value, ptk_atomic void **src_value);$/;"	kind:prototype	line:101	language:C++	signature:(void **dest_value, ptk_atomic void **src_value)
-ptk_atomic_load_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_load_u16(uint16_t *dest_value, ptk_atomic uint16_t *src_value);$/;"	kind:prototype	line:59	language:C++	signature:(uint16_t *dest_value, ptk_atomic uint16_t *src_value)
-ptk_atomic_load_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_load_u32(uint32_t *dest_value, ptk_atomic uint32_t *src_value);$/;"	kind:prototype	line:73	language:C++	signature:(uint32_t *dest_value, ptk_atomic uint32_t *src_value)
-ptk_atomic_load_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_load_u64(uint64_t *dest_value, ptk_atomic uint64_t *src_value);$/;"	kind:prototype	line:87	language:C++	signature:(uint64_t *dest_value, ptk_atomic uint64_t *src_value)
-ptk_atomic_load_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_load_u8(uint8_t *dest_value, ptk_atomic uint8_t *src_value);$/;"	kind:prototype	line:45	language:C++	signature:(uint8_t *dest_value, ptk_atomic uint8_t *src_value)
-ptk_atomic_or_fetch_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_or_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:68	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_or_fetch_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_or_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:82	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_or_fetch_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_or_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:96	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_or_fetch_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_or_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:54	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_store_ptr	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_store_ptr(ptk_atomic void **dest_value, void *src_value);$/;"	kind:prototype	line:102	language:C++	signature:(ptk_atomic void **dest_value, void *src_value)
-ptk_atomic_store_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_store_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:60	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_store_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_store_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:74	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_store_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_store_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:88	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_store_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_store_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:46	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_sub_fetch_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_sub_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:64	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_sub_fetch_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_sub_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:78	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_sub_fetch_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_sub_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:92	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_sub_fetch_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_sub_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:50	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_atomic_xor_fetch_u16	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_xor_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	kind:prototype	line:70	language:C++	signature:(ptk_atomic uint16_t *dest_value, uint16_t src_value)
-ptk_atomic_xor_fetch_u32	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_xor_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	kind:prototype	line:84	language:C++	signature:(ptk_atomic uint32_t *dest_value, uint32_t src_value)
-ptk_atomic_xor_fetch_u64	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_xor_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	kind:prototype	line:98	language:C++	signature:(ptk_atomic uint64_t *dest_value, uint64_t src_value)
-ptk_atomic_xor_fetch_u8	src/include/ptk_atomic.h	/^ptk_err ptk_atomic_xor_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	kind:prototype	line:56	language:C++	signature:(ptk_atomic uint8_t *dest_value, uint8_t src_value)
-ptk_buf	src/include/ptk_buf.h	/^typedef struct ptk_buf {$/;"	kind:struct	line:59	language:C++
-ptk_buf	src/include/ptk_buf.h	/^} ptk_buf;$/;"	kind:typedef	line:64	language:C++	typeref:struct:ptk_buf
-ptk_buf	src/include/ptk_log.h	/^typedef struct ptk_buf ptk_buf;$/;"	kind:typedef	line:21	language:C++	typeref:struct:ptk_buf
-ptk_buf_alloc	src/include/ptk_buf.h	/^extern ptk_buf *ptk_buf_alloc(buf_size_t size);$/;"	kind:prototype	line:79	language:C++	signature:(buf_size_t size)
-ptk_buf_alloc_from_data	src/include/ptk_buf.h	/^extern ptk_buf *ptk_buf_alloc_from_data(const u8 *data, buf_size_t size);$/;"	kind:prototype	line:84	language:C++	signature:(const u8 *data, buf_size_t size)
-ptk_buf_byte_swap_u32	src/include/ptk_buf.h	/^static inline u32 ptk_buf_byte_swap_u32(u32 value) {$/;"	kind:function	line:206	language:C++	signature:(u32 value)
-ptk_buf_byte_swap_u64	src/include/ptk_buf.h	/^static inline u64 ptk_buf_byte_swap_u64(u64 value) {$/;"	kind:function	line:211	language:C++	signature:(u64 value)
-ptk_buf_deserialize	src/include/ptk_buf.h	389;"	kind:macro	line:389	language:C++
-ptk_buf_deserialize_impl	src/include/ptk_buf.h	/^extern ptk_err ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, buf_size_t count, ...);$/;"	kind:prototype	line:196	language:C++	signature:(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, buf_size_t count, ...)
-ptk_buf_endian_t	src/include/ptk_buf.h	/^typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endian_t;$/;"	kind:typedef	line:165	language:C++	typeref:enum:__anon7
-ptk_buf_get_capacity	src/include/ptk_buf.h	/^extern buf_size_t ptk_buf_get_capacity(const ptk_buf *buf);$/;"	kind:prototype	line:108	language:C++	signature:(const ptk_buf *buf)
-ptk_buf_get_end	src/include/ptk_buf.h	/^extern buf_size_t ptk_buf_get_end(const ptk_buf *buf);$/;"	kind:prototype	line:113	language:C++	signature:(const ptk_buf *buf)
-ptk_buf_get_len	src/include/ptk_buf.h	/^extern buf_size_t ptk_buf_get_len(const ptk_buf *buf);$/;"	kind:prototype	line:100	language:C++	signature:(const ptk_buf *buf)
-ptk_buf_get_start	src/include/ptk_buf.h	/^extern buf_size_t ptk_buf_get_start(const ptk_buf *buf);$/;"	kind:prototype	line:110	language:C++	signature:(const ptk_buf *buf)
-ptk_buf_get_u8	src/include/ptk_buf.h	/^extern u8 ptk_buf_get_u8(ptk_buf *buf);$/;"	kind:prototype	line:144	language:C++	signature:(ptk_buf *buf)
-ptk_buf_move_block	src/include/ptk_buf.h	/^extern ptk_err ptk_buf_move_block(ptk_buf *buf, buf_size_t new_position);$/;"	kind:prototype	line:121	language:C++	signature:(ptk_buf *buf, buf_size_t new_position)
-ptk_buf_realloc	src/include/ptk_buf.h	/^extern ptk_buf *ptk_buf_realloc(ptk_buf *buf, buf_size_t new_size);$/;"	kind:prototype	line:92	language:C++	signature:(ptk_buf *buf, buf_size_t new_size)
-ptk_buf_serialize	src/include/ptk_buf.h	381;"	kind:macro	line:381	language:C++
-ptk_buf_serialize_impl	src/include/ptk_buf.h	/^extern ptk_err ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t count, ...);$/;"	kind:prototype	line:178	language:C++	signature:(ptk_buf *buf, ptk_buf_endian_t endian, buf_size_t count, ...)
-ptk_buf_set_end	src/include/ptk_buf.h	/^extern ptk_err ptk_buf_set_end(ptk_buf *buf, buf_size_t end);$/;"	kind:prototype	line:114	language:C++	signature:(ptk_buf *buf, buf_size_t end)
-ptk_buf_set_start	src/include/ptk_buf.h	/^extern ptk_err ptk_buf_set_start(ptk_buf *buf, buf_size_t start);$/;"	kind:prototype	line:111	language:C++	signature:(ptk_buf *buf, buf_size_t start)
-ptk_buf_set_u8	src/include/ptk_buf.h	/^extern ptk_err ptk_buf_set_u8(ptk_buf *buf, u8 val);$/;"	kind:prototype	line:136	language:C++	signature:(ptk_buf *buf, u8 val)
-ptk_buf_type_t	src/include/ptk_buf.h	/^} ptk_buf_type_t;$/;"	kind:typedef	line:163	language:C++	typeref:enum:__anon6
-ptk_config_field_t	src/include/ptk_config.h	/^} ptk_config_field_t;$/;"	kind:typedef	line:36	language:C++	typeref:struct:__anon2
-ptk_config_parse	src/include/ptk_config.h	/^ptk_err ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *fields, const char *program_name);$/;"	kind:prototype	line:52	language:C++	signature:(int argc, char *argv[], const ptk_config_field_t *fields, const char *program_name)
-ptk_config_print_help	src/include/ptk_config.h	/^ptk_err ptk_config_print_help(const char *program_name, const ptk_config_field_t *fields, const char *description);$/;"	kind:prototype	line:61	language:C++	signature:(const char *program_name, const ptk_config_field_t *fields, const char *description)
-ptk_config_type_t	src/include/ptk_config.h	/^} ptk_config_type_t;$/;"	kind:typedef	line:24	language:C++	typeref:enum:__anon1
-ptk_duration_ms	src/include/ptk_utils.h	/^typedef int64_t ptk_duration_ms;$/;"	kind:typedef	line:33	language:C++
-ptk_err	src/include/ptk_err.h	/^typedef enum ptk_err{$/;"	kind:enum	line:13	language:C++
-ptk_err	src/include/ptk_err.h	/^} ptk_err;$/;"	kind:typedef	line:47	language:C++	typeref:enum:ptk_err
-ptk_err	src/include/ptk_os_thread.h	/^typedef enum ptk_err ptk_err;$/;"	kind:typedef	line:32	language:C++	typeref:enum:ptk_err
-ptk_err_to_string	src/include/ptk_err.h	/^const char* ptk_err_to_string(ptk_err err);$/;"	kind:prototype	line:79	language:C++	signature:(ptk_err err)
-ptk_get_err	src/include/ptk_err.h	/^static inline ptk_err ptk_get_err(void) {$/;"	kind:function	line:69	language:C++	signature:(void)
-ptk_local_alloc	src/include/ptk_mem.h	29;"	kind:macro	line:29	language:C++
-ptk_local_alloc_impl	src/include/ptk_mem.h	/^extern void *ptk_local_alloc_impl(const char *file, int line, size_t size, void (*destructor)(void *ptr));$/;"	kind:prototype	line:31	language:C++	signature:(const char *file, int line, size_t size, void (*destructor)(void *ptr))
-ptk_local_free	src/include/ptk_mem.h	81;"	kind:macro	line:81	language:C++
-ptk_local_free_impl	src/include/ptk_mem.h	/^extern void ptk_local_free_impl(const char *file, int line, void **ptr_ref);$/;"	kind:prototype	line:83	language:C++	signature:(const char *file, int line, void **ptr_ref)
-ptk_local_realloc	src/include/ptk_mem.h	58;"	kind:macro	line:58	language:C++
-ptk_local_realloc_impl	src/include/ptk_mem.h	/^extern void *ptk_local_realloc_impl(const char *file, int line, void *ptr, size_t new_size);$/;"	kind:prototype	line:60	language:C++	signature:(const char *file, int line, void *ptr, size_t new_size)
-ptk_log_buf_impl	src/include/ptk_log.h	/^extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data);$/;"	kind:prototype	line:114	language:C++	signature:(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data)
-ptk_log_impl	src/include/ptk_log.h	/^extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level, const char *tmpl, ...);$/;"	kind:prototype	line:69	language:C++	signature:(const char *func, int line_num, ptk_log_level log_level, const char *tmpl, ...)
-ptk_log_level	src/include/ptk_log.h	/^} ptk_log_level;$/;"	kind:typedef	line:43	language:C++	typeref:enum:__anon8
-ptk_log_level_get	src/include/ptk_log.h	/^extern ptk_log_level ptk_log_level_get(void);$/;"	kind:prototype	line:58	language:C++	signature:(void)
-ptk_log_level_set	src/include/ptk_log.h	/^extern ptk_log_level ptk_log_level_set(ptk_log_level level);$/;"	kind:prototype	line:51	language:C++	signature:(ptk_log_level level)
-ptk_network_discover_interfaces	src/include/ptk_sock.h	/^ptk_network_interface_array_t *ptk_network_discover_interfaces(void);$/;"	kind:prototype	line:157	language:C++	signature:(void)
-ptk_network_info	src/include/ptk_sock.h	/^typedef struct ptk_network_info ptk_network_info;$/;"	kind:typedef	line:313	language:C++	typeref:struct:ptk_network_info
-ptk_network_info_entry	src/include/ptk_sock.h	/^} ptk_network_info_entry;$/;"	kind:typedef	line:311	language:C++	typeref:struct:__anon5
-ptk_network_interface	src/include/ptk_sock.h	/^typedef struct ptk_network_interface {$/;"	kind:struct	line:117	language:C++
-ptk_network_interface_t	src/include/ptk_sock.h	/^} ptk_network_interface_t;$/;"	kind:typedef	line:127	language:C++	typeref:struct:ptk_network_interface
-ptk_now_ms	src/include/ptk_utils.h	/^extern ptk_time_ms ptk_now_ms(void);$/;"	kind:prototype	line:51	language:C++	signature:(void)
-ptk_serializable	src/include/ptk_buf.h	/^struct ptk_serializable {$/;"	kind:struct	line:44	language:C++
-ptk_serializable_t	src/include/ptk_buf.h	/^typedef struct ptk_serializable ptk_serializable_t;$/;"	kind:typedef	line:49	language:C++	typeref:struct:ptk_serializable
-ptk_set_err	src/include/ptk_err.h	/^static inline void ptk_set_err(ptk_err err) {$/;"	kind:function	line:58	language:C++	signature:(ptk_err err)
-ptk_set_interrupt_handler	src/include/ptk_utils.h	/^extern ptk_err ptk_set_interrupt_handler(void (*handler)(void));$/;"	kind:prototype	line:44	language:C++	signature:(void (*handler)(void))
-ptk_shared_acquire	src/include/ptk_mem.h	211;"	kind:macro	line:211	language:C++
-ptk_shared_acquire_impl	src/include/ptk_mem.h	/^extern void *ptk_shared_acquire_impl(const char *file, int line, ptk_shared_handle_t handle, ptk_time_ms timeout);$/;"	kind:prototype	line:212	language:C++	signature:(const char *file, int line, ptk_shared_handle_t handle, ptk_time_ms timeout)
-ptk_shared_alloc	src/include/ptk_mem.h	205;"	kind:macro	line:205	language:C++
-ptk_shared_alloc_impl	src/include/ptk_mem.h	/^extern ptk_shared_handle_t ptk_shared_alloc_impl(const char *file, int line, size_t size, void (*destructor)(void *ptr));$/;"	kind:prototype	line:206	language:C++	signature:(const char *file, int line, size_t size, void (*destructor)(void *ptr))
-ptk_shared_free	src/include/ptk_mem.h	277;"	kind:macro	line:277	language:C++
-ptk_shared_free_impl	src/include/ptk_mem.h	/^extern void ptk_shared_free_impl(const char *file, int line, void **ptr_ref);$/;"	kind:prototype	line:279	language:C++	signature:(const char *file, int line, void **ptr_ref)
-ptk_shared_handle	src/include/ptk_mem.h	/^typedef struct ptk_shared_handle {$/;"	kind:struct	line:173	language:C++
-ptk_shared_handle_t	src/include/ptk_mem.h	/^} ptk_shared_handle_t;$/;"	kind:typedef	line:175	language:C++	typeref:struct:ptk_shared_handle
-ptk_shared_handle_t	src/include/ptk_os_thread.h	/^typedef struct ptk_shared_handle ptk_shared_handle_t;$/;"	kind:typedef	line:33	language:C++	typeref:struct:ptk_shared_handle
-ptk_shared_init	src/include/ptk_mem.h	/^extern ptk_err ptk_shared_init(void);$/;"	kind:prototype	line:187	language:C++	signature:(void)
-ptk_shared_realloc	src/include/ptk_mem.h	208;"	kind:macro	line:208	language:C++
-ptk_shared_realloc_impl	src/include/ptk_mem.h	/^extern ptk_err ptk_shared_realloc_impl(const char *file, int line, ptk_shared_handle_t handle, size_t new_size);  \/\/ reuses the existing handle.$/;"	kind:prototype	line:209	language:C++	signature:(const char *file, int line, ptk_shared_handle_t handle, size_t new_size)
-ptk_shared_release	src/include/ptk_mem.h	214;"	kind:macro	line:214	language:C++
-ptk_shared_release_impl	src/include/ptk_mem.h	/^extern ptk_err ptk_shared_release_impl(const char *file, int line, ptk_shared_handle_t handle);$/;"	kind:prototype	line:215	language:C++	signature:(const char *file, int line, ptk_shared_handle_t handle)
-ptk_shared_shutdown	src/include/ptk_mem.h	/^extern ptk_err ptk_shared_shutdown(void);$/;"	kind:prototype	line:195	language:C++	signature:(void)
-ptk_shutdown	src/include/ptk.h	/^ptk_err ptk_shutdown(void);/;"	kind:prototype	line:40	language:C++	signature:(void)
-ptk_sock	src/include/ptk_sock.h	/^typedef struct ptk_sock ptk_sock;$/;"	kind:typedef	line:24	language:C++	typeref:struct:ptk_sock
-ptk_sock_type	src/include/ptk_sock.h	/^} ptk_sock_type;$/;"	kind:typedef	line:45	language:C++	typeref:enum:__anon3
-ptk_socket_close	src/include/ptk_sock.h	/^void ptk_socket_close(ptk_sock *socket);$/;"	kind:prototype	line:180	language:C++	signature:(ptk_sock *socket)
-ptk_socket_network_info_count	src/include/ptk_sock.h	/^size_t ptk_socket_network_info_count(const ptk_network_info *network_info);$/;"	kind:prototype	line:333	language:C++	signature:(const ptk_network_info *network_info)
-ptk_socket_network_info_get	src/include/ptk_sock.h	/^const ptk_network_info_entry *ptk_socket_network_info_get(const ptk_network_info *network_info, size_t index);$/;"	kind:prototype	line:342	language:C++	signature:(const ptk_network_info *network_info, size_t index)
-ptk_socket_network_list	src/include/ptk_sock.h	/^ptk_network_info *ptk_socket_network_list(void);$/;"	kind:prototype	line:325	language:C++	signature:(void)
-ptk_socket_thread_func	src/include/ptk_sock.h	/^typedef void (*ptk_socket_thread_func)(ptk_sock *socket, ptk_shared_handle_t shared_context);$/;"	kind:typedef	line:35	language:C++
-ptk_startup	src/include/ptk.h	/^ptk_err ptk_startup(void);$/;"	kind:prototype	line:30	language:C++	signature:(void)
-ptk_tcp_connect	src/include/ptk_sock.h	/^ptk_sock *ptk_tcp_connect(const ptk_address_t *remote_addr,$/;"	kind:prototype	line:198	language:C++	signature:(const ptk_address_t *remote_addr, ptk_socket_thread_func thread_func, ptk_shared_handle_t shared_context)
-ptk_tcp_server_start	src/include/ptk_sock.h	/^ptk_sock *ptk_tcp_server_start(const ptk_address_t *local_addr,$/;"	kind:prototype	line:241	language:C++	signature:(const ptk_address_t *local_addr, ptk_socket_thread_func thread_func, ptk_shared_handle_t shared_context)
-ptk_tcp_socket_recv	src/include/ptk_sock.h	/^ptk_buf *ptk_tcp_socket_recv(ptk_sock *sock, ptk_duration_ms timeout_ms);$/;"	kind:prototype	line:221	language:C++	signature:(ptk_sock *sock, ptk_duration_ms timeout_ms)
-ptk_tcp_socket_send	src/include/ptk_sock.h	/^ptk_err ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms);$/;"	kind:prototype	line:211	language:C++	signature:(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms)
-ptk_thread_cleanup_dead_children	src/include/ptk_os_thread.h	/^extern ptk_err ptk_thread_cleanup_dead_children(ptk_thread_handle_t parent, ptk_time_ms timeout_ms);$/;"	kind:prototype	line:217	language:C++	signature:(ptk_thread_handle_t parent, ptk_time_ms timeout_ms)
-ptk_thread_clear_signals	src/include/ptk_os_thread.h	/^extern void ptk_thread_clear_signals(uint64_t signal_mask);$/;"	kind:prototype	line:171	language:C++	signature:(uint64_t signal_mask)
-ptk_thread_count_children	src/include/ptk_os_thread.h	/^extern int ptk_thread_count_children(ptk_thread_handle_t parent);$/;"	kind:prototype	line:193	language:C++	signature:(ptk_thread_handle_t parent)
-ptk_thread_create	src/include/ptk_os_thread.h	/^extern ptk_thread_handle_t ptk_thread_create(ptk_thread_handle_t parent,$/;"	kind:prototype	line:115	language:C++	signature:(ptk_thread_handle_t parent, ptk_thread_func func, ptk_shared_handle_t data)
-ptk_thread_func	src/include/ptk_os_thread.h	/^typedef void (*ptk_thread_func)(ptk_shared_handle_t data);$/;"	kind:typedef	line:102	language:C++
-ptk_thread_get_parent	src/include/ptk_os_thread.h	/^extern ptk_thread_handle_t ptk_thread_get_parent(ptk_thread_handle_t thread);$/;"	kind:prototype	line:183	language:C++	signature:(ptk_thread_handle_t thread)
-ptk_thread_get_pending_signals	src/include/ptk_os_thread.h	/^extern uint64_t ptk_thread_get_pending_signals(void);$/;"	kind:prototype	line:156	language:C++	signature:(void)
-ptk_thread_handle_t	src/include/ptk_os_thread.h	/^typedef ptk_shared_handle_t ptk_thread_handle_t;$/;"	kind:typedef	line:57	language:C++
-ptk_thread_has_signal	src/include/ptk_os_thread.h	/^extern bool ptk_thread_has_signal(ptk_thread_signal_t signal_bit);$/;"	kind:prototype	line:164	language:C++	signature:(ptk_thread_signal_t signal_bit)
-ptk_thread_local	src/include/ptk_os_thread.h	41;"	kind:macro	line:41	language:C++
-ptk_thread_local	src/include/ptk_os_thread.h	43;"	kind:macro	line:43	language:C++
-ptk_thread_self	src/include/ptk_os_thread.h	/^extern ptk_thread_handle_t ptk_thread_self(void);$/;"	kind:prototype	line:124	language:C++	signature:(void)
-ptk_thread_signal	src/include/ptk_os_thread.h	/^extern ptk_err ptk_thread_signal(ptk_thread_handle_t handle, ptk_thread_signal_t signal_type);$/;"	kind:prototype	line:147	language:C++	signature:(ptk_thread_handle_t handle, ptk_thread_signal_t signal_type)
-ptk_thread_signal_all_children	src/include/ptk_os_thread.h	/^extern ptk_err ptk_thread_signal_all_children(ptk_thread_handle_t parent, ptk_thread_signal_t signal_type);$/;"	kind:prototype	line:205	language:C++	signature:(ptk_thread_handle_t parent, ptk_thread_signal_t signal_type)
-ptk_thread_signal_t	src/include/ptk_os_thread.h	/^} ptk_thread_signal_t;$/;"	kind:typedef	line:76	language:C++	typeref:enum:__anon9
-ptk_thread_wait	src/include/ptk_os_thread.h	/^extern ptk_err ptk_thread_wait(ptk_time_ms timeout_ms);$/;"	kind:prototype	line:135	language:C++	signature:(ptk_time_ms timeout_ms)
-ptk_time_ms	src/include/ptk_os_thread.h	/^typedef int64_t ptk_time_ms;$/;"	kind:typedef	line:34	language:C++
-ptk_time_ms	src/include/ptk_utils.h	/^typedef int64_t ptk_time_ms;$/;"	kind:typedef	line:27	language:C++
-ptk_udp_socket_create	src/include/ptk_sock.h	/^ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr, $/;"	kind:prototype	line:262	language:C++	signature:(const ptk_address_t *local_addr, bool broadcast, ptk_socket_thread_func thread_func, ptk_shared_handle_t shared_context)
-ptk_udp_socket_recv_from	src/include/ptk_sock.h	/^ptk_buf *ptk_udp_socket_recv_from(ptk_sock *sock, ptk_address_t *sender_addr, ptk_duration_ms timeout_ms);$/;"	kind:prototype	line:290	language:C++	signature:(ptk_sock *sock, ptk_address_t *sender_addr, ptk_duration_ms timeout_ms)
-ptk_udp_socket_send_to	src/include/ptk_sock.h	/^ptk_err ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms);$/;"	kind:prototype	line:278	language:C++	signature:(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms)
-reserved	src/include/ptk_sock.h	/^    uint8_t reserved;  \/\/ Reserved for alignment\/future use$/;"	kind:member	line:63	language:C++	struct:__anon4	access:public
-serialize	src/include/ptk_buf.h	/^    ptk_err (*serialize)(ptk_buf *buf, struct ptk_serializable *obj);$/;"	kind:member	line:45	language:C++	struct:ptk_serializable	access:public
-short_name	src/include/ptk_config.h	/^    char short_name;            \/\/ Short option character (0 if none)$/;"	kind:member	line:31	language:C++	struct:__anon2	access:public
-start	src/include/ptk_buf.h	/^    buf_size_t start;$/;"	kind:member	line:62	language:C++	struct:ptk_buf	access:public
-supports_broadcast	src/include/ptk_sock.h	/^    bool supports_broadcast;     \/\/ True if interface supports broadcast$/;"	kind:member	line:126	language:C++	struct:ptk_network_interface	access:public
-supports_broadcast	src/include/ptk_sock.h	/^    bool supports_broadcast;     \/\/ True if interface supports broadcast$/;"	kind:member	line:310	language:C++	struct:__anon5	access:public
-target	src/include/ptk_config.h	/^    void *target;               \/\/ Pointer to store the value$/;"	kind:member	line:33	language:C++	struct:__anon2	access:public
-trace	src/include/ptk_log.h	102;"	kind:macro	line:102	language:C++
-trace_buf	src/include/ptk_log.h	147;"	kind:macro	line:147	language:C++
-type	src/include/ptk_config.h	/^    ptk_config_type_t type;     \/\/ Type of the field$/;"	kind:member	line:32	language:C++	struct:__anon2	access:public
-u16	src/include/ptk_buf.h	/^typedef uint16_t u16;$/;"	kind:typedef	line:27	language:C++
-u32	src/include/ptk_buf.h	/^typedef uint32_t u32;$/;"	kind:typedef	line:28	language:C++
-u64	src/include/ptk_buf.h	/^typedef uint64_t u64;$/;"	kind:typedef	line:29	language:C++
-u8	src/include/ptk_buf.h	/^typedef uint8_t u8;$/;"	kind:typedef	line:26	language:C++
-use_shared	src/include/ptk_mem.h	239;"	kind:macro	line:239	language:C++
-value	src/include/ptk_mem.h	/^    uintptr_t value;  \/\/ Opaque handle value$/;"	kind:member	line:174	language:C++	struct:ptk_shared_handle	access:public
-warn	src/include/ptk_log.h	81;"	kind:macro	line:81	language:C++
-warn_buf	src/include/ptk_log.h	126;"	kind:macro	line:126	language:C++
+PTK_ALLOC_FUNC	src/include/ptk_safe_alloc.h	26;"	d
+PTK_ALLOC_FUNC_WITH_DESTRUCTOR	src/include/ptk_safe_alloc.h	108;"	d
+PTK_API	src/include/ptk_defs.h	30;"	d
+PTK_API	src/include/ptk_defs.h	32;"	d
+PTK_API	src/include/ptk_defs.h	34;"	d
+PTK_ARRAY_DECLARE	src/include/ptk_array.h	42;"	d
+PTK_BUF_ARG_COUNT	src/include/ptk_buf.h	231;"	d
+PTK_BUF_ARG_COUNT_IMPL	src/include/ptk_buf.h	236;"	d
+PTK_BUF_BIG_ENDIAN	src/include/ptk_buf.h	/^typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endian_t;$/;"	e	enum:__anon13
+PTK_BUF_EXPAND	src/include/ptk_buf.h	296;"	d
+PTK_BUF_EXPAND_1	src/include/ptk_buf.h	252;"	d
+PTK_BUF_EXPAND_10	src/include/ptk_buf.h	284;"	d
+PTK_BUF_EXPAND_2	src/include/ptk_buf.h	255;"	d
+PTK_BUF_EXPAND_3	src/include/ptk_buf.h	258;"	d
+PTK_BUF_EXPAND_4	src/include/ptk_buf.h	261;"	d
+PTK_BUF_EXPAND_5	src/include/ptk_buf.h	265;"	d
+PTK_BUF_EXPAND_6	src/include/ptk_buf.h	269;"	d
+PTK_BUF_EXPAND_7	src/include/ptk_buf.h	274;"	d
+PTK_BUF_EXPAND_8	src/include/ptk_buf.h	279;"	d
+PTK_BUF_EXPAND_DISPATCH	src/include/ptk_buf.h	295;"	d
+PTK_BUF_EXPAND_PTR	src/include/ptk_buf.h	347;"	d
+PTK_BUF_EXPAND_PTR_1	src/include/ptk_buf.h	308;"	d
+PTK_BUF_EXPAND_PTR_2	src/include/ptk_buf.h	311;"	d
+PTK_BUF_EXPAND_PTR_3	src/include/ptk_buf.h	314;"	d
+PTK_BUF_EXPAND_PTR_4	src/include/ptk_buf.h	317;"	d
+PTK_BUF_EXPAND_PTR_5	src/include/ptk_buf.h	321;"	d
+PTK_BUF_EXPAND_PTR_6	src/include/ptk_buf.h	326;"	d
+PTK_BUF_EXPAND_PTR_7	src/include/ptk_buf.h	331;"	d
+PTK_BUF_EXPAND_PTR_8	src/include/ptk_buf.h	336;"	d
+PTK_BUF_EXPAND_PTR_DISPATCH	src/include/ptk_buf.h	346;"	d
+PTK_BUF_EXPAND_PTR_SELECT	src/include/ptk_buf.h	345;"	d
+PTK_BUF_EXPAND_SELECT	src/include/ptk_buf.h	294;"	d
+PTK_BUF_LITTLE_ENDIAN	src/include/ptk_buf.h	/^typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endian_t;$/;"	e	enum:__anon13
+PTK_BUF_TYPE_DOUBLE	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_DOUBLE,        \/\/ double$/;"	e	enum:__anon12
+PTK_BUF_TYPE_FLOAT	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_FLOAT,         \/\/ float$/;"	e	enum:__anon12
+PTK_BUF_TYPE_OF	src/include/ptk_buf.h	202;"	d
+PTK_BUF_TYPE_OF_PTR	src/include/ptk_buf.h	221;"	d
+PTK_BUF_TYPE_S16	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S16,           \/\/ int16_t$/;"	e	enum:__anon12
+PTK_BUF_TYPE_S32	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S32,           \/\/ int32_t$/;"	e	enum:__anon12
+PTK_BUF_TYPE_S64	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S64,           \/\/ int64_t$/;"	e	enum:__anon12
+PTK_BUF_TYPE_S8	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_S8,            \/\/ int8_t$/;"	e	enum:__anon12
+PTK_BUF_TYPE_SERIALIZABLE	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_SERIALIZABLE,  \/\/ struct ptk_serializable*$/;"	e	enum:__anon12
+PTK_BUF_TYPE_U16	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U16,           \/\/ uint16_t$/;"	e	enum:__anon12
+PTK_BUF_TYPE_U32	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U32,           \/\/ uint32_t$/;"	e	enum:__anon12
+PTK_BUF_TYPE_U64	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U64,           \/\/ uint64_t$/;"	e	enum:__anon12
+PTK_BUF_TYPE_U8	src/include/ptk_buf.h	/^    PTK_BUF_TYPE_U8 = 1,        \/\/ uint8_t$/;"	e	enum:__anon12
+PTK_CONFIG_BOOL	src/include/ptk_config.h	/^    PTK_CONFIG_BOOL,     \/\/ bool*$/;"	e	enum:__anon1
+PTK_CONFIG_END	src/include/ptk_config.h	42;"	d
+PTK_CONFIG_HELP	src/include/ptk_config.h	/^    PTK_CONFIG_HELP      \/\/ Special type for help flag$/;"	e	enum:__anon1
+PTK_CONFIG_INT	src/include/ptk_config.h	/^    PTK_CONFIG_INT,      \/\/ int*$/;"	e	enum:__anon1
+PTK_CONFIG_STRING	src/include/ptk_config.h	/^    PTK_CONFIG_STRING,   \/\/ char*$/;"	e	enum:__anon1
+PTK_CONFIG_UINT16	src/include/ptk_config.h	/^    PTK_CONFIG_UINT16,   \/\/ uint16_t*$/;"	e	enum:__anon1
+PTK_ERR_ABORT	src/include/ptk_defs.h	/^    PTK_ERR_ABORT,              \/\/ The current operation was aborted.$/;"	e	enum:ptk_err_t
+PTK_ERR_ADDRESS_IN_USE	src/include/ptk_defs.h	/^    PTK_ERR_ADDRESS_IN_USE,     \/\/ Address already in use$/;"	e	enum:ptk_err_t
+PTK_ERR_AUTHENTICATION_FAILED	src/include/ptk_defs.h	/^    PTK_ERR_AUTHENTICATION_FAILED, \/\/ Authentication failed$/;"	e	enum:ptk_err_t
+PTK_ERR_AUTHORIZATION_FAILED	src/include/ptk_defs.h	/^    PTK_ERR_AUTHORIZATION_FAILED,  \/\/ Authorization failed$/;"	e	enum:ptk_err_t
+PTK_ERR_BAD_FORMAT	src/include/ptk_defs.h	/^    PTK_ERR_BAD_FORMAT,         \/\/ Invalid format in a format string$/;"	e	enum:ptk_err_t
+PTK_ERR_BAD_INTERNAL_STATE	src/include/ptk_defs.h	/^    PTK_ERR_BAD_INTERNAL_STATE, \/\/ Internal state is inconsistent$/;"	e	enum:ptk_err_t
+PTK_ERR_BUFFER_TOO_SMALL	src/include/ptk_defs.h	/^    PTK_ERR_BUFFER_TOO_SMALL,   \/\/ Buffer too small for operation$/;"	e	enum:ptk_err_t
+PTK_ERR_BUSY	src/include/ptk_defs.h	/^    PTK_ERR_BUSY,               \/\/ Resource is busy$/;"	e	enum:ptk_err_t
+PTK_ERR_CANCELED	src/include/ptk_defs.h	/^    PTK_ERR_CANCELED,           \/\/ Operation was canceled$/;"	e	enum:ptk_err_t
+PTK_ERR_CHECKSUM_FAILED	src/include/ptk_defs.h	/^    PTK_ERR_CHECKSUM_FAILED,    \/\/ Checksum\/CRC verification failed$/;"	e	enum:ptk_err_t
+PTK_ERR_CLOSED	src/include/ptk_defs.h	/^    PTK_ERR_CLOSED,             \/\/ Socket is closed$/;"	e	enum:ptk_err_t
+PTK_ERR_CONFIGURATION_ERROR	src/include/ptk_defs.h	/^    PTK_ERR_CONFIGURATION_ERROR,\/\/ Configuration error$/;"	e	enum:ptk_err_t
+PTK_ERR_CONNECTION_REFUSED	src/include/ptk_defs.h	/^    PTK_ERR_CONNECTION_REFUSED, \/\/ Connection refused by remote$/;"	e	enum:ptk_err_t
+PTK_ERR_DEVICE_BUSY	src/include/ptk_defs.h	/^    PTK_ERR_DEVICE_BUSY,        \/\/ Device is busy$/;"	e	enum:ptk_err_t
+PTK_ERR_DEVICE_FAILURE	src/include/ptk_defs.h	/^    PTK_ERR_DEVICE_FAILURE,     \/\/ Device failure$/;"	e	enum:ptk_err_t
+PTK_ERR_HOST_UNREACHABLE	src/include/ptk_defs.h	/^    PTK_ERR_HOST_UNREACHABLE,   \/\/ Host unreachable$/;"	e	enum:ptk_err_t
+PTK_ERR_INTERRUPT	src/include/ptk_defs.h	/^    PTK_ERR_INTERRUPT,          \/\/ The current operation was interrupted.$/;"	e	enum:ptk_err_t
+PTK_ERR_INVALID_PARAM	src/include/ptk_defs.h	/^    PTK_ERR_INVALID_PARAM,      \/\/ Invalid parameter passed$/;"	e	enum:ptk_err_t
+PTK_ERR_INVALID_STATE	src/include/ptk_defs.h	/^    PTK_ERR_INVALID_STATE,      \/\/ Invalid state for operation$/;"	e	enum:ptk_err_t
+PTK_ERR_NETWORK_ERROR	src/include/ptk_defs.h	/^    PTK_ERR_NETWORK_ERROR,      \/\/ Network operation failed$/;"	e	enum:ptk_err_t
+PTK_ERR_NO_RESOURCES	src/include/ptk_defs.h	/^    PTK_ERR_NO_RESOURCES,       \/\/ No resources available, memory, file descriptors etc.$/;"	e	enum:ptk_err_t
+PTK_ERR_NULL_PTR	src/include/ptk_defs.h	/^    PTK_ERR_NULL_PTR,           \/\/ Null pointer in params or returns$/;"	e	enum:ptk_err_t
+PTK_ERR_OUT_OF_BOUNDS	src/include/ptk_defs.h	/^    PTK_ERR_OUT_OF_BOUNDS,      \/\/ Index out of bounds$/;"	e	enum:ptk_err_t
+PTK_ERR_OVERFLOW	src/include/ptk_defs.h	/^    PTK_ERR_OVERFLOW,           \/\/ Resource overflow (e.g., ref count)$/;"	e	enum:ptk_err_t
+PTK_ERR_PARSE_ERROR	src/include/ptk_defs.h	/^    PTK_ERR_PARSE_ERROR,        \/\/ Failed to parse data$/;"	e	enum:ptk_err_t
+PTK_ERR_PROTOCOL_ERROR	src/include/ptk_defs.h	/^    PTK_ERR_PROTOCOL_ERROR,     \/\/ Protocol-specific error$/;"	e	enum:ptk_err_t
+PTK_ERR_RATE_LIMITED	src/include/ptk_defs.h	/^    PTK_ERR_RATE_LIMITED,       \/\/ Rate limit exceeded$/;"	e	enum:ptk_err_t
+PTK_ERR_SEQUENCE_ERROR	src/include/ptk_defs.h	/^    PTK_ERR_SEQUENCE_ERROR,     \/\/ Sequence\/ordering error$/;"	e	enum:ptk_err_t
+PTK_ERR_SIGNAL	src/include/ptk_defs.h	/^    PTK_ERR_SIGNAL,             \/\/ Socket operation was signaled\/interrupted by external thread$/;"	e	enum:ptk_err_t
+PTK_ERR_TIMEOUT	src/include/ptk_defs.h	/^    PTK_ERR_TIMEOUT,            \/\/ Operation timed out$/;"	e	enum:ptk_err_t
+PTK_ERR_UNSUPPORTED	src/include/ptk_defs.h	/^    PTK_ERR_UNSUPPORTED,        \/\/ Operation not supported$/;"	e	enum:ptk_err_t
+PTK_ERR_UNSUPPORTED_VERSION	src/include/ptk_defs.h	/^    PTK_ERR_UNSUPPORTED_VERSION, \/\/ Unsupported protocol version$/;"	e	enum:ptk_err_t
+PTK_ERR_VALIDATION	src/include/ptk_defs.h	/^    PTK_ERR_VALIDATION,         \/\/ Validation error$/;"	e	enum:ptk_err_t
+PTK_ERR_WOULD_BLOCK	src/include/ptk_defs.h	/^    PTK_ERR_WOULD_BLOCK,        \/\/ Operation would block$/;"	e	enum:ptk_err_t
+PTK_LOG_LEVEL_DEBUG	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_DEBUG,     \/**< Debugging messages. *\/$/;"	e	enum:__anon14
+PTK_LOG_LEVEL_END	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_END,       \/**< Sentinel value (not a valid level). *\/$/;"	e	enum:__anon14
+PTK_LOG_LEVEL_ERROR	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_ERROR,     \/**< Error conditions. *\/$/;"	e	enum:__anon14
+PTK_LOG_LEVEL_INFO	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_INFO,      \/**< Informational messages. *\/$/;"	e	enum:__anon14
+PTK_LOG_LEVEL_NONE	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_NONE = 0,  \/**< Logging disabled. *\/$/;"	e	enum:__anon14
+PTK_LOG_LEVEL_TRACE	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_TRACE,     \/**< Fine-grained tracing messages. *\/$/;"	e	enum:__anon14
+PTK_LOG_LEVEL_WARN	src/include/ptk_log.h	/^    PTK_LOG_LEVEL_WARN,      \/**< Warning conditions. *\/$/;"	e	enum:__anon14
+PTK_OK	src/include/ptk_defs.h	/^    PTK_OK,                     \/\/ Status\/error was OK$/;"	e	enum:ptk_err_t
+PTK_SHARED_INVALID_HANDLE	src/include/ptk_defs.h	175;"	d
+PTK_SHARED_IS_INVALID	src/include/ptk_defs.h	197;"	d
+PTK_SHARED_IS_VALID	src/include/ptk_defs.h	191;"	d
+PTK_SOCK_INVALID	src/include/ptk_sock.h	/^    PTK_SOCK_INVALID,     \/\/ Invalid socket type$/;"	e	enum:__anon3
+PTK_SOCK_TCP_CLIENT	src/include/ptk_sock.h	/^    PTK_SOCK_TCP_CLIENT,  \/\/ TCP client socket$/;"	e	enum:__anon3
+PTK_SOCK_TCP_SERVER	src/include/ptk_sock.h	/^    PTK_SOCK_TCP_SERVER,  \/\/ TCP listening socket$/;"	e	enum:__anon3
+PTK_SOCK_UDP	src/include/ptk_sock.h	/^    PTK_SOCK_UDP,         \/\/ UDP socket$/;"	e	enum:__anon3
+PTK_THREAD_NO_PARENT	src/include/ptk_defs.h	181;"	d
+PTK_THREAD_NO_PARENT	src/include/ptk_os_thread.h	49;"	d
+PTK_THREAD_SIGNAL_ABORT	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_ABORT = (1 << 0),        \/\/ Request graceful shutdown  $/;"	e	enum:__anon15
+PTK_THREAD_SIGNAL_ABORT_MASK	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_ABORT_MASK = 0xFF,       \/\/ Mask for all abort-type signals$/;"	e	enum:__anon15
+PTK_THREAD_SIGNAL_CHILD_DIED	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_CHILD_DIED = (1 << 9),   \/\/ Child death notification (automatic)$/;"	e	enum:__anon15
+PTK_THREAD_SIGNAL_TERMINATE	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_TERMINATE = (1 << 1),    \/\/ Force immediate termination$/;"	e	enum:__anon15
+PTK_THREAD_SIGNAL_WAKE	src/include/ptk_os_thread.h	/^    PTK_THREAD_SIGNAL_WAKE = (1 << 8),         \/\/ General wake-up signal$/;"	e	enum:__anon15
+PTK_TIME_NO_WAIT	src/include/ptk_defs.h	97;"	d
+PTK_TIME_WAIT_FOREVER	src/include/ptk_defs.h	91;"	d
+PTK_TYPED_INVALID_HANDLE	src/include/ptk_typed_alloc.h	43;"	d
+PTK_TYPED_MEM_DECLARE	src/include/ptk_typed_mem.h	47;"	d
+PTK_TYPED_MEM_DECLARE_WITH_DESTRUCTOR	src/include/ptk_typed_mem.h	116;"	d
+PTK_TYPE_ADDRESS	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_ADDRESS,$/;"	e	enum:__anon5
+PTK_TYPE_BUFFER	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_BUFFER,$/;"	e	enum:__anon5
+PTK_TYPE_CONFIG	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_CONFIG,$/;"	e	enum:__anon5
+PTK_TYPE_CUSTOM_BASE	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_CUSTOM_BASE = 1000  \/\/ User-defined types start here$/;"	e	enum:__anon5
+PTK_TYPE_INVALID	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_INVALID = 0,$/;"	e	enum:__anon5
+PTK_TYPE_NETWORK_INTERFACE	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_NETWORK_INTERFACE,$/;"	e	enum:__anon5
+PTK_TYPE_SOCKET	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_SOCKET,$/;"	e	enum:__anon5
+PTK_TYPE_STRING	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_STRING,$/;"	e	enum:__anon5
+PTK_TYPE_THREAD_ARG	src/include/ptk_typed_alloc.h	/^    PTK_TYPE_THREAD_ARG,$/;"	e	enum:__anon5
+__func__	src/include/ptk_log.h	28;"	d
+base	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_address_handle_t;$/;"	m	struct:__anon11
+base	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_buffer_handle_t;$/;"	m	struct:__anon7
+base	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_config_handle_t;$/;"	m	struct:__anon10
+base	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_socket_handle_t;  $/;"	m	struct:__anon8
+base	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_string_handle_t;$/;"	m	struct:__anon9
+broadcast	src/include/ptk_sock.h	/^    char broadcast[16];          \/\/ Broadcast address (e.g., "192.168.1.255")$/;"	m	struct:ptk_network_interface
+data	src/include/ptk_buf.h	/^    ptk_u8_t *data;           \/\/ Pointer to start of buffer$/;"	m	struct:ptk_buf
+data_len	src/include/ptk_buf.h	/^    ptk_buf_size_t data_len;  \/\/ Total length of buffer$/;"	m	struct:ptk_buf
+debug	src/include/ptk_log.h	96;"	d
+debug_buf	src/include/ptk_log.h	141;"	d
+default_str	src/include/ptk_config.h	/^    const char *default_str;    \/\/ Default value as string (for display)$/;"	m	struct:__anon2
+deserialize	src/include/ptk_buf.h	/^    ptk_err_t (*deserialize)(ptk_buf *buf, struct ptk_serializable *obj);$/;"	m	struct:ptk_serializable
+element_count	src/include/ptk_typed_alloc.h	/^    size_t element_count;$/;"	m	struct:__anon6
+element_size	src/include/ptk_typed_alloc.h	/^    size_t element_size;$/;"	m	struct:__anon6
+end	src/include/ptk_buf.h	/^    ptk_buf_size_t end;$/;"	m	struct:ptk_buf
+error	src/include/ptk_log.h	75;"	d
+error_buf	src/include/ptk_log.h	120;"	d
+family	src/include/ptk_sock.h	/^    uint8_t family;    \/\/ Address family (AF_INET for IPv4)$/;"	m	struct:__anon4
+handle	src/include/ptk_typed_alloc.h	/^    ptk_shared_handle_t handle;$/;"	m	struct:__anon6
+help	src/include/ptk_config.h	/^    const char *help;           \/\/ Help text$/;"	m	struct:__anon2
+info	src/include/ptk_log.h	89;"	d
+info_buf	src/include/ptk_log.h	134;"	d
+interface_name	src/include/ptk_sock.h	/^    char interface_name[32];     \/\/ Interface name (e.g., "eth0", "wlan0") $/;"	m	struct:ptk_network_interface
+ip	src/include/ptk_sock.h	/^    uint32_t ip;       \/\/ IPv4 address in network byte order$/;"	m	struct:__anon4
+ip_address	src/include/ptk_sock.h	/^    char ip_address[16];         \/\/ IP address (e.g., "192.168.1.100")$/;"	m	struct:ptk_network_interface
+is_loopback	src/include/ptk_sock.h	/^    bool is_loopback;            \/\/ True if this is loopback interface$/;"	m	struct:ptk_network_interface
+is_up	src/include/ptk_sock.h	/^    bool is_up;                  \/\/ True if interface is up$/;"	m	struct:ptk_network_interface
+name	src/include/ptk_config.h	/^    const char *name;           \/\/ Long option name (without --)$/;"	m	struct:__anon2
+netmask	src/include/ptk_sock.h	/^    char netmask[16];            \/\/ Subnet mask (e.g., "255.255.255.0")$/;"	m	struct:ptk_network_interface
+network	src/include/ptk_sock.h	/^    char network[16];            \/\/ Network address (e.g., "192.168.1.0")$/;"	m	struct:ptk_network_interface
+on_shared_fail	src/include/ptk_mem.h	267;"	d
+port	src/include/ptk_sock.h	/^    uint16_t port;     \/\/ Port number in host byte order$/;"	m	struct:__anon4
+prefix_length	src/include/ptk_sock.h	/^    uint8_t prefix_length;       \/\/ CIDR prefix length (e.g., 24 for \/24)$/;"	m	struct:ptk_network_interface
+ptk_address_alloc_impl	src/include/ptk_typed_alloc.h	/^PTK_API ptk_address_handle_t ptk_address_alloc_impl(size_t count, size_t element_size, const char *type_name);$/;"	p
+ptk_address_create	src/include/ptk_sock.h	/^PTK_API ptk_address_t *ptk_address_create(const char *ip_string, uint16_t port);$/;"	p
+ptk_address_create_any	src/include/ptk_sock.h	/^PTK_API ptk_address_t *ptk_address_create_any(uint16_t port);$/;"	p
+ptk_address_equals	src/include/ptk_sock.h	/^PTK_API bool ptk_address_equals(const ptk_address_t *addr1, const ptk_address_t *addr2);$/;"	p
+ptk_address_get_port	src/include/ptk_sock.h	/^PTK_API uint16_t ptk_address_get_port(const ptk_address_t *address);$/;"	p
+ptk_address_handle_t	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_address_handle_t;$/;"	t	typeref:struct:__anon11
+ptk_address_t	src/include/ptk_sock.h	/^} ptk_address_t;$/;"	t	typeref:struct:__anon4
+ptk_address_to_string	src/include/ptk_sock.h	/^PTK_API char *ptk_address_to_string(const ptk_address_t *address);$/;"	p
+ptk_alloc_generic	src/include/ptk_safe_alloc.h	/^static inline void* ptk_alloc_generic(size_t element_size, size_t count) {$/;"	f
+ptk_alloc_sizeof	src/include/ptk_safe_alloc.h	245;"	d
+ptk_alloc_type	src/include/ptk_safe_alloc.h	253;"	d
+ptk_atomic	src/include/ptk_atomic.h	44;"	d
+ptk_atomic_add_fetch_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_add_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_add_fetch_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_add_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_add_fetch_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_add_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_add_fetch_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_add_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_and_fetch_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_and_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_and_fetch_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_and_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_and_fetch_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_and_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_and_fetch_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_and_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_compare_and_swap_ptr	src/include/ptk_atomic.h	/^PTK_API void *ptk_atomic_compare_and_swap_ptr(ptk_atomic void **dest_value, void *expected_old_value, void *new_value);$/;"	p
+ptk_atomic_compare_and_swap_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_compare_and_swap_u16(ptk_atomic uint16_t *dest_value, uint16_t expected_old_value, uint16_t new_value);$/;"	p
+ptk_atomic_compare_and_swap_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_compare_and_swap_u32(ptk_atomic uint32_t *dest_value, uint32_t expected_old_value, uint32_t new_value);$/;"	p
+ptk_atomic_compare_and_swap_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_compare_and_swap_u64(ptk_atomic uint64_t *dest_value, uint64_t expected_old_value, uint64_t new_value);$/;"	p
+ptk_atomic_compare_and_swap_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_compare_and_swap_u8(ptk_atomic uint8_t *dest_value, uint8_t expected_old_value, uint8_t new_value);$/;"	p
+ptk_atomic_fetch_add_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_fetch_add_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_fetch_add_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_fetch_add_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_fetch_add_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_fetch_add_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_fetch_add_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_fetch_add_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_fetch_and_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_fetch_and_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_fetch_and_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_fetch_and_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_fetch_and_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_fetch_and_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_fetch_and_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_fetch_and_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_fetch_or_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_fetch_or_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_fetch_or_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_fetch_or_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_fetch_or_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_fetch_or_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_fetch_or_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_fetch_or_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_fetch_sub_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_fetch_sub_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_fetch_sub_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_fetch_sub_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_fetch_sub_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_fetch_sub_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_fetch_sub_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_fetch_sub_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_fetch_xor_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_fetch_xor_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_fetch_xor_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_fetch_xor_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_fetch_xor_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_fetch_xor_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_fetch_xor_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_fetch_xor_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_load_ptr	src/include/ptk_atomic.h	/^PTK_API void *ptk_atomic_load_ptr(ptk_atomic void **src_value);$/;"	p
+ptk_atomic_load_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_load_u16(ptk_atomic uint16_t *src_value);$/;"	p
+ptk_atomic_load_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_load_u32(ptk_atomic uint32_t *src_value);$/;"	p
+ptk_atomic_load_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_load_u64(ptk_atomic uint64_t *src_value);$/;"	p
+ptk_atomic_load_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_load_u8(ptk_atomic uint8_t *src_value);$/;"	p
+ptk_atomic_or_fetch_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_or_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_or_fetch_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_or_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_or_fetch_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_or_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_or_fetch_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_or_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_store_ptr	src/include/ptk_atomic.h	/^PTK_API ptk_err_t ptk_atomic_store_ptr(ptk_atomic void **dest_value, void *src_value);$/;"	p
+ptk_atomic_store_u16	src/include/ptk_atomic.h	/^PTK_API ptk_err_t ptk_atomic_store_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_store_u32	src/include/ptk_atomic.h	/^PTK_API ptk_err_t ptk_atomic_store_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_store_u64	src/include/ptk_atomic.h	/^PTK_API ptk_err_t ptk_atomic_store_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_store_u8	src/include/ptk_atomic.h	/^PTK_API ptk_err_t ptk_atomic_store_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_sub_fetch_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_sub_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_sub_fetch_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_sub_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_sub_fetch_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_sub_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_sub_fetch_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_sub_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_atomic_xor_fetch_u16	src/include/ptk_atomic.h	/^PTK_API uint16_t ptk_atomic_xor_fetch_u16(ptk_atomic uint16_t *dest_value, uint16_t src_value);$/;"	p
+ptk_atomic_xor_fetch_u32	src/include/ptk_atomic.h	/^PTK_API uint32_t ptk_atomic_xor_fetch_u32(ptk_atomic uint32_t *dest_value, uint32_t src_value);$/;"	p
+ptk_atomic_xor_fetch_u64	src/include/ptk_atomic.h	/^PTK_API uint64_t ptk_atomic_xor_fetch_u64(ptk_atomic uint64_t *dest_value, uint64_t src_value);$/;"	p
+ptk_atomic_xor_fetch_u8	src/include/ptk_atomic.h	/^PTK_API uint8_t ptk_atomic_xor_fetch_u8(ptk_atomic uint8_t *dest_value, uint8_t src_value);$/;"	p
+ptk_buf	src/include/ptk_buf.h	/^typedef struct ptk_buf {$/;"	s
+ptk_buf	src/include/ptk_buf.h	/^} ptk_buf;$/;"	t	typeref:struct:ptk_buf
+ptk_buf	src/include/ptk_log.h	/^typedef struct ptk_buf ptk_buf;$/;"	t	typeref:struct:ptk_buf
+ptk_buf_alloc	src/include/ptk_buf.h	/^PTK_API ptk_buf *ptk_buf_alloc(ptk_buf_size_t size);$/;"	p
+ptk_buf_alloc_from_data	src/include/ptk_buf.h	/^PTK_API ptk_buf *ptk_buf_alloc_from_data(const ptk_u8_t *data, ptk_buf_size_t size);$/;"	p
+ptk_buf_byte_swap_u32	src/include/ptk_buf.h	/^static inline ptk_u32_t ptk_buf_byte_swap_u32(ptk_u32_t value) {$/;"	f
+ptk_buf_byte_swap_u64	src/include/ptk_buf.h	/^static inline ptk_u64_t ptk_buf_byte_swap_u64(ptk_u64_t value) {$/;"	f
+ptk_buf_deserialize	src/include/ptk_buf.h	366;"	d
+ptk_buf_deserialize_impl	src/include/ptk_buf.h	/^PTK_API extern ptk_err_t ptk_buf_deserialize_impl(ptk_buf *buf, bool peek, ptk_buf_endian_t endian, ptk_buf_size_t count, ...);$/;"	p
+ptk_buf_endian_t	src/include/ptk_buf.h	/^typedef enum { PTK_BUF_LITTLE_ENDIAN = 0, PTK_BUF_BIG_ENDIAN = 1 } ptk_buf_endian_t;$/;"	t	typeref:enum:__anon13
+ptk_buf_get_capacity	src/include/ptk_buf.h	/^PTK_API ptk_buf_size_t ptk_buf_get_capacity(const ptk_buf *buf);$/;"	p
+ptk_buf_get_end	src/include/ptk_buf.h	/^PTK_API ptk_buf_size_t ptk_buf_get_end(const ptk_buf *buf);$/;"	p
+ptk_buf_get_len	src/include/ptk_buf.h	/^PTK_API ptk_buf_size_t ptk_buf_get_len(const ptk_buf *buf);$/;"	p
+ptk_buf_get_start	src/include/ptk_buf.h	/^PTK_API ptk_buf_size_t ptk_buf_get_start(const ptk_buf *buf);$/;"	p
+ptk_buf_get_u8	src/include/ptk_buf.h	/^PTK_API extern ptk_u8_t ptk_buf_get_u8(ptk_buf *buf);$/;"	p
+ptk_buf_move_block	src/include/ptk_buf.h	/^PTK_API ptk_err_t ptk_buf_move_block(ptk_buf *buf, ptk_buf_size_t new_position);$/;"	p
+ptk_buf_realloc	src/include/ptk_buf.h	/^PTK_API ptk_buf *ptk_buf_realloc(ptk_buf *buf, ptk_buf_size_t new_size);$/;"	p
+ptk_buf_serialize	src/include/ptk_buf.h	358;"	d
+ptk_buf_serialize_impl	src/include/ptk_buf.h	/^PTK_API extern ptk_err_t ptk_buf_serialize_impl(ptk_buf *buf, ptk_buf_endian_t endian, ptk_buf_size_t count, ...);$/;"	p
+ptk_buf_set_end	src/include/ptk_buf.h	/^PTK_API ptk_err_t ptk_buf_set_end(ptk_buf *buf, ptk_buf_size_t end);$/;"	p
+ptk_buf_set_start	src/include/ptk_buf.h	/^PTK_API ptk_err_t ptk_buf_set_start(ptk_buf *buf, ptk_buf_size_t start);$/;"	p
+ptk_buf_set_u8	src/include/ptk_buf.h	/^PTK_API extern ptk_err_t ptk_buf_set_u8(ptk_buf *buf, ptk_u8_t val);$/;"	p
+ptk_buf_size_t	src/include/ptk_defs.h	/^typedef uint16_t ptk_buf_size_t;$/;"	t
+ptk_buf_type_t	src/include/ptk_buf.h	/^} ptk_buf_type_t;$/;"	t	typeref:enum:__anon12
+ptk_buffer_alloc	src/include/ptk_safe_alloc.h	/^static inline ptk_u8_t* ptk_buffer_alloc(size_t size) {$/;"	f
+ptk_buffer_alloc_impl	src/include/ptk_typed_alloc.h	/^PTK_API ptk_buffer_handle_t ptk_buffer_alloc_impl(size_t count, size_t element_size, const char *type_name);$/;"	p
+ptk_buffer_free	src/include/ptk_safe_alloc.h	/^static inline void ptk_buffer_free(ptk_u8_t **buffer) {$/;"	f
+ptk_buffer_handle_t	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_buffer_handle_t;$/;"	t	typeref:struct:__anon7
+ptk_config_field_t	src/include/ptk_config.h	/^} ptk_config_field_t;$/;"	t	typeref:struct:__anon2
+ptk_config_handle_t	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_config_handle_t;$/;"	t	typeref:struct:__anon10
+ptk_config_parse	src/include/ptk_config.h	/^PTK_API ptk_err_t ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *fields, const char *program_name);$/;"	p
+ptk_config_print_help	src/include/ptk_config.h	/^PTK_API ptk_err_t ptk_config_print_help(const char *program_name, const ptk_config_field_t *fields, const char *description);$/;"	p
+ptk_config_type_t	src/include/ptk_config.h	/^} ptk_config_type_t;$/;"	t	typeref:enum:__anon1
+ptk_duration_ms	src/include/ptk_defs.h	/^typedef int64_t ptk_duration_ms;$/;"	t
+ptk_err_t	src/include/ptk_defs.h	/^typedef enum ptk_err_t{$/;"	g
+ptk_err_t	src/include/ptk_defs.h	/^} ptk_err_t;$/;"	t	typeref:enum:ptk_err_t
+ptk_err_to_string	src/include/ptk_err.h	/^PTK_API const char* ptk_err_to_string(ptk_err_t err);$/;"	p
+ptk_f32_t	src/include/ptk_defs.h	/^typedef float ptk_f32_t;       \/**< 32-bit floating point *\/$/;"	t
+ptk_f64_t	src/include/ptk_defs.h	/^typedef double ptk_f64_t;      \/**< 64-bit floating point *\/$/;"	t
+ptk_generic_typed_alloc_impl	src/include/ptk_typed_alloc.h	/^PTK_API ptk_typed_handle_t ptk_generic_typed_alloc_impl(size_t count, size_t element_size, const char *type_name);$/;"	p
+ptk_get_err	src/include/ptk_err.h	/^static inline ptk_err_t ptk_get_err(void) {$/;"	f
+ptk_i16_t	src/include/ptk_defs.h	/^typedef int16_t ptk_i16_t;     \/**< Signed 16-bit integer *\/$/;"	t
+ptk_i32_t	src/include/ptk_defs.h	/^typedef int32_t ptk_i32_t;     \/**< Signed 32-bit integer *\/$/;"	t
+ptk_i64_t	src/include/ptk_defs.h	/^typedef int64_t ptk_i64_t;     \/**< Signed 64-bit integer *\/$/;"	t
+ptk_i8_t	src/include/ptk_defs.h	/^typedef int8_t ptk_i8_t;       \/**< Signed 8-bit integer *\/$/;"	t
+ptk_local_alloc	src/include/ptk_mem.h	26;"	d
+ptk_local_alloc_impl	src/include/ptk_mem.h	/^PTK_API extern void *ptk_local_alloc_impl(const char *file, int line, size_t size, void (*destructor)(void *ptr));$/;"	p
+ptk_local_free	src/include/ptk_mem.h	79;"	d
+ptk_local_free_impl	src/include/ptk_mem.h	/^PTK_API extern void ptk_local_free_impl(const char *file, int line, void **ptr_ref);$/;"	p
+ptk_local_is_allocated	src/include/ptk_mem.h	/^PTK_API extern bool ptk_local_is_allocated(void *ptr);$/;"	p
+ptk_local_realloc	src/include/ptk_mem.h	55;"	d
+ptk_local_realloc_impl	src/include/ptk_mem.h	/^PTK_API extern void *ptk_local_realloc_impl(const char *file, int line, void *ptr, size_t new_size);$/;"	p
+ptk_log_buf_impl	src/include/ptk_log.h	/^PTK_API extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data);$/;"	p
+ptk_log_impl	src/include/ptk_log.h	/^PTK_API extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level, const char *tmpl, ...);$/;"	p
+ptk_log_level	src/include/ptk_log.h	/^} ptk_log_level;$/;"	t	typeref:enum:__anon14
+ptk_log_level_get	src/include/ptk_log.h	/^PTK_API extern ptk_log_level ptk_log_level_get(void);$/;"	p
+ptk_log_level_set	src/include/ptk_log.h	/^PTK_API extern ptk_log_level ptk_log_level_set(ptk_log_level level);$/;"	p
+ptk_network_interface	src/include/ptk_sock.h	/^typedef struct ptk_network_interface {$/;"	s
+ptk_network_interface_t	src/include/ptk_sock.h	/^} ptk_network_interface_t;$/;"	t	typeref:struct:ptk_network_interface
+ptk_network_list_interfaces	src/include/ptk_sock.h	/^ptk_network_interface_array_t *ptk_network_list_interfaces(void);$/;"	p
+ptk_new	src/include/ptk_mem.h	208;"	d
+ptk_new	src/include/ptk_typed_alloc.h	121;"	d
+ptk_new_array	src/include/ptk_mem.h	209;"	d
+ptk_new_single	src/include/ptk_typed_alloc.h	127;"	d
+ptk_now_ms	src/include/ptk_utils.h	/^PTK_API ptk_time_ms ptk_now_ms(void);$/;"	p
+ptk_serializable	src/include/ptk_buf.h	/^struct ptk_serializable {$/;"	s
+ptk_serializable_t	src/include/ptk_buf.h	/^typedef struct ptk_serializable ptk_serializable_t;$/;"	t	typeref:struct:ptk_serializable
+ptk_set_err	src/include/ptk_err.h	/^static inline void ptk_set_err(ptk_err_t err) {$/;"	f
+ptk_set_interrupt_handler	src/include/ptk_utils.h	/^PTK_API ptk_err_t ptk_set_interrupt_handler(void (*handler)(void));$/;"	p
+ptk_shared_acquire	src/include/ptk_mem.h	227;"	d
+ptk_shared_acquire_impl	src/include/ptk_mem.h	/^PTK_API extern void *ptk_shared_acquire_impl(const char *file, int line, ptk_shared_handle_t handle, ptk_time_ms timeout);$/;"	p
+ptk_shared_alloc	src/include/ptk_mem.h	221;"	d
+ptk_shared_alloc_impl	src/include/ptk_mem.h	/^PTK_API extern ptk_shared_handle_t ptk_shared_alloc_impl(const char *file, int line, size_t size, void (*destructor)(void *ptr));$/;"	p
+ptk_shared_free	src/include/ptk_mem.h	290;"	d
+ptk_shared_free_impl	src/include/ptk_mem.h	/^PTK_API extern void ptk_shared_free_impl(const char *file, int line, void **ptr_ref);$/;"	p
+ptk_shared_handle	src/include/ptk_defs.h	/^typedef struct ptk_shared_handle {$/;"	s
+ptk_shared_handle_equal	src/include/ptk_defs.h	/^static inline bool ptk_shared_handle_equal(ptk_shared_handle_t a, ptk_shared_handle_t b) {$/;"	f
+ptk_shared_handle_t	src/include/ptk_defs.h	/^} ptk_shared_handle_t;$/;"	t	typeref:struct:ptk_shared_handle
+ptk_shared_init	src/include/ptk_mem.h	/^PTK_API extern ptk_err_t ptk_shared_init(void);$/;"	p
+ptk_shared_is_valid	src/include/ptk_defs.h	/^static inline bool ptk_shared_is_valid(ptk_shared_handle_t handle) {$/;"	f
+ptk_shared_new	src/include/ptk_mem.h	210;"	d
+ptk_shared_new_array	src/include/ptk_mem.h	211;"	d
+ptk_shared_realloc	src/include/ptk_mem.h	224;"	d
+ptk_shared_realloc_impl	src/include/ptk_mem.h	/^PTK_API extern ptk_err_t ptk_shared_realloc_impl(const char *file, int line, ptk_shared_handle_t handle, size_t new_size);  \/\/ reuses the existing handle.$/;"	p
+ptk_shared_release	src/include/ptk_mem.h	230;"	d
+ptk_shared_release_impl	src/include/ptk_mem.h	/^PTK_API extern ptk_err_t ptk_shared_release_impl(const char *file, int line, ptk_shared_handle_t handle);$/;"	p
+ptk_shared_shutdown	src/include/ptk_mem.h	/^PTK_API extern ptk_err_t ptk_shared_shutdown(void);$/;"	p
+ptk_shutdown	src/include/ptk.h	/^PTK_API ptk_err_t ptk_shutdown(void);/;"	p
+ptk_sleep_ms	src/include/ptk_utils.h	/^PTK_API ptk_err_t ptk_sleep_ms(ptk_duration_ms duration);$/;"	p
+ptk_sock	src/include/ptk_sock.h	/^typedef struct ptk_sock ptk_sock;$/;"	t	typeref:struct:ptk_sock
+ptk_sock_type	src/include/ptk_sock.h	/^} ptk_sock_type;$/;"	t	typeref:enum:__anon3
+ptk_socket_alloc_impl	src/include/ptk_typed_alloc.h	/^PTK_API ptk_socket_handle_t ptk_socket_alloc_impl(size_t count, size_t element_size, const char *type_name);$/;"	p
+ptk_socket_close	src/include/ptk_sock.h	/^void ptk_socket_close(ptk_sock *socket);$/;"	p
+ptk_socket_handle_t	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_socket_handle_t;  $/;"	t	typeref:struct:__anon8
+ptk_socket_thread_func	src/include/ptk_sock.h	/^typedef void (*ptk_socket_thread_func)(ptk_sock *socket, ptk_shared_handle_t shared_context);$/;"	t
+ptk_startup	src/include/ptk.h	/^PTK_API ptk_err_t ptk_startup(void);$/;"	p
+ptk_string_alloc	src/include/ptk_safe_alloc.h	/^static inline char* ptk_string_alloc(size_t length) {$/;"	f
+ptk_string_alloc_impl	src/include/ptk_typed_alloc.h	/^PTK_API ptk_string_handle_t ptk_string_alloc_impl(size_t count, size_t element_size, const char *type_name);$/;"	p
+ptk_string_free	src/include/ptk_safe_alloc.h	/^static inline void ptk_string_free(char **str) {$/;"	f
+ptk_string_handle_t	src/include/ptk_typed_alloc.h	/^typedef struct { ptk_typed_handle_t base; } ptk_string_handle_t;$/;"	t	typeref:struct:__anon9
+ptk_string_new	src/include/ptk_safe_alloc.h	/^static inline char* ptk_string_new(size_t length) {$/;"	f
+ptk_string_shared_alloc	src/include/ptk_safe_alloc.h	/^static inline ptk_shared_handle_t ptk_string_shared_alloc(size_t length) {$/;"	f
+ptk_string_shared_free	src/include/ptk_safe_alloc.h	/^static inline void ptk_string_shared_free(ptk_shared_handle_t *handle) {$/;"	f
+ptk_string_shared_get	src/include/ptk_safe_alloc.h	/^static inline char* ptk_string_shared_get(ptk_shared_handle_t handle) {$/;"	f
+ptk_tcp_accept	src/include/ptk_sock.h	/^ptk_sock *ptk_tcp_accept(ptk_sock *server_sock, ptk_address_t *client_addr, ptk_duration_ms timeout_ms);$/;"	p
+ptk_tcp_connect	src/include/ptk_sock.h	/^ptk_sock *ptk_tcp_connect(const ptk_address_t *remote_addr, ptk_duration_ms connect_timeout_ms);$/;"	p
+ptk_tcp_server_create	src/include/ptk_sock.h	/^ptk_sock *ptk_tcp_server_create(const ptk_address_t *local_addr);$/;"	p
+ptk_tcp_socket_recv	src/include/ptk_sock.h	/^ptk_buf *ptk_tcp_socket_recv(ptk_sock *sock, ptk_duration_ms timeout_ms);$/;"	p
+ptk_tcp_socket_send	src/include/ptk_sock.h	/^ptk_err_t ptk_tcp_socket_send(ptk_sock *sock, ptk_buf *data, ptk_duration_ms timeout_ms);$/;"	p
+ptk_thread_add_float_arg	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_add_float_arg(ptk_thread_handle_t thread, int user_type, double val);$/;"	p
+ptk_thread_add_handle_arg	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_add_handle_arg(ptk_thread_handle_t thread, int user_type, ptk_shared_handle_t *handle);$/;"	p
+ptk_thread_add_int_arg	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_add_int_arg(ptk_thread_handle_t thread, int user_type, int64_t val);$/;"	p
+ptk_thread_add_ptr_arg	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_add_ptr_arg(ptk_thread_handle_t thread, int user_type, void **ptr);$/;"	p
+ptk_thread_add_uint_arg	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_add_uint_arg(ptk_thread_handle_t thread, int user_type, uint64_t val);$/;"	p
+ptk_thread_cleanup_dead_children	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_cleanup_dead_children(ptk_thread_handle_t parent, ptk_time_ms timeout_ms);$/;"	p
+ptk_thread_clear_signals	src/include/ptk_os_thread.h	/^PTK_API extern void ptk_thread_clear_signals(uint64_t signal_mask);$/;"	p
+ptk_thread_count_children	src/include/ptk_os_thread.h	/^PTK_API extern int ptk_thread_count_children(ptk_thread_handle_t parent);$/;"	p
+ptk_thread_create	src/include/ptk_os_thread.h	/^PTK_API extern ptk_thread_handle_t ptk_thread_create(void);$/;"	p
+ptk_thread_func	src/include/ptk_os_thread.h	/^typedef void (*ptk_thread_func)(void);$/;"	t
+ptk_thread_get_arg_count	src/include/ptk_os_thread.h	/^PTK_API extern size_t ptk_thread_get_arg_count(void);$/;"	p
+ptk_thread_get_arg_type	src/include/ptk_os_thread.h	/^PTK_API extern int ptk_thread_get_arg_type(size_t index);$/;"	p
+ptk_thread_get_epoll_fd	src/include/ptk_os_thread.h	/^PTK_API extern int ptk_thread_get_epoll_fd(void);$/;"	p
+ptk_thread_get_float_arg	src/include/ptk_os_thread.h	/^PTK_API extern double ptk_thread_get_float_arg(size_t index);$/;"	p
+ptk_thread_get_handle_arg	src/include/ptk_os_thread.h	/^PTK_API extern ptk_shared_handle_t ptk_thread_get_handle_arg(size_t index);$/;"	p
+ptk_thread_get_int_arg	src/include/ptk_os_thread.h	/^PTK_API extern int64_t ptk_thread_get_int_arg(size_t index);$/;"	p
+ptk_thread_get_parent	src/include/ptk_os_thread.h	/^PTK_API extern ptk_thread_handle_t ptk_thread_get_parent(ptk_thread_handle_t thread);$/;"	p
+ptk_thread_get_pending_signals	src/include/ptk_os_thread.h	/^PTK_API extern uint64_t ptk_thread_get_pending_signals(void);$/;"	p
+ptk_thread_get_ptr_arg	src/include/ptk_os_thread.h	/^PTK_API extern void *ptk_thread_get_ptr_arg(size_t index);$/;"	p
+ptk_thread_get_signal_fd	src/include/ptk_os_thread.h	/^PTK_API extern int ptk_thread_get_signal_fd(void);$/;"	p
+ptk_thread_get_uint_arg	src/include/ptk_os_thread.h	/^PTK_API extern uint64_t ptk_thread_get_uint_arg(size_t index);$/;"	p
+ptk_thread_handle_t	src/include/ptk_os_thread.h	/^typedef ptk_shared_handle_t ptk_thread_handle_t;$/;"	t
+ptk_thread_has_signal	src/include/ptk_os_thread.h	/^PTK_API extern bool ptk_thread_has_signal(ptk_thread_signal_t signal_bit);$/;"	p
+ptk_thread_local	src/include/ptk_defs.h	46;"	d
+ptk_thread_local	src/include/ptk_defs.h	48;"	d
+ptk_thread_self	src/include/ptk_os_thread.h	/^PTK_API extern ptk_thread_handle_t ptk_thread_self(void);$/;"	p
+ptk_thread_set_run_function	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_set_run_function(ptk_thread_handle_t thread, ptk_thread_func func);$/;"	p
+ptk_thread_signal	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_signal(ptk_thread_handle_t handle, ptk_thread_signal_t signal_type);$/;"	p
+ptk_thread_signal_all_children	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_signal_all_children(ptk_thread_handle_t parent, ptk_thread_signal_t signal_type);$/;"	p
+ptk_thread_signal_t	src/include/ptk_os_thread.h	/^} ptk_thread_signal_t;$/;"	t	typeref:enum:__anon15
+ptk_thread_start	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_start(ptk_thread_handle_t thread);$/;"	p
+ptk_thread_wait	src/include/ptk_os_thread.h	/^PTK_API extern ptk_err_t ptk_thread_wait(ptk_time_ms timeout_ms);$/;"	p
+ptk_time_ms	src/include/ptk_defs.h	/^typedef int64_t ptk_time_ms;$/;"	t
+ptk_type_id_t	src/include/ptk_typed_alloc.h	/^} ptk_type_id_t;$/;"	t	typeref:enum:__anon5
+ptk_typed_alloc	src/include/ptk_typed_alloc.h	66;"	d
+ptk_typed_cast	src/include/ptk_typed_alloc.h	133;"	d
+ptk_typed_cast	src/include/ptk_typed_alloc.h	138;"	d
+ptk_typed_free	src/include/ptk_typed_alloc.h	/^PTK_API ptk_err_t ptk_typed_free(ptk_typed_handle_t *handle);$/;"	p
+ptk_typed_get	src/include/ptk_typed_alloc.h	77;"	d
+ptk_typed_get_impl	src/include/ptk_typed_alloc.h	/^PTK_API void* ptk_typed_get_impl(ptk_typed_handle_t handle, ptk_type_id_t expected_type, size_t expected_size);$/;"	p
+ptk_typed_handle_t	src/include/ptk_typed_alloc.h	/^} ptk_typed_handle_t;$/;"	t	typeref:struct:__anon6
+ptk_typed_is_valid	src/include/ptk_typed_alloc.h	83;"	d
+ptk_u16_t	src/include/ptk_defs.h	/^typedef uint16_t ptk_u16_t;    \/**< Unsigned 16-bit integer *\/$/;"	t
+ptk_u32_t	src/include/ptk_defs.h	/^typedef uint32_t ptk_u32_t;    \/**< Unsigned 32-bit integer *\/$/;"	t
+ptk_u64_t	src/include/ptk_defs.h	/^typedef uint64_t ptk_u64_t;    \/**< Unsigned 64-bit integer *\/$/;"	t
+ptk_u8_t	src/include/ptk_defs.h	/^typedef uint8_t ptk_u8_t;      \/**< Unsigned 8-bit integer *\/$/;"	t
+ptk_udp_socket_create	src/include/ptk_sock.h	/^ptk_sock *ptk_udp_socket_create(const ptk_address_t *local_addr, bool broadcast);$/;"	p
+ptk_udp_socket_recv_from	src/include/ptk_sock.h	/^ptk_buf *ptk_udp_socket_recv_from(ptk_sock *sock, ptk_address_t *sender_addr, ptk_duration_ms timeout_ms);$/;"	p
+ptk_udp_socket_send_to	src/include/ptk_sock.h	/^ptk_err_t ptk_udp_socket_send_to(ptk_sock *sock, ptk_buf *data, const ptk_address_t *dest_addr, bool broadcast, ptk_duration_ms timeout_ms);$/;"	p
+reserved	src/include/ptk_sock.h	/^    uint8_t reserved;  \/\/ Reserved for alignment\/future use$/;"	m	struct:__anon4
+serialize	src/include/ptk_buf.h	/^    ptk_err_t (*serialize)(ptk_buf *buf, struct ptk_serializable *obj);$/;"	m	struct:ptk_serializable
+short_name	src/include/ptk_config.h	/^    char short_name;            \/\/ Short option character (0 if none)$/;"	m	struct:__anon2
+start	src/include/ptk_buf.h	/^    ptk_buf_size_t start;$/;"	m	struct:ptk_buf
+supports_broadcast	src/include/ptk_sock.h	/^    bool supports_broadcast;     \/\/ True if interface supports broadcast$/;"	m	struct:ptk_network_interface
+target	src/include/ptk_config.h	/^    void *target;               \/\/ Pointer to store the value$/;"	m	struct:__anon2
+trace	src/include/ptk_log.h	103;"	d
+trace_buf	src/include/ptk_log.h	148;"	d
+type	src/include/ptk_config.h	/^    ptk_config_type_t type;     \/\/ Type of the field$/;"	m	struct:__anon2
+type_id	src/include/ptk_typed_alloc.h	/^    ptk_type_id_t type_id;$/;"	m	struct:__anon6
+use_shared	src/include/ptk_mem.h	255;"	d
+value	src/include/ptk_defs.h	/^    uintptr_t value;  \/**< Opaque handle value *\/$/;"	m	struct:ptk_shared_handle
+warn	src/include/ptk_log.h	82;"	d
+warn_buf	src/include/ptk_log.h	127;"	d

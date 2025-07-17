@@ -2,7 +2,7 @@
 #include <ptk_log.h>
 #include <ptk_err.h>
 #include <ptk_sock.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_buf.h>
 #include <string.h>
 
@@ -103,7 +103,7 @@ modbus_connection_t *modbus_server_listen(const char *host, int port, uint8_t un
     }
 
     ptk_address_t addr;
-    ptk_err err;
+    ptk_err_t err;
     if (host) {
         err = ptk_address_init(&addr, host, (uint16_t)port);
     } else {
@@ -144,7 +144,7 @@ modbus_connection_t *modbus_server_listen(const char *host, int port, uint8_t un
  * @param conn Connection to signal
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_signal(modbus_connection_t *conn) {
+ptk_err_t modbus_signal(modbus_connection_t *conn) {
     info("signaling modbus connection");
     
     if (!conn) {
@@ -166,7 +166,7 @@ ptk_err modbus_signal(modbus_connection_t *conn) {
  * @param timeout_ms Timeout in milliseconds
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_wait_for_signal(modbus_connection_t *conn, ptk_duration_ms timeout_ms) {
+ptk_err_t modbus_wait_for_signal(modbus_connection_t *conn, ptk_duration_ms timeout_ms) {
     info("waiting for signal on modbus connection");
     
     if (!conn) {
@@ -187,7 +187,7 @@ ptk_err modbus_wait_for_signal(modbus_connection_t *conn, ptk_duration_ms timeou
  * @param conn Connection to abort
  * @return PTK_OK on success, error code on failure
  */
-ptk_err modbus_abort(modbus_connection_t *conn) {
+ptk_err_t modbus_abort(modbus_connection_t *conn) {
     info("aborting modbus connection");
     
     if (!conn) {

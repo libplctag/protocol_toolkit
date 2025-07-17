@@ -1,6 +1,6 @@
 # Protocol Toolkit Arithmetic Example
 
-This example demonstrates how to create a simple client-server protocol using the Protocol Toolkit library. The example implements an arithmetic service where clients can send mathematical operations to a server and receive results.
+This example demonstrates how to create a robust client-server protocol using the Protocol Toolkit library. The example implements a multi-threaded arithmetic service where clients can send mathematical operations to a server and receive results.
 
 ## Protocol Specification
 
@@ -42,10 +42,10 @@ Defines the PDU structures and serialization logic:
 ```c
 typedef struct {
     ptk_serializable_t base;    // Enables automatic serialization
-    u8 operation;               // Operation code
-    f32 operand1;              // First operand  
-    f32 operand2;              // Second operand
-    u16 crc;                   // CRC checksum
+    ptk_u8_t operation;         // Operation code
+    ptk_f32_t operand1;         // First operand  
+    ptk_f32_t operand2;         // Second operand
+    ptk_u16_t crc;              // CRC checksum
 } arithmetic_request_t;
 ```
 
@@ -60,56 +60,121 @@ Key features:
 Multi-threaded TCP server that:
 
 1. **Listens for connections** on a configurable port
-2. **Creates threadlets** for each client connection using `ptk_threadlet_create()`
-3. **Shares connection data** safely between threadlets using `ptk_shared_wrap()`
-4. **Processes arithmetic requests** in parallel
+2. **Creates dedicated threads** for each client connection using `ptk_thread_create()`
+3. **Manages client threads** with parent-child relationships and automatic cleanup
+4. **Processes arithmetic requests** concurrently across multiple clients
+5. **Handles graceful shutdown** via platform-independent interrupt handling
 
 #### Key Server Features
 
-**Threadlet-Based Concurrency:**
+**Multi-Threading Architecture:**
+```
+Main Thread
+├── Sets up ptk_set_interrupt_handler()
+├── Creates Server Thread
+└── Waits for signals and manages cleanup
+
+Server Thread (Parent)
+├── Listens for connections with ptk_tcp_accept()
+├── Creates Client Thread for each connection
+├── Periodically cleans up dead client threads
+└── Responds to abort signals
+
+Client Threads (Children)
+├── Handle individual client connections
+├── Process arithmetic requests/responses  
+└── Respond to abort signals for graceful shutdown
+```
+
+**Thread-Based Concurrency:**
 ```c
-threadlet_t *client_threadlet = ptk_threadlet_create(handle_client_connection, handle_param);
-ptk_threadlet_resume(client_threadlet);
+// Create dedicated thread for each client
+ptk_thread_handle_t client_thread = ptk_thread_create();
+ptk_thread_add_handle_arg(client_thread, 1, &conn_handle);
+ptk_thread_set_run_function(client_thread, handle_client_connection);
+ptk_thread_start(client_thread);
 ```
 
 **Safe Memory Sharing:**
 ```c
-ptk_shared_handle_t conn_handle = ptk_shared_wrap(conn);
-use_shared(conn_handle, client_connection_t *conn) {
+// Share connection data safely between threads
+use_shared(conn_handle, client_connection_t*, conn, PTK_TIME_WAIT_FOREVER) {
     // Safe access to shared connection data
+    char *client_ip = ptk_address_to_string(&conn->client_addr);
+    info("Handling client connection from %s:%d", client_ip, 
+         ptk_address_get_port(&conn->client_addr));
 } on_shared_fail {
     error("Failed to acquire shared memory");
 }
 ```
 
-**Type-Safe Serialization:**
+**Platform-Independent Signal Handling:**
 ```c
-ptk_err err = arithmetic_request_deserialize(request_buf, (ptk_serializable_t*)request);
-if (err != PTK_OK) {
-    error("Failed to deserialize request: %d", err);
-    continue;
+// Use PTK's cross-platform interrupt handler
+ptk_set_interrupt_handler(interrupt_handler);
+
+static void interrupt_handler(void) {
+    info("Received interrupt signal, shutting down...");
+    shutdown_requested = true;
+    
+    // Signal the server thread to abort
+    if (ptk_shared_is_valid(g_server_thread)) {
+        ptk_thread_signal(g_server_thread, PTK_THREAD_SIGNAL_ABORT);
+    }
+}
+```
+
+**Thread Lifecycle Management:**
+```c
+// Parent thread manages children
+ptk_thread_cleanup_dead_children(ptk_thread_self(), PTK_TIME_NO_WAIT);
+
+// Graceful shutdown of all children
+ptk_thread_signal_all_children(self, PTK_THREAD_SIGNAL_ABORT);
+ptk_thread_cleanup_dead_children(self, 5000);
+```
+
+**Signal-Aware Socket Operations:**
+```c
+// Threads check for abort signals during I/O
+while (!shutdown_requested) {
+    if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_ABORT)) {
+        info("Client handler received abort signal");
+        break;
+    }
+    
+    ptk_buf *request_buf = ptk_tcp_socket_recv(conn->client_sock, 1000);
+    // ... process request
 }
 ```
 
 ### 4. Client Implementation (`client.c`)
 
-Simple TCP client that:
+Threaded TCP client that:
 
-1. **Connects to server** using `ptk_tcp_socket_connect()`
-2. **Sends arithmetic request** with user-specified operation and operands
-3. **Receives and displays result**
-4. **Handles command-line arguments** using PTK configuration system
+1. **Connects to server** using `ptk_tcp_connect()`
+2. **Runs in dedicated thread** for demonstration of threading APIs
+3. **Sends arithmetic request** with configurable operation and operands
+4. **Receives and displays result**
+5. **Handles command-line arguments** using PTK configuration system
 
 #### Key Client Features
+
+**Thread-Based Execution:**
+```c
+// Client runs in its own thread
+ptk_thread_handle_t client_thread = ptk_thread_create();
+ptk_thread_add_handle_arg(client_thread, CLIENT_THREAD_PTR_ARG_TYPE, &config_handle);
+ptk_thread_set_run_function(client_thread, client_thread_run_func);
+ptk_thread_start(client_thread);
+```
 
 **Command-Line Configuration:**
 ```c
 ptk_config_field_t config_fields[] = {
-    {"server", 's', PTK_CONFIG_STRING, &server_ip, "Server IP address", "127.0.0.1"},
-    {"port", 'p', PTK_CONFIG_UINT16, &server_port, "Server port", "12345"},
-    {"operation", 'o', PTK_CONFIG_STRING, &operation_str, "Operation (+, -, *, /)", "+"},
-    {"operand1", '1', PTK_CONFIG_STRING, &operand1_str, "First operand", "5.0"},
-    {"operand2", '2', PTK_CONFIG_STRING, &operand2_str, "Second operand", "3.0"},
+    {"server", 's', PTK_CONFIG_STRING, &config->server_ip, "Server IP address", "127.0.0.1"},
+    {"port", 'p', PTK_CONFIG_UINT16, &config->server_port, "Server port", "12345"},
+    {"help", 'h', PTK_CONFIG_HELP, &help, "Show this help message", NULL},
     PTK_CONFIG_END
 };
 ```
@@ -117,7 +182,7 @@ ptk_config_field_t config_fields[] = {
 **Robust Error Handling:**
 ```c
 if (!response_buf) {
-    ptk_err err = ptk_get_err();
+    ptk_err_t err = ptk_get_err();
     error("Failed to receive response: %d", err);
     return err;
 }
@@ -125,69 +190,90 @@ if (!response_buf) {
 
 ## Protocol Toolkit APIs Used
 
-### Memory Management (ptk_alloc.h)
-- `ptk_alloc()`: Allocate memory with destructors
-- `ptk_free()`: Safe deallocation with pointer nulling
-- `ptk_realloc()`: Resize allocations while preserving data
+### Memory Management (ptk_mem.h)
+- `ptk_local_alloc()`: Allocate memory with destructors
+- `ptk_local_free()`: Safe deallocation with pointer nulling
+- `ptk_local_realloc()`: Resize allocations while preserving data
+- `ptk_shared_alloc()`: Create shared memory segments with reference counting
 
 Example:
 ```c
-client_connection_t *conn = ptk_alloc(sizeof(client_connection_t), client_connection_destructor);
+client_connection_t *conn = ptk_local_alloc(sizeof(client_connection_t), client_connection_destructor);
 // ... use conn ...
-ptk_free(&conn);  // conn is now NULL
+ptk_local_free(&conn);  // conn is now NULL
 ```
 
-### Buffer Management (ptk_buf.h)
-- `ptk_buf_alloc()`: Create buffers for network I/O
-- `ptk_buf_serialize()`: Type-safe serialization with endianness control
-- `ptk_buf_deserialize()`: Type-safe deserialization with validation
+### Address Management (ptk_sock.h)
+- `ptk_address_create()`: Create address from IP string and port
+- `ptk_address_create_any()`: Create address for any interface (INADDR_ANY)
+- `ptk_address_to_string()`: Convert address to IP string
+- `ptk_address_get_port()`: Extract port from address
 
 Example:
 ```c
-ptk_buf *request_buf = ptk_buf_alloc(64);
-ptk_err err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, 
-                               req->operation, req->operand1, req->operand2);
+ptk_address_t *server_addr = ptk_address_create("192.168.1.100", 12345);
+char *ip_str = ptk_address_to_string(server_addr);
+uint16_t port = ptk_address_get_port(server_addr);
 ```
 
 ### Networking (ptk_sock.h)
-- `ptk_tcp_socket_listen()`: Create listening server socket
-- `ptk_tcp_socket_accept()`: Accept client connections
-- `ptk_tcp_socket_connect()`: Connect to remote server
+- `ptk_tcp_server_create()`: Create listening server socket
+- `ptk_tcp_accept()`: Accept client connections with timeout
+- `ptk_tcp_connect()`: Connect to remote server with timeout
 - `ptk_tcp_socket_send()`: Send data with timeout
 - `ptk_tcp_socket_recv()`: Receive data with timeout
 
 Example:
 ```c
-ptk_sock *server_sock = ptk_tcp_socket_listen(&server_addr, 10);
-ptk_sock *client_sock = ptk_tcp_socket_accept(server_sock, 0);
+ptk_sock *server_sock = ptk_tcp_server_create(server_addr);
+ptk_sock *client_sock = ptk_tcp_accept(server_sock, &client_addr, 1000);
 ```
 
-### Green Threads (ptk_threadlet.h)
-- `ptk_threadlet_create()`: Create cooperative threads
-- `ptk_threadlet_resume()`: Schedule threadlet execution
-- `ptk_threadlet_join()`: Wait for threadlet completion
-- `ptk_threadlet_yield()`: Cooperative yielding (used internally by socket operations)
+### Threading (ptk_os_thread.h)
+- `ptk_thread_create()`: Create thread handle
+- `ptk_thread_add_handle_arg()`: Add shared handle argument
+- `ptk_thread_set_run_function()`: Set thread entry point
+- `ptk_thread_start()`: Start thread execution
+- `ptk_thread_signal()`: Send signals to threads
+- `ptk_thread_cleanup_dead_children()`: Clean up terminated child threads
 
 Example:
 ```c
-threadlet_t *threadlet = ptk_threadlet_create(worker_function, param);
-ptk_threadlet_resume(threadlet);
-ptk_threadlet_join(threadlet, 0);  // Wait indefinitely
+ptk_thread_handle_t thread = ptk_thread_create();
+ptk_thread_add_handle_arg(thread, 1, &data_handle);
+ptk_thread_set_run_function(thread, worker_function);
+ptk_thread_start(thread);
 ```
 
-### Shared Memory (ptk_shared.h)
-- `ptk_shared_wrap()`: Wrap allocated memory for sharing
-- `ptk_shared_acquire()`: Get pointer with reference counting
+### Shared Memory (ptk_mem.h)
+- `ptk_shared_alloc()`: Allocate shared memory with reference counting
+- `ptk_shared_acquire()`: Get pointer with timeout
 - `ptk_shared_release()`: Release reference
 - `use_shared()` macro: Safe acquire/release pattern
 
 Example:
 ```c
-ptk_shared_handle_t handle = ptk_shared_wrap(my_data);
-use_shared(handle, my_struct_t *ptr) {
+ptk_shared_handle_t handle = ptk_shared_alloc(sizeof(my_data_t), destructor);
+use_shared(handle, my_data_t*, ptr, PTK_TIME_WAIT_FOREVER) {
     ptr->field = value;  // Safe access
 } on_shared_fail {
     error("Acquisition failed");
+}
+```
+
+### Interrupt Handling (ptk_utils.h)
+- `ptk_set_interrupt_handler()`: Platform-independent Ctrl+C handling
+- `ptk_thread_signal()`: Signal threads from interrupt handler
+- `ptk_thread_has_signal()`: Check for pending signals
+- `ptk_thread_clear_signals()`: Clear processed signals
+
+Example:
+```c
+ptk_set_interrupt_handler(interrupt_handler);
+
+static void interrupt_handler(void) {
+    info("Received interrupt, shutting down...");
+    ptk_thread_signal(worker_thread, PTK_THREAD_SIGNAL_ABORT);
 }
 ```
 
@@ -219,13 +305,13 @@ ptk_config_parse(argc, argv, fields, "myprogram");
 
 ### Error Handling (ptk_err.h)
 - `ptk_get_err()`: Get thread-local error code
-- `ptk_set_err()`: Set thread-local error code
+- `ptk_err_set()`: Set thread-local error code
 - Comprehensive error codes for all operations
 
 Example:
 ```c
 if (result == NULL) {
-    ptk_err err = ptk_get_err();
+    ptk_err_t err = ptk_get_err();
     if (err == PTK_ERR_TIMEOUT) {
         warn("Operation timed out");
     }
@@ -236,9 +322,9 @@ if (result == NULL) {
 
 ### Build Steps
 
-1. **Navigate to the example directory:**
+1. **Navigate to the project root:**
    ```bash
-   cd src/examples/howto
+   cd /path/to/protocol_toolkit
    ```
 
 2. **Create build directory:**
@@ -253,25 +339,47 @@ if (result == NULL) {
 
 4. **Build the executables:**
    ```bash
-   make
+   make arithmetic_server arithmetic_client
    ```
 
 ### Running the Example
 
 1. **Start the server:**
    ```bash
-   ./arithmetic_server --port 12345
+   ./bin/arithmetic_server --port 12345
+   ```
+   
+   Server output:
+   ```
+   [2025-07-16 18:34:23.615] [INFO] main:324: Starting Protocol Toolkit arithmetic server
+   [2025-07-16 18:34:23.615] [INFO] main:418: Server thread started, waiting for completion
+   [2025-07-16 18:34:23.615] [INFO] server_thread_func:220: Server thread started on port 12345
    ```
 
 2. **Run the client** (in another terminal):
    ```bash
-   ./arithmetic_client --server 127.0.0.1 --port 12345 --operation + --operand1 10.5 --operand2 3.2
+   ./bin/arithmetic_client --server 127.0.0.1 --port 12345
    ```
 
 3. **Expected output:**
    ```
-   Result: 10.500000 + 3.200000 = 13.700000
+   Result: 5.000000 + 3.000000 = 8.000000
    ```
+
+4. **Test multiple concurrent clients:**
+   ```bash
+   # Terminal 2
+   ./bin/arithmetic_client --server 127.0.0.1 --port 12345 &
+   
+   # Terminal 3  
+   ./bin/arithmetic_client --server 127.0.0.1 --port 12345 &
+   
+   # Terminal 4
+   ./bin/arithmetic_client --server 127.0.0.1 --port 12345 &
+   ```
+
+5. **Graceful shutdown:**
+   Press `Ctrl+C` in the server terminal to trigger graceful shutdown of all threads.
 
 ### Command-Line Options
 
@@ -282,50 +390,56 @@ if (result == NULL) {
 **Client:**
 - `--server, -s`: Server IP address (default: 127.0.0.1)
 - `--port, -p`: Server port (default: 12345)
-- `--operation, -o`: Operation (+, -, *, /) (default: +)
-- `--operand1, -1`: First operand (default: 5.0)
-- `--operand2, -2`: Second operand (default: 3.0)
 - `--help, -h`: Show help message
+
+Note: The client currently uses hardcoded operation (addition) and operands (5.0 + 3.0). This demonstrates the core protocol functionality.
 
 ## Key Learning Points
 
-### 1. Type-Safe Serialization
+### 1. Multi-Threaded Server Architecture
+The server demonstrates proper thread management:
+```c
+// Each client gets its own thread
+// Parent thread manages all children
+// Graceful shutdown coordinates all threads
+```
+
+### 2. Platform-Independent Signal Handling
+Uses PTK's cross-platform interrupt handling:
+```c
+// Works on both POSIX and Windows
+ptk_set_interrupt_handler(interrupt_handler);
+```
+
+### 3. Thread-Safe Shared Memory
+Safe data sharing between threads:
+```c
+// Reference counting prevents use-after-free
+// Timeout-based acquisition prevents deadlocks
+use_shared(handle, data_t*, ptr, timeout) { /* safe access */ }
+```
+
+### 4. Signal-Aware I/O Operations
+Socket operations can be interrupted by thread signals:
+```c
+// Threads check for abort signals during I/O
+// Enables responsive shutdown
+ptk_tcp_socket_recv(sock, 1000);  // Short timeout for responsiveness
+```
+
+### 5. Robust Resource Management
+All resources are properly cleaned up:
+```c
+// Automatic cleanup of dead threads
+// Memory freed when reference count reaches 0
+// Sockets closed on thread termination
+```
+
+### 6. Type-Safe Serialization
 The PTK buffer system provides compile-time type safety:
 ```c
 // Compiler ensures types match the values
 ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN, u8_val, f32_val, u64_val);
 ```
 
-### 2. Automatic Memory Management
-All allocations use PTK's system with automatic cleanup:
-```c
-// Destructor called automatically when reference count reaches 0
-arithmetic_request_t *req = ptk_alloc(sizeof(arithmetic_request_t), destructor_func);
-```
-
-### 3. Cooperative Multitasking
-Threadlets provide the illusion of blocking I/O without blocking OS threads:
-```c
-// This appears to block but actually yields the threadlet
-ptk_buf *data = ptk_tcp_socket_recv(sock, false, 5000);
-```
-
-### 4. Safe Shared Memory
-The shared memory system prevents use-after-free bugs:
-```c
-// Handle becomes invalid when memory is freed
-use_shared(handle, my_data_t *ptr) {
-    // Safe access guaranteed
-}
-```
-
-### 5. Comprehensive Error Handling
-Thread-local error codes provide detailed failure information:
-```c
-if (operation_failed()) {
-    ptk_err err = ptk_get_err();
-    error("Operation failed: %s", ptk_err_to_string(err));
-}
-```
-
-This example demonstrates the power and ease of use of the Protocol Toolkit for building robust network protocols with minimal code and maximum safety.
+This example demonstrates the power of the Protocol Toolkit for building robust, multi-threaded network services with minimal code and maximum safety. The threading model scales to handle many concurrent clients while maintaining clean shutdown semantics and proper resource management.

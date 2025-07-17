@@ -117,7 +117,7 @@ Application Layer
 
 Protocol Toolkit Core
     ├── Timer System (ptk_timer.h)
-    ├── Memory Management (ptk_alloc.h)
+    ├── Memory Management (ptk_mem.h)
     ├── Buffer Management (ptk_buf.h)
     ├── Event Framework (ptk_event.h)
     ├── Logging System (ptk_log.h)

@@ -20,11 +20,11 @@ PTK-Gen is a code generator that transforms Protocol Definition Language (PDL) f
 #### Primitive Types
 ```pdl
 // Basic types with explicit byte ordering
-def u8 = { type: u8 }
-def u16_be = { type: u16, byte_order: [1, 0] }
-def u16_le = { type: u16, byte_order: [0, 1] }
-def u32_be = { type: u32, byte_order: [3, 2, 1, 0] }
-def u32_le = { type: u32, byte_order: [0, 1, 2, 3] }
+def ptk_u8_t = { type: ptk_u8_t }
+def u16_be = { type: ptk_u16_t, byte_order: [1, 0] }
+def u16_le = { type: ptk_u16_t, byte_order: [0, 1] }
+def u32_be = { type: ptk_u32_t, byte_order: [3, 2, 1, 0] }
+def u32_le = { type: ptk_u32_t, byte_order: [0, 1, 2, 3] }
 ```
 
 #### Semantic Types for Clarity
@@ -38,8 +38,8 @@ def tcp_port = u16_be
 
 #### Constants
 ```pdl
-def MODBUS_FC_READ_COILS = { type: u8, const: 0x01 }
-def MODBUS_FC_READ_HOLDING_REGISTERS = { type: u8, const: 0x03 }
+def MODBUS_FC_READ_COILS = { type: ptk_u8_t, const: 0x01 }
+def MODBUS_FC_READ_HOLDING_REGISTERS = { type: ptk_u8_t, const: 0x03 }
 def EIP_SEND_RR_DATA = { type: u16_le, const: 0x006F }
 ```
 
@@ -47,18 +47,18 @@ def EIP_SEND_RR_DATA = { type: u16_le, const: 0x006F }
 ```pdl
 // Arrays can have custom byte ordering for complex wire formats
 def plc5_string = { 
-    type: u8[82], 
+    type: ptk_u8_t[82], 
     byte_order: [1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18, 21, 20, 23, 22, 25, 24, 27, 26, 29, 28, 31, 30, 33, 32, 35, 34, 37, 36, 39, 38, 41, 40, 43, 42, 45, 44, 47, 46, 49, 48, 51, 50, 53, 52, 55, 54, 57, 56, 59, 58, 61, 60, 63, 62, 65, 64, 67, 66, 69, 68, 71, 70, 73, 72, 75, 74, 77, 76, 79, 78, 81, 80]
 }
 
 def siemens_word_array = {
-    type: u8[20],
+    type: ptk_u8_t[20],
     byte_order: [1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18]
 }
 
 // Validation rules:
 // - For type: uN, byte_order length must equal N/8
-// - For type: u8[N], byte_order length must equal N
+// - For type: ptk_u8_t[N], byte_order length must equal N
 // - No shortcuts or patterns - explicit arrays only
 ```
 
@@ -75,8 +75,8 @@ def tcp_port_array = tcp_port[]
 #### Bit Arrays with Container Types
 ```pdl
 // Container type determines allocation granularity and wire format
-def modbus_coil_array = { type: bit[], container_type: u8 }
-def modbus_discrete_input_array = { type: bit[], container_type: u8 }
+def modbus_coil_array = { type: bit[], container_type: ptk_u8_t }
+def modbus_discrete_input_array = { type: bit[], container_type: ptk_u8_t }
 def rockwell_bit_array = { type: bit[], container_type: u32_le }
 def omron_bit_array = { type: bit[], container_type: u16_le }
 ```
@@ -91,7 +91,7 @@ def message_name = {
     response_to: request_type,         // Optional response linking
     fields: [
         field1: type_reference,
-        field2: { type: u8, hidden: true },
+        field2: { type: ptk_u8_t, hidden: true },
         field3: array_type[size_expression]
     ]
 }
@@ -104,7 +104,7 @@ def modbus_read_coils_req = {
     type: message,
     match: (function_code == MODBUS_FC_READ_COILS),
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         starting_address: modbus_address,
         quantity_of_coils: modbus_quantity
     ]
@@ -116,7 +116,7 @@ def modbus_read_coils_resp = {
     match: (function_code == MODBUS_FC_READ_COILS),
     response_to: modbus_read_coils_req,
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         coil_status: modbus_coil_array[$.request.quantity_of_coils]
     ]
 }
@@ -127,8 +127,8 @@ def modbus_exception_resp = {
     match: (function_code >= 0x81 && function_code <= 0x90),
     response_to: ALL,
     fields: [
-        exception_function_code: u8,
-        exception_code: u8
+        exception_function_code: ptk_u8_t,
+        exception_code: ptk_u8_t
     ]
 }
 ```
@@ -140,7 +140,7 @@ def modbus_exception_resp = {
 def status_register_pdu = {
     type: message,
     fields: [
-        _status_bits: { type: u8, hidden: true },
+        _status_bits: { type: ptk_u8_t, hidden: true },
         ready_flag: { type: bit, container: _status_bits, bits: [0] },
         error_flag: { type: bit, container: _status_bits, bits: [1] },
         busy_flag: { type: bit, container: _status_bits, bits: [2] },
@@ -171,8 +171,8 @@ def simple_arrays = {
     type: message,
     fields: [
         length: u16_le,
-        data: u8[length],                    // Direct field reference
-        fixed_data: u8[256],                 // Constant size
+        data: ptk_u8_t[length],                    // Direct field reference
+        fixed_data: ptk_u8_t[256],                 // Constant size
         item_count: u16_le,
         headers: message_header[item_count]  // Direct field reference
     ]
@@ -185,9 +185,9 @@ def complex_arrays = {
     type: message,
     fields: [
         total_length: u16_le,
-        header_size: u8,
+        header_size: ptk_u8_t,
         payload: {
-            type: u8[],
+            type: ptk_u8_t[],
             length: {
                 decode: (total_length - header_size - 2),  // 2 = sizeof(u16_le)
                 encode: (payload.count)
@@ -204,7 +204,7 @@ def complex_arrays = {
 def parent_message = {
     type: message,
     fields: [
-        discriminator: u8,
+        discriminator: ptk_u8_t,
         payload: [
             message_type_a,
             message_type_b,
@@ -242,7 +242,7 @@ def nested_msg = {
     fields: [
         sub_length: u16_le,
         sub_data: {
-            type: u8[],
+            type: ptk_u8_t[],
             length: {
                 decode: ($.request.total_length - sub_length),
                 encode: (sub_data.count)
@@ -322,7 +322,7 @@ typedef struct {
 
 typedef struct {
     const int message_type;
-    u8 discriminator;
+    ptk_u8_t discriminator;
     parent_message_payload_t payload;
 } parent_message_t;
 ```
@@ -331,26 +331,26 @@ typedef struct {
 
 #### Constructor/Destructor
 ```c
-ptk_err message_name_create(ptk_allocator_t *alloc, message_name_t **msg);
+ptk_err_t message_name_create(ptk_allocator_t *alloc, message_name_t **msg);
 void message_name_dispose(ptk_allocator_t *alloc, message_name_t *msg);
 ```
 
 #### Encode/Decode
 ```c
-ptk_err message_name_encode(ptk_allocator_t *alloc, ptk_buf *buf, const message_name_t *msg);
-ptk_err message_name_decode(ptk_allocator_t *alloc, message_name_t **msg, ptk_buf *buf);
+ptk_err_t message_name_encode(ptk_allocator_t *alloc, ptk_buf *buf, const message_name_t *msg);
+ptk_err_t message_name_decode(ptk_allocator_t *alloc, message_name_t **msg, ptk_buf *buf);
 ```
 
 #### Bit Array Accessors
 ```c
 // Bit-level access
-ptk_err message_name_get_array_field_element(const message_name_t *msg, size_t bit_index, bool *value);
-ptk_err message_name_set_array_field_element(message_name_t *msg, size_t bit_index, bool value);
+ptk_err_t message_name_get_array_field_element(const message_name_t *msg, size_t bit_index, bool *value);
+ptk_err_t message_name_set_array_field_element(message_name_t *msg, size_t bit_index, bool value);
 size_t message_name_get_array_field_count(const message_name_t *msg);
 
 // Container-level access for bulk operations
-ptk_err message_name_get_array_field_container(const message_name_t *msg, size_t container_index, u8 *value);
-ptk_err message_name_set_array_field_container(message_name_t *msg, size_t container_index, u8 value);
+ptk_err_t message_name_get_array_field_container(const message_name_t *msg, size_t container_index, ptk_u8_t *value);
+ptk_err_t message_name_set_array_field_container(message_name_t *msg, size_t container_index, ptk_u8_t value);
 size_t message_name_get_array_field_container_count(const message_name_t *msg);
 ```
 
@@ -359,7 +359,7 @@ size_t message_name_get_array_field_container_count(const message_name_t *msg);
 #### Single Bit Fields
 ```c
 // During decode: extract from hidden raw data
-static ptk_err status_register_pdu_decode_fields(status_register_pdu_t *msg, uint8_t raw_status_bits) {
+static ptk_err_t status_register_pdu_decode_fields(status_register_pdu_t *msg, uint8_t raw_status_bits) {
     msg->ready_flag = (raw_status_bits >> 0) & 0x01;
     msg->error_flag = (raw_status_bits >> 1) & 0x01;
     msg->busy_flag = (raw_status_bits >> 2) & 0x01;
@@ -381,7 +381,7 @@ static uint8_t status_register_pdu_encode_fields(const status_register_pdu_t *ms
 #### Multi-bit and Discontiguous Fields
 ```c
 // During decode: extract discontiguous bits [15, 10, 8] into priority field
-static ptk_err control_register_pdu_decode_priority(control_register_pdu_t *msg, uint16_t raw_control_word) {
+static ptk_err_t control_register_pdu_decode_priority(control_register_pdu_t *msg, uint16_t raw_control_word) {
     msg->priority = ((raw_control_word >> 15) & 0x01) << 2 |
                    ((raw_control_word >> 10) & 0x01) << 1 |
                    ((raw_control_word >> 8) & 0x01) << 0;
@@ -444,14 +444,14 @@ modbus_pdu_base_t *modbus_pdu_send(modbus_pdu_base_t **pdu, ptk_duration_ms time
 
 | Attribute | Description | Example |
 |-----------|-------------|---------|
-| `type` | Field type | `u16`, `message`, `u8[]`, `u8[82]`, `[msg_a, msg_b]` |
+| `type` | Field type | `ptk_u16_t`, `message`, `ptk_u8_t[]`, `ptk_u8_t[82]`, `[msg_a, msg_b]` |
 | `byte_order` | Byte order array for primitives/arrays | `[0, 1]` (little), `[1, 0]` (big), `[1,0,3,2,...]` (custom) |
 | `const` | Constant value | `0x1234` |
 | `hidden` | Hide from generated struct | `true`, `false` |
 | `length` | Complex array sizing | `{ decode: expr, encode: expr }` |
 | `match` | Message discriminator | `(field == VALUE)` |
 | `response_to` | Response linking | `request_type`, `ALL` |
-| `container_type` | Bit array container | `u8`, `u16_le`, `u32_le` |
+| `container_type` | Bit array container | `ptk_u8_t`, `u16_le`, `u32_le` |
 | `container` | Bit field source | `field_name` |
 | `bits` | Bit positions | `[0]`, `[2, 1, 0]`, `[15, 10, 8]` |
 
@@ -466,23 +466,23 @@ def modbus_quantity = u16_be
 
 // Array types
 def modbus_register_array = modbus_register[]
-def modbus_coil_array = { type: bit[], container_type: u8 }
-def modbus_discrete_input_array = { type: bit[], container_type: u8 }
+def modbus_coil_array = { type: bit[], container_type: ptk_u8_t }
+def modbus_discrete_input_array = { type: bit[], container_type: ptk_u8_t }
 
 // Constants
-def MODBUS_FC_READ_COILS = { type: u8, const: 0x01 }
-def MODBUS_FC_READ_DISCRETE_INPUTS = { type: u8, const: 0x02 }
-def MODBUS_FC_READ_HOLDING_REGISTERS = { type: u8, const: 0x03 }
-def MODBUS_FC_READ_INPUT_REGISTERS = { type: u8, const: 0x04 }
-def MODBUS_FC_WRITE_SINGLE_COIL = { type: u8, const: 0x05 }
-def MODBUS_FC_WRITE_SINGLE_REGISTER = { type: u8, const: 0x06 }
+def MODBUS_FC_READ_COILS = { type: ptk_u8_t, const: 0x01 }
+def MODBUS_FC_READ_DISCRETE_INPUTS = { type: ptk_u8_t, const: 0x02 }
+def MODBUS_FC_READ_HOLDING_REGISTERS = { type: ptk_u8_t, const: 0x03 }
+def MODBUS_FC_READ_INPUT_REGISTERS = { type: ptk_u8_t, const: 0x04 }
+def MODBUS_FC_WRITE_SINGLE_COIL = { type: ptk_u8_t, const: 0x05 }
+def MODBUS_FC_WRITE_SINGLE_REGISTER = { type: ptk_u8_t, const: 0x06 }
 
 // Read Coils
 def modbus_read_coils_req = {
     type: message,
     match: (function_code == MODBUS_FC_READ_COILS),
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         starting_address: modbus_address,
         quantity_of_coils: modbus_quantity
     ]
@@ -493,7 +493,7 @@ def modbus_read_coils_resp = {
     match: (function_code == MODBUS_FC_READ_COILS),
     response_to: modbus_read_coils_req,
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         coil_status: modbus_coil_array[$.request.quantity_of_coils]
     ]
 }
@@ -503,7 +503,7 @@ def modbus_read_holding_registers_req = {
     type: message,
     match: (function_code == MODBUS_FC_READ_HOLDING_REGISTERS),
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         starting_address: modbus_address,
         quantity_of_registers: modbus_quantity
     ]
@@ -514,7 +514,7 @@ def modbus_read_holding_registers_resp = {
     match: (function_code == MODBUS_FC_READ_HOLDING_REGISTERS),
     response_to: modbus_read_holding_registers_req,
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         register_values: modbus_register_array[$.request.quantity_of_registers]
     ]
 }
@@ -524,7 +524,7 @@ def modbus_write_single_coil_req = {
     type: message,
     match: (function_code == MODBUS_FC_WRITE_SINGLE_COIL),
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         output_address: modbus_address,
         output_value: u16_be
     ]
@@ -535,7 +535,7 @@ def modbus_write_single_coil_resp = {
     match: (function_code == MODBUS_FC_WRITE_SINGLE_COIL),
     response_to: modbus_write_single_coil_req,
     fields: [
-        function_code: u8,
+        function_code: ptk_u8_t,
         output_address: modbus_address,
         output_value: u16_be
     ]
@@ -547,8 +547,8 @@ def modbus_exception_resp = {
     match: (function_code >= 0x81 && function_code <= 0x90),
     response_to: ALL,
     fields: [
-        exception_function_code: u8,
-        exception_code: u8
+        exception_function_code: ptk_u8_t,
+        exception_code: ptk_u8_t
     ]
 }
 
@@ -663,7 +663,7 @@ typedef union modbus_pdu_u {
 // PLC5 stores strings as 16-bit words in big-endian order
 // Bytes are arranged as [1,0,3,2,5,4,...] for 82-character strings
 def plc5_string = { 
-    type: u8[82], 
+    type: ptk_u8_t[82], 
     byte_order: [1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18, 21, 20, 23, 22, 25, 24, 27, 26, 29, 28, 31, 30, 33, 32, 35, 34, 37, 36, 39, 38, 41, 40, 43, 42, 45, 44, 47, 46, 49, 48, 51, 50, 53, 52, 55, 54, 57, 56, 59, 58, 61, 60, 63, 62, 65, 64, 67, 66, 69, 68, 71, 70, 73, 72, 75, 74, 77, 76, 79, 78, 81, 80]
 }
 
@@ -688,7 +688,7 @@ typedef struct plc5_tag_read_resp_t {
 } plc5_tag_read_resp_t;
 
 // Generated encode function applies byte_order mapping
-static ptk_err plc5_tag_read_resp_encode_tag_name(ptk_buf *buf, const uint8_t *tag_name) {
+static ptk_err_t plc5_tag_read_resp_encode_tag_name(ptk_buf *buf, const uint8_t *tag_name) {
     uint8_t wire_order[82];
     
     // Apply byte_order: wire_order[i] = tag_name[byte_order[i]]
@@ -702,9 +702,9 @@ static ptk_err plc5_tag_read_resp_encode_tag_name(ptk_buf *buf, const uint8_t *t
 }
 
 // Generated decode function reverses byte_order mapping  
-static ptk_err plc5_tag_read_resp_decode_tag_name(ptk_buf *buf, uint8_t *tag_name) {
+static ptk_err_t plc5_tag_read_resp_decode_tag_name(ptk_buf *buf, uint8_t *tag_name) {
     uint8_t wire_data[82];
-    ptk_err err = ptk_buf_consume(buf, wire_data, 82);
+    ptk_err_t err = ptk_buf_consume(buf, wire_data, 82);
     if (err != PTK_OK) return err;
     
     // Apply reverse mapping: tag_name[byte_order[i]] = wire_data[i]
@@ -739,15 +739,15 @@ plc5_tag_read_resp_encode(alloc, send_buf, resp);
 #### Byte Order Length Validation
 ```pdl
 // VALID: Primitive types - byte_order length equals type size in bytes
-def u16_be = { type: u16, byte_order: [1, 0] }           // OK: 2 elements for u16
-def u32_le = { type: u32, byte_order: [0, 1, 2, 3] }     // OK: 4 elements for u32
+def u16_be = { type: ptk_u16_t, byte_order: [1, 0] }           // OK: 2 elements for ptk_u16_t
+def u32_le = { type: ptk_u32_t, byte_order: [0, 1, 2, 3] }     // OK: 4 elements for ptk_u32_t
 
 // VALID: Array types - byte_order length equals array length  
-def custom_array = { type: u8[10], byte_order: [1, 0, 3, 2, 5, 4, 7, 6, 9, 8] }  // OK: 10 elements
+def custom_array = { type: ptk_u8_t[10], byte_order: [1, 0, 3, 2, 5, 4, 7, 6, 9, 8] }  // OK: 10 elements
 
 // INVALID: Mismatched lengths
-def bad_u16 = { type: u16, byte_order: [1, 0, 3, 2] }    // ERROR: 4 elements for u16
-def bad_array = { type: u8[5], byte_order: [1, 0, 3] }   // ERROR: 3 elements for u8[5]
+def bad_u16 = { type: ptk_u16_t, byte_order: [1, 0, 3, 2] }    // ERROR: 4 elements for ptk_u16_t
+def bad_array = { type: ptk_u8_t[5], byte_order: [1, 0, 3] }   // ERROR: 3 elements for ptk_u8_t[5]
 ```
 
 #### Helper Script Approach

@@ -17,7 +17,7 @@
  *   ptk_shutdown();
  */
 
-#include <ptk_err.h>
+#include <ptk_defs.h>
 
 /**
  * @brief Initialize the PTK library
@@ -27,7 +27,7 @@
  * 
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_startup(void);
+PTK_API ptk_err_t ptk_startup(void);
 
 /**
  * @brief Shutdown the PTK library
@@ -37,4 +37,4 @@ ptk_err ptk_startup(void);
  * 
  * @return PTK_OK on success, error code on failure
  */
-ptk_err ptk_shutdown(void);
+PTK_API ptk_err_t ptk_shutdown(void);

@@ -45,11 +45,27 @@ dev branch → prerelease branch → release branch → GitHub Release
 ### Version File Structure
 
 ```
-VERSION                    # Simple version file: "1.0.0"
+VERSION                    # Simple version file: "0.1.0"
 scripts/version_manager.sh # Version management script
 src/include/ptk_version.h  # Generated C header with version macros
 CMakeLists.txt            # Updated with project version
 ```
+
+### Branch Propagation Chain
+
+The system automatically propagates version changes through branches:
+
+```
+release (0.1.1) → dev (0.1.1) → prerelease (0.1.1)
+     ↓                ↓              ↓
+  Auto-merge      Auto-merge    Ready for next
+  (or PR)         (or PR)       release cycle
+```
+
+**Propagation Strategy:**
+- **Fast-forward merge**: When possible (clean linear history)
+- **Pull Request**: When branches have diverged (requires manual merge)
+- **Automatic detection**: System chooses the appropriate method
 
 ### Version Manager Script
 
@@ -131,7 +147,27 @@ The `scripts/version_manager.sh` script provides:
    - Creates GitHub release with version tag
    - Generates release notes and artifacts
    - Increments patch version
-   - Creates sync PR back to dev
+   - **Propagates changes**: `release` → `dev` → `prerelease`
+
+### Branch Propagation Details
+
+After each release, version changes are automatically propagated:
+
+#### Step 1: Release → Dev
+- **Fast-forward merge**: If `dev` history is clean
+- **Pull Request**: If branches have diverged
+- **Auto-detection**: System chooses best approach
+
+#### Step 2: Dev → Prerelease  
+- **Fast-forward merge**: If `prerelease` history is clean
+- **Pull Request**: If branches have diverged
+- **Conditional**: Only runs if Step 1 succeeded
+
+#### Fallback Strategy
+If auto-merge fails, the system creates PRs with clear explanations:
+- **Why manual merge is needed**
+- **What changes are being synced**
+- **How to resolve conflicts**
 
 ### Manual Steps Required
 
@@ -213,6 +249,54 @@ Each release includes:
    - Check GitHub Actions logs
    - Verify version format and uniqueness
    - Ensure all tests pass in prerelease
+
+4. **Branch Propagation Failures**
+   - **Auto-merge failed**: Check for divergent branch history
+   - **Fast-forward blocked**: Manual merge required via PR
+   - **Missing branches**: Ensure `dev` and `prerelease` branches exist
+   - **Permission issues**: Verify GitHub Actions has push permissions
+
+### Branch Propagation Troubleshooting
+
+#### Manual Branch Sync
+If automatic propagation fails, manually sync branches:
+
+```bash
+# Sync release → dev
+git checkout dev
+git pull origin dev
+git merge origin/release
+git push origin dev
+
+# Sync dev → prerelease  
+git checkout prerelease
+git pull origin prerelease
+git merge origin/dev
+git push origin prerelease
+```
+
+#### Check Branch Relationships
+```bash
+# Check if dev can fast-forward to release
+git merge-base --is-ancestor origin/dev origin/release
+
+# Check if prerelease can fast-forward to dev
+git merge-base --is-ancestor origin/prerelease origin/dev
+
+# View branch divergence
+git log --oneline --graph origin/dev...origin/release
+```
+
+#### Reset Branch Strategy
+For severely divergent branches, reset to match:
+
+```bash
+# Reset prerelease to match dev (DESTRUCTIVE)
+git checkout prerelease
+git reset --hard origin/dev
+git push --force-with-lease origin prerelease
+```
+**⚠️ Warning**: Only use `--force-with-lease` when you understand the consequences.
 
 ### Debug Commands
 

@@ -79,7 +79,7 @@
         return arr; \
     } \
     \
-    static inline ptk_err PREFIX##_array_resize(PREFIX##_array_t *arr, size_t new_len) { \
+    static inline ptk_err_t PREFIX##_array_resize(PREFIX##_array_t *arr, size_t new_len) { \
         if (!arr) return PTK_ERR_NULL_PTR; \
         if (new_len == 0) return PTK_ERR_INVALID_PARAM; \
         \
@@ -99,10 +99,10 @@
         return PTK_OK; \
     } \
     \
-    static inline ptk_err PREFIX##_array_append(PREFIX##_array_t *arr, T element) { \
+    static inline ptk_err_t PREFIX##_array_append(PREFIX##_array_t *arr, T element) { \
         if (!arr) return PTK_ERR_NULL_PTR; \
         \
-        ptk_err err = PREFIX##_array_resize(arr, arr->len + 1); \
+        ptk_err_t err = PREFIX##_array_resize(arr, arr->len + 1); \
         if (err != PTK_OK) return err; \
         \
         arr->elements[arr->len - 1] = element; \
@@ -110,17 +110,17 @@
         return PTK_OK; \
     } \
     \
-    static inline ptk_err PREFIX##_array_get(const PREFIX##_array_t *arr, size_t index, T *element) { \
-        if (!arr || !element) return PTK_ERR_NULL_PTR; \
+    static inline T * PREFIX##_array_get(const PREFIX##_array_t *arr, size_t index) { \
+        if (!arr) { ptk_set_err(PTK_ERR_NULL_PTR); return NULL; } \
         if (index >= arr->len) { \
             error("Index %zu out of bounds for " #PREFIX "_array (len=%zu)", index, arr->len); \
-            return PTK_ERR_OUT_OF_BOUNDS; \
+            ptk_set_err(PTK_ERR_OUT_OF_BOUNDS); \
+            return NULL; \
         } \
-        *element = arr->elements[index]; \
-        return PTK_OK; \
+        return &(arr->elements[index]); \
     } \
     \
-    static inline ptk_err PREFIX##_array_set(PREFIX##_array_t *arr, size_t index, T element) { \
+    static inline ptk_err_t PREFIX##_array_set(PREFIX##_array_t *arr, size_t index, T element) { \
         if (!arr) return PTK_ERR_NULL_PTR; \
         if (index >= arr->len) { \
             error("Index %zu out of bounds for " #PREFIX "_array (len=%zu)", index, arr->len); \

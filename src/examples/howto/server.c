@@ -1,14 +1,28 @@
 #include <ptk.h>
 #include <ptk_sock.h>
 #include <ptk_buf.h>
-#include <ptk_alloc.h>
-#include <ptk_shared.h>
-#include <ptk_threadlet.h>
+#include <ptk_mem.h>
 #include <ptk_log.h>
 #include <ptk_config.h>
 #include <ptk_err.h>
+#include <ptk_utils.h>
 
 #include "arithmetic_protocol.h"
+
+// Global flag for shutdown signal
+static volatile bool shutdown_requested = false;
+static ptk_thread_handle_t g_server_thread = PTK_SHARED_INVALID_HANDLE;
+
+// PTK interrupt handler for graceful shutdown
+static void interrupt_handler(void) {
+    info("Received interrupt signal, shutting down...");
+    shutdown_requested = true;
+    
+    // Signal the server thread to abort
+    if (ptk_shared_is_valid(g_server_thread)) {
+        ptk_thread_signal(g_server_thread, PTK_THREAD_SIGNAL_ABORT);
+    }
+}
 
 typedef struct {
     ptk_sock *client_sock;
@@ -19,55 +33,69 @@ static void client_connection_destructor(void *ptr) {
     client_connection_t *conn = (client_connection_t*)ptr;
     if (conn && conn->client_sock) {
         debug("Cleaning up client connection");
-        ptk_free(&conn->client_sock);
+        ptk_local_free(&conn->client_sock);
     }
 }
 
-static f64 perform_arithmetic(arithmetic_operation_t op, f32 operand1, f32 operand2) {
+static ptk_f64_t perform_arithmetic(arithmetic_operation_t op, ptk_f32_t operand1, ptk_f32_t operand2) {
     switch (op) {
         case ARITH_OP_ADD:
             debug("Performing addition: %f + %f", operand1, operand2);
-            return (f64)operand1 + (f64)operand2;
+            return (ptk_f64_t)operand1 + (ptk_f64_t)operand2;
         case ARITH_OP_SUB:
             debug("Performing subtraction: %f - %f", operand1, operand2);
-            return (f64)operand1 - (f64)operand2;
+            return (ptk_f64_t)operand1 - (ptk_f64_t)operand2;
         case ARITH_OP_MUL:
             debug("Performing multiplication: %f * %f", operand1, operand2);
-            return (f64)operand1 * (f64)operand2;
+            return (ptk_f64_t)operand1 * (ptk_f64_t)operand2;
         case ARITH_OP_DIV:
             debug("Performing division: %f / %f", operand1, operand2);
             if (operand2 == 0.0f) {
                 warn("Division by zero attempted");
                 return 0.0;
             }
-            return (f64)operand1 / (f64)operand2;
+            return (ptk_f64_t)operand1 / (ptk_f64_t)operand2;
         default:
             error("Unknown arithmetic operation: %d", op);
             return 0.0;
     }
 }
 
-static void handle_client_connection(void *param) {
-    ptk_shared_handle_t conn_handle = *(ptk_shared_handle_t*)param;
+static void handle_client_connection(void) {
+    size_t num_args = ptk_thread_get_arg_count();
+    if (num_args != 1) {
+        error("Client handler requires exactly 1 argument (connection handle), got %zu", num_args);
+        return;
+    }
+
+    ptk_shared_handle_t conn_handle = ptk_thread_get_handle_arg(0);
+    info("Client handler thread started");
     
-    info("Client handler threadlet started");
-    
-    use_shared(conn_handle, client_connection_t *conn) {
+    use_shared(conn_handle, client_connection_t*, conn, PTK_TIME_WAIT_FOREVER) {
         char *client_ip = ptk_address_to_string(&conn->client_addr);
         info("Handling client connection from %s:%d", 
              client_ip ? client_ip : "unknown", 
              ptk_address_get_port(&conn->client_addr));
-        if (client_ip) ptk_free(&client_ip);
+        if (client_ip) ptk_local_free(&client_ip);
         
-        while (true) {
-            ptk_buf *request_buf = ptk_tcp_socket_recv(conn->client_sock, false, 5000);
+        while (!shutdown_requested) {
+            // Check for abort signals
+            if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_ABORT)) {
+                info("Client handler received abort signal");
+                break;
+            }
+            
+            ptk_buf *request_buf = ptk_tcp_socket_recv(conn->client_sock, 1000); // 1 second timeout
             if (!request_buf) {
-                ptk_err err = ptk_get_err();
+                ptk_err_t err = ptk_get_err();
                 if (err == PTK_ERR_TIMEOUT) {
-                    debug("Client receive timeout, continuing...");
+                    // Timeout is normal, check for signals and continue
                     continue;
                 } else if (err == PTK_ERR_CLOSED) {
                     info("Client connection closed");
+                    break;
+                } else if (err == PTK_ERR_SIGNAL || err == PTK_ERR_ABORT) {
+                    info("Client receive interrupted by signal");
                     break;
                 } else {
                     warn("Error receiving from client: %d", err);
@@ -81,25 +109,25 @@ static void handle_client_connection(void *param) {
             arithmetic_request_t *request = arithmetic_request_create(ARITH_OP_ADD, 0, 0);
             if (!request) {
                 error("Failed to create request object");
-                ptk_free(&request_buf);
+                ptk_local_free(&request_buf);
                 break;
             }
             
-            ptk_err err = arithmetic_request_deserialize(request_buf, (ptk_serializable_t*)request);
-            ptk_free(&request_buf);
+            ptk_err_t err = arithmetic_request_deserialize(request_buf, (ptk_serializable_t*)request);
+            ptk_local_free(&request_buf);
             
             if (err != PTK_OK) {
                 error("Failed to deserialize request: %d", err);
-                ptk_free(&request);
+                ptk_local_free(&request);
                 continue;
             }
             
-            f64 result = perform_arithmetic((arithmetic_operation_t)request->operation, 
+            ptk_f64_t result = perform_arithmetic((arithmetic_operation_t)request->operation, 
                                           request->operand1, request->operand2);
             
             arithmetic_response_t *response = arithmetic_response_create(
                 (arithmetic_operation_t)request->operation, result);
-            ptk_free(&request);
+            ptk_local_free(&request);
             
             if (!response) {
                 error("Failed to create response object");
@@ -109,33 +137,23 @@ static void handle_client_connection(void *param) {
             ptk_buf *response_buf = ptk_buf_alloc(64);
             if (!response_buf) {
                 error("Failed to allocate response buffer");
-                ptk_free(&response);
+                ptk_local_free(&response);
                 break;
             }
             
             err = arithmetic_response_serialize(response_buf, (ptk_serializable_t*)response);
-            ptk_free(&response);
+            ptk_local_free(&response);
             
             if (err != PTK_OK) {
                 error("Failed to serialize response: %d", err);
-                ptk_free(&response_buf);
+                ptk_local_free(&response_buf);
                 break;
             }
             
             debug("Sending %d bytes to client", ptk_buf_get_len(response_buf));
             debug_buf(response_buf);
             
-            ptk_buf_array_t *buf_array = ptk_buf_array_create();
-            if (!buf_array) {
-                error("Failed to create buffer array");
-                ptk_free(&response_buf);
-                break;
-            }
-            
-            ptk_buf_array_append(buf_array, response_buf);
-            
-            err = ptk_tcp_socket_send(conn->client_sock, buf_array, 5000);
-            ptk_free(&buf_array);
+            err = ptk_tcp_socket_send(conn->client_sock, response_buf, 5000);
             
             if (err != PTK_OK) {
                 error("Failed to send response: %d", err);
@@ -145,20 +163,38 @@ static void handle_client_connection(void *param) {
             info("Successfully processed arithmetic request");
         }
         
-        info("Client handler threadlet exiting");
+        info("Client handler thread exiting");
     } on_shared_fail {
         error("Failed to acquire client connection");
     }
-    
-    ptk_shared_release(conn_handle);
+    // No manual release needed; use_shared handles it
 }
 
-static void server_threadlet(void *param) {
-    ptk_address_t *server_addr = (ptk_address_t*)param;
+static void server_thread_func(void) {
+    size_t num_args = ptk_thread_get_arg_count();
+    if (num_args != 1) {
+        error("Server thread requires exactly 1 argument (server address handle), got %zu", num_args);
+        return;
+    }
+
+    ptk_shared_handle_t addr_handle = ptk_thread_get_handle_arg(0);
+    ptk_address_t *server_addr = NULL;
+    
+    use_shared(addr_handle, ptk_address_t*, addr, PTK_TIME_WAIT_FOREVER) {
+        server_addr = ptk_address_create(ptk_address_to_string(addr), ptk_address_get_port(addr));
+    } on_shared_fail {
+        error("Failed to acquire server address");
+        return;
+    }
+    
+    if (!server_addr) {
+        error("Failed to copy server address");
+        return;
+    }
     
     info("Server threadlet started on port %d", ptk_address_get_port(server_addr));
     
-    ptk_sock *server_sock = ptk_tcp_socket_listen(server_addr, 10);
+    ptk_sock *server_sock = ptk_tcp_server_create(server_addr);
     if (!server_sock) {
         error("Failed to create server socket: %d", ptk_get_err());
         return;
@@ -166,12 +202,22 @@ static void server_threadlet(void *param) {
     
     info("Server listening for connections");
     
-    while (true) {
-        ptk_sock *client_sock = ptk_tcp_socket_accept(server_sock, 0);
+    while (!shutdown_requested) {
+        // Check for abort signals
+        if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_ABORT)) {
+            info("Server thread received abort signal");
+            break;
+        }
+        
+        ptk_address_t client_addr;
+        ptk_sock *client_sock = ptk_tcp_accept(server_sock, &client_addr, 1000); // 1 second timeout
         if (!client_sock) {
-            ptk_err err = ptk_get_err();
-            if (err == PTK_ERR_ABORT) {
-                info("Server accept aborted");
+            ptk_err_t err = ptk_get_err();
+            if (err == PTK_ERR_TIMEOUT) {
+                // Timeout is normal, check for signals and continue
+                continue;
+            } else if (err == PTK_ERR_SIGNAL || err == PTK_ERR_ABORT) {
+                info("Server accept interrupted by signal");
                 break;
             } else {
                 warn("Accept failed: %d", err);
@@ -179,52 +225,81 @@ static void server_threadlet(void *param) {
             }
         }
         
-        client_connection_t *conn = ptk_alloc(sizeof(client_connection_t), client_connection_destructor);
-        if (!conn) {
-            error("Failed to allocate client connection");
-            ptk_free(&client_sock);
+        ptk_shared_handle_t conn_handle = ptk_shared_alloc(sizeof(client_connection_t), client_connection_destructor);
+        if (!ptk_shared_is_valid(conn_handle)) {
+            error("Failed to allocate shared client connection");
+            ptk_local_free(&client_sock);
+            continue;
+        }
+        use_shared(conn_handle, client_connection_t*, conn, PTK_TIME_NO_WAIT) {
+            conn->client_sock = client_sock;
+            conn->client_addr = client_addr;
+        } on_shared_fail {
+            error("Failed to acquire shared client connection for initialization");
+            ptk_local_free(&client_sock);
+            ptk_shared_free(&conn_handle);
             continue;
         }
         
-        conn->client_sock = client_sock;
-        
-        ptk_shared_handle_t conn_handle = ptk_shared_wrap(conn);
-        if (!PTK_SHARED_IS_VALID(conn_handle)) {
-            error("Failed to wrap client connection in shared memory");
-            ptk_free(&conn);
+        // Create a new thread for this client connection
+        ptk_thread_handle_t client_thread = ptk_thread_create();
+        if (!ptk_shared_is_valid(client_thread)) {
+            error("Failed to create client thread");
+            ptk_local_free(&client_sock);
+            ptk_shared_free(&conn_handle);
             continue;
         }
         
-        ptk_shared_handle_t *handle_param = ptk_alloc(sizeof(ptk_shared_handle_t), NULL);
-        if (!handle_param) {
-            error("Failed to allocate handle parameter");
-            ptk_shared_release(conn_handle);
-            continue;
-        }
-        *handle_param = conn_handle;
-        
-        threadlet_t *client_threadlet = ptk_threadlet_create(handle_client_connection, handle_param);
-        if (!client_threadlet) {
-            error("Failed to create client threadlet");
-            ptk_free(&handle_param);
-            ptk_shared_release(conn_handle);
-            continue;
-        }
-        
-        ptk_err err = ptk_threadlet_resume(client_threadlet);
+        ptk_err_t err = ptk_thread_add_handle_arg(client_thread, 1, &conn_handle);
         if (err != PTK_OK) {
-            error("Failed to start client threadlet: %d", err);
-            ptk_free(&client_threadlet);
-            ptk_free(&handle_param);
-            ptk_shared_release(conn_handle);
+            error("Failed to add connection handle to client thread: %d", err);
+            ptk_shared_release(client_thread);
+            ptk_local_free(&client_sock);
+            ptk_shared_free(&conn_handle);
             continue;
         }
         
-        info("Created new client handler threadlet");
+        err = ptk_thread_set_run_function(client_thread, handle_client_connection);
+        if (err != PTK_OK) {
+            error("Failed to set client thread function: %d", err);
+            ptk_shared_release(client_thread);
+            ptk_shared_free(&conn_handle);
+            continue;
+        }
+        
+        err = ptk_thread_start(client_thread);
+        if (err != PTK_OK) {
+            error("Failed to start client thread: %d", err);
+            ptk_shared_release(client_thread);
+            ptk_shared_free(&conn_handle);
+            continue;
+        }
+        
+        info("Created new client handler thread");
+        
+        // Clean up any dead child threads periodically
+        ptk_thread_cleanup_dead_children(ptk_thread_self(), PTK_TIME_NO_WAIT);
+        
+        // Clear any pending child death signals
+        if (ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
+            ptk_thread_clear_signals(PTK_THREAD_SIGNAL_CHILD_DIED);
+        }
     }
     
-    info("Server threadlet exiting");
-    ptk_free(&server_sock);
+    info("Server thread exiting");
+    ptk_local_free(&server_sock);
+    ptk_local_free(&server_addr);
+    
+    // Clean up all remaining child threads
+    ptk_thread_handle_t self = ptk_thread_self();
+    int child_count = ptk_thread_count_children(self);
+    if (child_count > 0) {
+        info("Signaling %d child threads to shutdown", child_count);
+        ptk_thread_signal_all_children(self, PTK_THREAD_SIGNAL_ABORT);
+        
+        // Wait for children to clean up
+        ptk_thread_cleanup_dead_children(self, 5000);
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -237,7 +312,7 @@ int main(int argc, char *argv[]) {
         PTK_CONFIG_END
     };
     
-    ptk_err err = ptk_config_parse(argc, argv, config_fields, "arithmetic_server");
+    ptk_err_t err = ptk_config_parse(argc, argv, config_fields, "arithmetic_server");
     if (err == 1) {
         return 0;
     } else if (err != PTK_OK) {
@@ -261,38 +336,112 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    ptk_address_t server_addr;
-    err = ptk_address_init_any(&server_addr, port);
-    if (err != PTK_OK) {
-        error("Failed to initialize server address: %d", err);
+    ptk_address_t *server_addr = ptk_address_create_any(port);
+    if (!server_addr) {
+        error("Failed to create server address: %d", ptk_get_err());
         ptk_shared_shutdown();
         ptk_shutdown();
         return 1;
     }
     
-    threadlet_t *server_threadlet = ptk_threadlet_create(server_threadlet, &server_addr);
-    if (!server_threadlet) {
-        error("Failed to create server threadlet");
+    // Create shared handle for server address
+    ptk_shared_handle_t addr_handle = ptk_shared_alloc(sizeof(ptk_address_t), NULL);
+    if (!ptk_shared_is_valid(addr_handle)) {
+        error("Failed to create shared server address");
+        ptk_local_free(&server_addr);
         ptk_shared_shutdown();
         ptk_shutdown();
         return 1;
     }
     
-    err = ptk_threadlet_resume(server_threadlet);
-    if (err != PTK_OK) {
-        error("Failed to start server threadlet: %d", err);
-        ptk_free(&server_threadlet);
+    // Copy address to shared memory
+    use_shared(addr_handle, ptk_address_t*, shared_addr, PTK_TIME_NO_WAIT) {
+        *shared_addr = *server_addr;
+    } on_shared_fail {
+        error("Failed to initialize shared server address");
+        ptk_local_free(&server_addr);
+        ptk_shared_free(&addr_handle);
         ptk_shared_shutdown();
         ptk_shutdown();
         return 1;
     }
     
-    info("Server threadlet started, waiting for completion");
+    ptk_local_free(&server_addr);
     
-    err = ptk_threadlet_join(server_threadlet, 0);
+    // Set up PTK interrupt handler for graceful shutdown
+    err = ptk_set_interrupt_handler(interrupt_handler);
     if (err != PTK_OK) {
-        warn("Server threadlet join failed: %d", err);
+        error("Failed to set interrupt handler: %d", err);
+        ptk_shared_free(&addr_handle);
+        ptk_shared_shutdown();
+        ptk_shutdown();
+        return 1;
     }
+    
+    // Create and start server thread
+    g_server_thread = ptk_thread_create();
+    if (!ptk_shared_is_valid(g_server_thread)) {
+        error("Failed to create server thread");
+        ptk_shared_free(&addr_handle);
+        ptk_shared_shutdown();
+        ptk_shutdown();
+        return 1;
+    }
+    
+    err = ptk_thread_add_handle_arg(g_server_thread, 1, &addr_handle);
+    if (err != PTK_OK) {
+        error("Failed to add address handle to server thread: %d", err);
+        ptk_shared_release(g_server_thread);
+        ptk_shared_shutdown();
+        ptk_shutdown();
+        return 1;
+    }
+    
+    err = ptk_thread_set_run_function(g_server_thread, server_thread_func);
+    if (err != PTK_OK) {
+        error("Failed to set server thread function: %d", err);
+        ptk_shared_release(g_server_thread);
+        ptk_shared_shutdown();
+        ptk_shutdown();
+        return 1;
+    }
+    
+    err = ptk_thread_start(g_server_thread);
+    if (err != PTK_OK) {
+        error("Failed to start server thread: %d", err);
+        ptk_shared_release(g_server_thread);
+        ptk_shared_shutdown();
+        ptk_shutdown();
+        return 1;
+    }
+    
+    info("Server thread started, waiting for completion");
+    
+    // Wait for server thread and handle signals
+    while (!shutdown_requested) {
+        ptk_err_t wait_result = ptk_thread_wait(1000); // Check every second
+        if (wait_result == PTK_ERR_SIGNAL) {
+            uint64_t signals = ptk_thread_get_pending_signals();
+            if (signals & PTK_THREAD_SIGNAL_ABORT_MASK) {
+                info("Received shutdown signal, stopping server");
+                ptk_thread_signal(g_server_thread, PTK_THREAD_SIGNAL_ABORT);
+                break;
+            }
+            ptk_thread_clear_signals(signals);
+        }
+        
+        // Clean up any dead child threads
+        ptk_thread_cleanup_dead_children(ptk_thread_self(), PTK_TIME_NO_WAIT);
+    }
+    
+    if (shutdown_requested) {
+        info("Shutdown requested via signal, stopping server");
+        ptk_thread_signal(g_server_thread, PTK_THREAD_SIGNAL_ABORT);
+    }
+    
+    // Wait for server thread to finish
+    ptk_thread_wait(5000);
+    ptk_shared_release(g_server_thread);
     
     info("Shutting down server");
     

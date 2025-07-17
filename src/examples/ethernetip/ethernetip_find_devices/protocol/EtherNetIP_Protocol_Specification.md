@@ -422,8 +422,8 @@ typedef struct {
    - Use a thread pool approach
    - Use async/event-driven approach with `ptk_socket.h` timeouts
 
-8. **Error Reporting**: How should protocol-level errors integrate with the `ptk_err` error system? Should there be:
-   - Direct mapping of CIP errors to ptk_err codes
+8. **Error Reporting**: How should protocol-level errors integrate with the `ptk_err_t` error system? Should there be:
+   - Direct mapping of CIP errors to ptk_err_t codes
    - A separate protocol error system
    - Extended error information passing
 

@@ -22,7 +22,7 @@ static void internal_signal_handler(int sig) {
     }
 }
 
-ptk_err ptk_set_interrupt_handler(void (*handler)(void)) {
+ptk_err_t ptk_set_interrupt_handler(void (*handler)(void)) {
     g_interrupt_handler = handler;
     
     if (handler) {
@@ -83,4 +83,24 @@ ptk_time_ms ptk_now_ms(void) {
     
     return (ptk_time_ms)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 #endif
+}
+
+ptk_err_t ptk_sleep_ms(ptk_duration_ms duration) {
+    if (duration < 0) {
+        return PTK_ERR_INVALID_PARAM;
+    }
+    
+#ifdef _WIN32
+    Sleep((DWORD)duration);
+#else
+    struct timespec ts;
+    ts.tv_sec = duration / 1000;
+    ts.tv_nsec = (duration % 1000) * 1000000;
+    
+    if (nanosleep(&ts, NULL) != 0) {
+        return PTK_ERR_NETWORK_ERROR;
+    }
+#endif
+    
+    return PTK_OK;
 }

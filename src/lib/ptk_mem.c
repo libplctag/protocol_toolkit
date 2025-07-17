@@ -161,18 +161,42 @@ void ptk_local_free_impl(const char *file, int line, void **ptr_ref) {
     ptk_set_err(PTK_OK);
 }
 
+
+/**
+ * @brief Check if a pointer was allocated by ptk_local_alloc()
+ *
+ * Returns true if the pointer was allocated by ptk_local_alloc(), false otherwise.
+ * This checks for the special header and footer canary values.
+ *
+ * @param ptr Pointer to check
+ * @return true if allocated by ptk_local_alloc(), false otherwise
+ */
+bool ptk_local_is_allocated(void *ptr) {
+    if (!ptr) return false;
+    ptk_local_alloc_header_t *header = ptk_get_header(ptr);
+    if (!header) return false;
+    if (header->header_canary != PTK_ALLOC_HEADER_CANARY) return false;
+    ptk_local_alloc_footer_t *footer = ptk_get_footer(header);
+    if (!footer) return false;
+    if (footer->footer_canary != PTK_ALLOC_FOOTER_CANARY) return false;
+    return true;
+}
+
 //=============================================================================
 // SHARED MEMORY IMPLEMENTATION (Simplified)
 //=============================================================================
 
 #define INITIAL_TABLE_SIZE      1024
 
+// POSIX mutex for Linux
+#include <pthread.h>
 typedef struct {
     uintptr_t handle_value;      // Combined generation + index
     void *data_ptr;             // Points to ptk_local_alloc'd memory (NULL = free slot)
     uint32_t ref_count;         // Reference counter (atomic)
     const char *file;           // Debug info from ptk_shared_create macro
     int line;                   // Debug info from ptk_shared_create macro
+    pthread_mutex_t mutex;      // Per-entry mutex
 } shared_entry_t;
 
 typedef struct {
@@ -185,7 +209,7 @@ typedef struct {
 static shared_table_t shared_table = {0};
 static bool shared_table_initialized = false;
 
-static ptk_err init_shared_table(void) {
+static ptk_err_t init_shared_table(void) {
     if (shared_table_initialized) {
         return PTK_OK;
     }
@@ -206,11 +230,11 @@ static ptk_err init_shared_table(void) {
     return PTK_OK;
 }
 
-ptk_err ptk_shared_init(void) {
+ptk_err_t ptk_shared_init(void) {
     return init_shared_table();
 }
 
-ptk_err ptk_shared_shutdown(void) {
+ptk_err_t ptk_shared_shutdown(void) {
     if (!shared_table_initialized) {
         return PTK_OK;
     }
@@ -262,56 +286,90 @@ ptk_shared_handle_t ptk_shared_alloc_impl(const char *file, int line, size_t siz
     entry->ref_count = 1;
     entry->file = file;
     entry->line = line;
-    
+    pthread_mutex_init(&entry->mutex, NULL);
+
     shared_table.next_generation++;
     shared_table.count++;
-    
+
     debug("Shared memory %p with handle 0x%016" PRIx64 " at index %zu from %s:%d", 
           ptr, entry->handle_value, entry_index, file, line);
-    
+
     return (ptk_shared_handle_t){entry->handle_value};
 }
 
 void *ptk_shared_acquire_impl(const char *file, int line, ptk_shared_handle_t handle, ptk_time_ms timeout) {
-    (void)timeout; // TODO: Implement timeout
-    
-    if (!PTK_SHARED_IS_VALID(handle)) {
+    if (!ptk_shared_is_valid(handle)) {
         error("Attempt to acquire invalid handle");
+        ptk_set_err(PTK_ERR_INVALID_PARAM);
         return NULL;
     }
-    
+
     if (!shared_table_initialized) {
         error("Shared table not initialized");
+        ptk_set_err(PTK_ERR_BAD_INTERNAL_STATE);
         return NULL;
     }
-    
+
     size_t index = handle.value & 0xFFFFFFFF;
     if (index >= shared_table.capacity) {
         error("Invalid handle index %zu", index);
+        ptk_set_err(PTK_ERR_INVALID_PARAM);
         return NULL;
     }
-    
+
     shared_entry_t *entry = &shared_table.entries[index];
     if (entry->handle_value != handle.value) {
         error("Stale handle 0x%016" PRIx64 " != 0x%016" PRIx64, handle.value, entry->handle_value);
+        ptk_set_err(PTK_ERR_INVALID_PARAM);
         return NULL;
     }
-    
+
+    int lock_result = 0;
+    if (timeout == PTK_TIME_NO_WAIT) {
+        lock_result = pthread_mutex_trylock(&entry->mutex);
+    } else if (timeout == PTK_TIME_WAIT_FOREVER) {
+        lock_result = pthread_mutex_lock(&entry->mutex);
+    } else {
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += timeout / 1000;
+        ts.tv_nsec += (timeout % 1000) * 1000000;
+        if (ts.tv_nsec >= 1000000000) {
+            ts.tv_sec += ts.tv_nsec / 1000000000;
+            ts.tv_nsec = ts.tv_nsec % 1000000000;
+        }
+        lock_result = pthread_mutex_timedlock(&entry->mutex, &ts);
+    }
+    if (lock_result != 0) {
+        ptk_set_err(PTK_ERR_TIMEOUT);
+        return NULL;
+    }
+
     if (!entry->data_ptr) {
-        error("Entry data is NULL");
+        pthread_mutex_unlock(&entry->mutex);
+        ptk_set_err(PTK_ERR_TIMEOUT);
         return NULL;
     }
-    
+
+    if (entry->ref_count == UINT32_MAX) {
+        pthread_mutex_unlock(&entry->mutex);
+        error("Reference count overflow at %s:%d", file, line);
+        ptk_set_err(PTK_ERR_OVERFLOW);
+        return NULL;
+    }
+
     entry->ref_count++;
-    
+
     debug("Acquired shared memory %p (ref_count=%u) from %s:%d", 
           entry->data_ptr, entry->ref_count, file, line);
-    
+
+    pthread_mutex_unlock(&entry->mutex);
+    ptk_set_err(PTK_OK);
     return entry->data_ptr;
 }
 
-ptk_err ptk_shared_release_impl(const char *file, int line, ptk_shared_handle_t handle) {
-    if (!PTK_SHARED_IS_VALID(handle)) {
+ptk_err_t ptk_shared_release_impl(const char *file, int line, ptk_shared_handle_t handle) {
+    if (!ptk_shared_is_valid(handle)) {
         error("Attempt to release invalid handle");
         return PTK_ERR_INVALID_PARAM;
     }
@@ -345,19 +403,19 @@ ptk_err ptk_shared_release_impl(const char *file, int line, ptk_shared_handle_t 
     
     if (entry->ref_count == 0) {
         ptk_local_free(&entry->data_ptr);
+        pthread_mutex_destroy(&entry->mutex);
         entry->handle_value = 0;
         entry->file = NULL;
         entry->line = 0;
         shared_table.count--;
-        
         debug("Freed shared memory entry at index %zu", index);
     }
     
     return PTK_OK;
 }
 
-ptk_err ptk_shared_realloc_impl(const char *file, int line, ptk_shared_handle_t handle, size_t new_size) {
-    if (!PTK_SHARED_IS_VALID(handle)) {
+ptk_err_t ptk_shared_realloc_impl(const char *file, int line, ptk_shared_handle_t handle, size_t new_size) {
+    if (!ptk_shared_is_valid(handle)) {
         error("Attempt to realloc invalid handle");
         return PTK_ERR_INVALID_PARAM;
     }
@@ -393,8 +451,29 @@ ptk_err ptk_shared_realloc_impl(const char *file, int line, ptk_shared_handle_t 
 }
 
 void ptk_shared_free_impl(const char *file, int line, void **ptr_ref) {
-    // This function is not implemented in the simplified version
-    // The user noted that ptk_shared_free() takes the shared pointer out of the lookup table
-    // For now, we'll just call ptk_local_free
+    if (!ptr_ref || !*ptr_ref) {
+        return;
+    }
+    void *ptr = *ptr_ref;
+    if (!shared_table_initialized) {
+        error("Shared table not initialized");
+        return;
+    }
+    // Find entry in shared table
+    for (size_t i = 0; i < shared_table.capacity; i++) {
+        shared_entry_t *entry = &shared_table.entries[i];
+        if (entry->data_ptr == ptr) {
+            // Remove from table
+            entry->data_ptr = NULL;
+            pthread_mutex_destroy(&entry->mutex);
+            entry->handle_value = 0;
+            entry->ref_count = 0;
+            entry->file = NULL;
+            entry->line = 0;
+            shared_table.count--;
+            debug("Removed shared memory entry for %p at index %zu", ptr, i);
+            break;
+        }
+    }
     ptk_local_free_impl(file, line, ptr_ref);
 }

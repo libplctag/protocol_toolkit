@@ -36,7 +36,7 @@ int test_config_basic_parsing(void) {
     
     // Test basic string parsing
     char *test_argv1[] = {"test_prog", "--string", "hello"};
-    ptk_err result = ptk_config_parse(3, test_argv1, fields, "test_prog");
+    ptk_err_t result = ptk_config_parse(3, test_argv1, fields, "test_prog");
     if (result != PTK_OK) {
         error("String parsing failed");
         return 1;
@@ -109,7 +109,7 @@ int test_config_multiple_arguments(void) {
     
     // Test multiple arguments at once
     char *test_argv[] = {"test_prog", "-n", "testname", "-c", "100", "-v"};
-    ptk_err result = ptk_config_parse(6, test_argv, fields, "test_prog");
+    ptk_err_t result = ptk_config_parse(6, test_argv, fields, "test_prog");
     if (result != PTK_OK) {
         error("Multiple argument parsing failed");
         return 1;
@@ -175,7 +175,7 @@ int test_config_edge_cases(void) {
     
     // Test negative number
     char *test_argv1[] = {"test_prog", "-n", "-123"};
-    ptk_err result = ptk_config_parse(3, test_argv1, fields, "test_prog");
+    ptk_err_t result = ptk_config_parse(3, test_argv1, fields, "test_prog");
     if (result != PTK_OK) {
         error("Negative number parsing failed");
         return 1;
@@ -238,7 +238,7 @@ int test_config_error_conditions(void) {
     
     // Test unknown option
     char *test_argv1[] = {"test_prog", "--unknown"};
-    ptk_err result = ptk_config_parse(2, test_argv1, fields, "test_prog");
+    ptk_err_t result = ptk_config_parse(2, test_argv1, fields, "test_prog");
     if (result == PTK_OK) {
         error("Unknown option should have failed");
         return 1;
@@ -300,7 +300,7 @@ int test_config_help_generation(void) {
     };
     
     // Test help generation function
-    ptk_err result = ptk_config_print_help("test_program", fields, "A test program for configuration parsing");
+    ptk_err_t result = ptk_config_print_help("test_program", fields, "A test program for configuration parsing");
     if (result != PTK_OK) {
         error("Help generation failed");
         return 1;
@@ -338,7 +338,7 @@ int test_config_program_name_variations(void) {
     
     // Test with NULL program name (should use argv[0])
     char *test_argv1[] = {"my_program", "-v"};
-    ptk_err result = ptk_config_parse(2, test_argv1, fields, NULL);
+    ptk_err_t result = ptk_config_parse(2, test_argv1, fields, NULL);
     if (result != PTK_OK) {
         error("Parse with NULL program name failed");
         return 1;
@@ -422,4 +422,8 @@ int test_ptk_config_main(void) {
     
     info("=== All PTK Configuration Parsing Tests Passed ===");
     return 0;
+}
+
+int main(void) {
+    return test_ptk_config_main();
 }

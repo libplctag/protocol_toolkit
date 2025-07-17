@@ -1,5 +1,5 @@
 #include "../include/ethernetip.h"
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_sock.h>
 #include <ptk_err.h>
 #include <ptk_utils.h>
@@ -42,7 +42,7 @@ struct eip_connection_t {
 // INTERNAL HELPER FUNCTIONS
 //=============================================================================
 
-static ptk_err eip_register_session(eip_connection_t *conn) {
+static ptk_err_t eip_register_session(eip_connection_t *conn) {
     if (!conn || !conn->socket || conn->session_registered) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
@@ -54,7 +54,7 @@ static ptk_err eip_register_session(eip_connection_t *conn) {
     }
     
     // EIP Header for Register Session
-    ptk_err err = ptk_buf_serialize(request, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_serialize(request, PTK_BUF_LITTLE_ENDIAN,
                                    (uint16_t)EIP_REGISTER_SESSION_CMD,  // Command
                                    (uint16_t)4,                         // Length (version + options)
                                    (uint32_t)0,                         // Session Handle (0 for register)
@@ -123,7 +123,7 @@ static ptk_err eip_register_session(eip_connection_t *conn) {
     return PTK_OK;
 }
 
-static ptk_err eip_unregister_session(eip_connection_t *conn) {
+static ptk_err_t eip_unregister_session(eip_connection_t *conn) {
     if (!conn || !conn->socket || !conn->session_registered) {
         return PTK_OK; // Already unregistered
     }
@@ -134,7 +134,7 @@ static ptk_err eip_unregister_session(eip_connection_t *conn) {
         return PTK_ERR_OUT_OF_MEMORY;
     }
     
-    ptk_err err = ptk_buf_serialize(request, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_serialize(request, PTK_BUF_LITTLE_ENDIAN,
                                    (uint16_t)EIP_UNREGISTER_SESSION_CMD, // Command
                                    (uint16_t)0,                          // Length
                                    (uint32_t)conn->session_handle,       // Session Handle
@@ -192,7 +192,7 @@ eip_connection_t *eip_client_connect(const char *host, int port) {
     
     // Create TCP socket
     ptk_address_t remote_addr;
-    ptk_err err = ptk_address_create(&remote_addr, host, (uint16_t)port);
+    ptk_err_t err = ptk_address_create(&remote_addr, host, (uint16_t)port);
     if (err != PTK_OK) {
         ptk_set_err(err);
         ptk_free(&conn);
@@ -249,7 +249,7 @@ eip_connection_t *eip_client_connect_udp(const char *host, int port) {
     
     // Create UDP socket
     ptk_address_t local_addr;
-    ptk_err err = ptk_address_create_any(&local_addr, 0);
+    ptk_err_t err = ptk_address_create_any(&local_addr, 0);
     if (err != PTK_OK) {
         ptk_set_err(err);
         ptk_free(&conn);
@@ -293,7 +293,7 @@ eip_connection_t *eip_server_listen(const char *host, int port, int backlog) {
     
     // Create listening address
     ptk_address_t listen_addr;
-    ptk_err err = host ? ptk_address_create(&listen_addr, host, (uint16_t)port)
+    ptk_err_t err = host ? ptk_address_create(&listen_addr, host, (uint16_t)port)
                        : ptk_address_create_any(&listen_addr, (uint16_t)port);
     
     if (err != PTK_OK) {
@@ -320,7 +320,7 @@ eip_connection_t *eip_server_listen(const char *host, int port, int backlog) {
     return conn;
 }
 
-ptk_err eip_abort(eip_connection_t *conn) {
+ptk_err_t eip_abort(eip_connection_t *conn) {
     if (!conn || !conn->socket) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
@@ -328,7 +328,7 @@ ptk_err eip_abort(eip_connection_t *conn) {
     return ptk_socket_abort(conn->socket);
 }
 
-ptk_err eip_signal(eip_connection_t *conn) {
+ptk_err_t eip_signal(eip_connection_t *conn) {
     if (!conn || !conn->socket) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
@@ -336,7 +336,7 @@ ptk_err eip_signal(eip_connection_t *conn) {
     return ptk_socket_signal(conn->socket);
 }
 
-ptk_err eip_wait_for_signal(eip_connection_t *conn, ptk_duration_ms timeout_ms) {
+ptk_err_t eip_wait_for_signal(eip_connection_t *conn, ptk_duration_ms timeout_ms) {
     if (!conn || !conn->socket) {
         return PTK_ERR_INVALID_ARGUMENT;
     }

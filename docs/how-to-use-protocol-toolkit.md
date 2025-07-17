@@ -28,7 +28,7 @@ Every PTK application must initialize and shutdown the library:
 
 int main() {
     // Initialize PTK
-    ptk_err err = ptk_startup();
+    ptk_err_t err = ptk_startup();
     if (err != PTK_OK) {
         fprintf(stderr, "Failed to initialize PTK: %d\n", err);
         return 1;
@@ -80,7 +80,7 @@ PTK follows several key principles:
 
 Most PTK functions follow consistent patterns:
 
-- **Return Values**: Functions return `ptk_err` for status, actual data via output parameters
+- **Return Values**: Functions return `ptk_err_t` for status, actual data via output parameters
 - **Memory Ownership**: Functions that return pointers transfer ownership to caller
 - **Error Context**: Thread-local error codes provide detailed failure information
 - **Resource Management**: RAII-style cleanup using destructors
@@ -92,7 +92,7 @@ PTK provides a sophisticated memory management system that prevents common C pro
 ### Basic Allocation
 
 ```c
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 
 // Simple allocation
 void *buffer = ptk_alloc(1024, NULL);
@@ -176,12 +176,12 @@ if (!buf) {
 }
 
 // Get buffer properties
-buf_size_t capacity = ptk_buf_get_capacity(buf);  // 256
-buf_size_t length = ptk_buf_get_len(buf);         // 0 initially
+ptk_buf_size_t capacity = ptk_buf_get_capacity(buf);  // 256
+ptk_buf_size_t length = ptk_buf_get_len(buf);         // 0 initially
 
 // Simple byte operations
 ptk_buf_set_u8(buf, 0xAA);  // Write single byte
-u8 value = ptk_buf_get_u8(buf);  // Read single byte
+ptk_u8_t value = ptk_buf_get_u8(buf);  // Read single byte
 
 // Clean up
 ptk_free(&buf);
@@ -192,10 +192,10 @@ ptk_free(&buf);
 ```c
 // Define protocol structure
 typedef struct {
-    u8 command;
-    u16 sequence;
-    f32 timestamp;
-    u64 payload_length;
+    ptk_u8_t command;
+    ptk_u16_t sequence;
+    ptk_f32_t timestamp;
+    ptk_u64_t payload_length;
 } packet_header_t;
 
 // Serialize data
@@ -204,7 +204,7 @@ ptk_buf *serialize_header(const packet_header_t *header) {
     if (!buf) return NULL;
     
     // Type-safe serialization with automatic type detection
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN,
+    ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN,
                                    header->command,
                                    header->sequence, 
                                    header->timestamp,
@@ -220,9 +220,9 @@ ptk_buf *serialize_header(const packet_header_t *header) {
 }
 
 // Deserialize data
-ptk_err deserialize_header(ptk_buf *buf, packet_header_t *header) {
+ptk_err_t deserialize_header(ptk_buf *buf, packet_header_t *header) {
     // Type-safe deserialization
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN,
+    ptk_err_t err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN,
                                      &header->command,
                                      &header->sequence,
                                      &header->timestamp, 
@@ -242,18 +242,18 @@ ptk_err deserialize_header(ptk_buf *buf, packet_header_t *header) {
 ```c
 typedef struct {
     ptk_serializable_t base;  // Must be first member
-    u16 message_type;
-    u32 message_id;
+    ptk_u16_t message_type;
+    ptk_u32_t message_id;
     char *payload;
-    u16 payload_length;
+    ptk_u16_t payload_length;
 } my_message_t;
 
 // Serialization method
-static ptk_err my_message_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t my_message_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     my_message_t *msg = (my_message_t*)obj;
     
     // Serialize header fields
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
                                    msg->message_type,
                                    msg->message_id,
                                    msg->payload_length);
@@ -261,8 +261,8 @@ static ptk_err my_message_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     
     // Serialize payload if present
     if (msg->payload && msg->payload_length > 0) {
-        for (u16 i = 0; i < msg->payload_length; i++) {
-            err = ptk_buf_set_u8(buf, (u8)msg->payload[i]);
+        for (ptk_u16_t i = 0; i < msg->payload_length; i++) {
+            err = ptk_buf_set_u8(buf, (ptk_u8_t)msg->payload[i]);
             if (err != PTK_OK) return err;
         }
     }
@@ -271,11 +271,11 @@ static ptk_err my_message_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
 }
 
 // Deserialization method  
-static ptk_err my_message_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t my_message_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     my_message_t *msg = (my_message_t*)obj;
     
     // Deserialize header
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
+    ptk_err_t err = ptk_buf_deserialize(buf, false, PTK_BUF_LITTLE_ENDIAN,
                                      &msg->message_type,
                                      &msg->message_id,
                                      &msg->payload_length);
@@ -286,7 +286,7 @@ static ptk_err my_message_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
         msg->payload = ptk_alloc(msg->payload_length + 1, NULL);  // +1 for null terminator
         if (!msg->payload) return PTK_ERR_NO_RESOURCES;
         
-        for (u16 i = 0; i < msg->payload_length; i++) {
+        for (ptk_u16_t i = 0; i < msg->payload_length; i++) {
             msg->payload[i] = (char)ptk_buf_get_u8(buf);
         }
         msg->payload[msg->payload_length] = '\0';
@@ -296,7 +296,7 @@ static ptk_err my_message_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
 }
 
 // Object creation
-my_message_t *my_message_create(u16 type, u32 id, const char *payload) {
+my_message_t *my_message_create(ptk_u16_t type, ptk_u32_t id, const char *payload) {
     my_message_t *msg = ptk_alloc(sizeof(my_message_t), my_message_destructor);
     if (!msg) return NULL;
     
@@ -326,7 +326,7 @@ my_message_t *msg = my_message_create(1, 12345, "Hello World");
 ptk_buf *buf = ptk_buf_alloc(256);
 
 // Serialize the entire object
-ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, (ptk_serializable_t*)msg);
+ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, (ptk_serializable_t*)msg);
 ```
 
 ## Networking
@@ -341,7 +341,7 @@ PTK provides a unified networking API that works across all supported platforms.
 void run_tcp_server(uint16_t port) {
     // Create server address
     ptk_address_t server_addr;
-    ptk_err err = ptk_address_init_any(&server_addr, port);
+    ptk_err_t err = ptk_address_init_any(&server_addr, port);
     if (err != PTK_OK) {
         error("Failed to initialize address: %d", err);
         return;
@@ -360,7 +360,7 @@ void run_tcp_server(uint16_t port) {
         // Accept client connection
         ptk_sock *client_sock = ptk_tcp_socket_accept(server_sock, 0);  // 0 = infinite timeout
         if (!client_sock) {
-            ptk_err err = ptk_get_err();
+            ptk_err_t err = ptk_get_err();
             if (err == PTK_ERR_ABORT) {
                 info("Server shutting down");
                 break;
@@ -385,7 +385,7 @@ void run_tcp_server(uint16_t port) {
 void run_tcp_client(const char *server_ip, uint16_t port) {
     // Create server address
     ptk_address_t server_addr;
-    ptk_err err = ptk_address_init(&server_addr, server_ip, port);
+    ptk_err_t err = ptk_address_init(&server_addr, server_ip, port);
     if (err != PTK_OK) {
         error("Failed to initialize address: %d", err);
         return;
@@ -401,7 +401,7 @@ void run_tcp_client(const char *server_ip, uint16_t port) {
     info("Connected to server");
     
     // Send data
-    ptk_buf *send_buf = ptk_buf_alloc_from_data((u8*)"Hello Server", 12);
+    ptk_buf *send_buf = ptk_buf_alloc_from_data((ptk_u8_t*)"Hello Server", 12);
     ptk_buf_array_t *send_array = ptk_buf_array_create();
     ptk_buf_array_append(send_array, send_buf);
     
@@ -473,8 +473,8 @@ void run_udp_client(const char *server_ip, uint16_t port) {
     ptk_address_t server_addr;
     ptk_address_init(&server_addr, server_ip, port);
     
-    ptk_buf *message = ptk_buf_alloc_from_data((u8*)"UDP Hello", 9);
-    ptk_err err = ptk_udp_socket_send_to(udp_sock, message, &server_addr, false, 1000);
+    ptk_buf *message = ptk_buf_alloc_from_data((ptk_u8_t*)"UDP Hello", 9);
+    ptk_err_t err = ptk_udp_socket_send_to(udp_sock, message, &server_addr, false, 1000);
     ptk_free(&message);
     
     if (err == PTK_OK) {
@@ -531,7 +531,7 @@ void run_workers() {
         }
         
         // Start the threadlet
-        ptk_err err = ptk_threadlet_resume(workers[i]);
+        ptk_err_t err = ptk_threadlet_resume(workers[i]);
         if (err != PTK_OK) {
             error("Failed to start worker %d: %d", i, err);
             ptk_free(&workers[i]);
@@ -575,7 +575,7 @@ void client_handler_threadlet(void *param) {
         ptk_buf *request = ptk_tcp_socket_recv(ctx->client_sock, false, 30000);  // 30 second timeout
         
         if (!request) {
-            ptk_err err = ptk_get_err();
+            ptk_err_t err = ptk_get_err();
             if (err == PTK_ERR_TIMEOUT) {
                 debug("Client %d timeout", ctx->client_id);
                 continue;
@@ -595,7 +595,7 @@ void client_handler_threadlet(void *param) {
         ptk_buf_array_t *response_array = ptk_buf_array_create();
         ptk_buf_array_append(response_array, request);  // Transfer ownership
         
-        ptk_err err = ptk_tcp_socket_send(ctx->client_sock, response_array, 5000);
+        ptk_err_t err = ptk_tcp_socket_send(ctx->client_sock, response_array, 5000);
         ptk_free(&response_array);
         
         if (err != PTK_OK) {
@@ -625,7 +625,7 @@ void multi_client_server(uint16_t port) {
     while (true) {
         ptk_sock *client_sock = ptk_tcp_socket_accept(server_sock, 0);
         if (!client_sock) {
-            ptk_err err = ptk_get_err();
+            ptk_err_t err = ptk_get_err();
             if (err == PTK_ERR_ABORT) break;
             warn("Accept failed: %d", err);
             continue;
@@ -650,7 +650,7 @@ void multi_client_server(uint16_t port) {
             continue;
         }
         
-        ptk_err err = ptk_threadlet_resume(client_threadlet);
+        ptk_err_t err = ptk_threadlet_resume(client_threadlet);
         if (err != PTK_OK) {
             error("Failed to start client threadlet: %d", err);
             ptk_free(&client_threadlet);
@@ -704,7 +704,7 @@ void shared_memory_example() {
     
     // Wrap in shared memory handle
     ptk_shared_handle_t handle = ptk_shared_wrap(data);
-    if (!PTK_SHARED_IS_VALID(handle)) {
+    if (!ptk_shared_is_valid(handle)) {
         error("Failed to wrap data in shared memory");
         ptk_free(&data);
         return;
@@ -784,7 +784,7 @@ void shared_counter_example() {
     counter->access_count = 0;
     
     ptk_shared_handle_t counter_handle = ptk_shared_wrap(counter);
-    if (!PTK_SHARED_IS_VALID(counter_handle)) {
+    if (!ptk_shared_is_valid(counter_handle)) {
         ptk_free(&counter);
         return;
     }
@@ -852,7 +852,7 @@ int main(int argc, char *argv[]) {
     };
     
     // Parse command line
-    ptk_err err = ptk_config_parse(argc, argv, config_fields, "myserver");
+    ptk_err_t err = ptk_config_parse(argc, argv, config_fields, "myserver");
     if (err == 1) {
         // Help was shown
         return 0;
@@ -914,7 +914,7 @@ void binary_logging_example() {
     // Create some binary data
     ptk_buf *data = ptk_buf_alloc(16);
     for (int i = 0; i < 16; i++) {
-        ptk_buf_set_u8(data, (u8)i);
+        ptk_buf_set_u8(data, (ptk_u8_t)i);
     }
     
     // Log binary data as hex dump
@@ -929,7 +929,7 @@ void protocol_message_log(const char *direction, const void *data, size_t length
     info("Protocol %s: %zu bytes", direction, length);
     
     if (ptk_log_level_get() >= PTK_LOG_LEVEL_DEBUG) {
-        ptk_buf *temp_buf = ptk_buf_alloc_from_data((const u8*)data, (buf_size_t)length);
+        ptk_buf *temp_buf = ptk_buf_alloc_from_data((const ptk_u8_t*)data, (ptk_buf_size_t)length);
         if (temp_buf) {
             debug_buf(temp_buf);
             ptk_free(&temp_buf);
@@ -947,7 +947,7 @@ PTK uses thread-local error codes for detailed error reporting.
 ```c
 #include <ptk_err.h>
 
-ptk_err example_function_that_might_fail() {
+ptk_err_t example_function_that_might_fail() {
     // Simulate various failure conditions
     static int call_count = 0;
     call_count++;
@@ -964,10 +964,10 @@ ptk_err example_function_that_might_fail() {
 }
 
 void error_handling_example() {
-    ptk_err err = example_function_that_might_fail();
+    ptk_err_t err = example_function_that_might_fail();
     if (err != PTK_OK) {
         // Get more detailed error information
-        ptk_err detailed_err = ptk_get_err();
+        ptk_err_t detailed_err = ptk_get_err();
         
         switch (detailed_err) {
             case PTK_ERR_NO_RESOURCES:
@@ -999,7 +999,7 @@ void network_error_handling_example() {
     
     ptk_sock *sock = ptk_tcp_socket_connect(&addr, 5000);
     if (!sock) {
-        ptk_err err = ptk_get_err();
+        ptk_err_t err = ptk_get_err();
         
         switch (err) {
             case PTK_ERR_TIMEOUT:
@@ -1035,7 +1035,7 @@ Here's a complete example that demonstrates most PTK features:
 #include <ptk.h>
 #include <ptk_sock.h>
 #include <ptk_buf.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_shared.h>
 #include <ptk_threadlet.h>
 #include <ptk_log.h>
@@ -1045,10 +1045,10 @@ Here's a complete example that demonstrates most PTK features:
 // Protocol message structure
 typedef struct {
     ptk_serializable_t base;
-    u32 message_id;
-    u16 message_type;
+    ptk_u32_t message_id;
+    ptk_u16_t message_type;
     char *payload;
-    u16 payload_length;
+    ptk_u16_t payload_length;
 } protocol_message_t;
 
 // Message destructor
@@ -1061,17 +1061,17 @@ static void protocol_message_destructor(void *ptr) {
 }
 
 // Serialization implementation
-static ptk_err protocol_message_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t protocol_message_serialize(ptk_buf *buf, ptk_serializable_t *obj) {
     protocol_message_t *msg = (protocol_message_t*)obj;
     
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN,
+    ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_BIG_ENDIAN,
                                    msg->message_id, msg->message_type, msg->payload_length);
     if (err != PTK_OK) return err;
     
     // Serialize payload
     if (msg->payload && msg->payload_length > 0) {
-        for (u16 i = 0; i < msg->payload_length; i++) {
-            err = ptk_buf_set_u8(buf, (u8)msg->payload[i]);
+        for (ptk_u16_t i = 0; i < msg->payload_length; i++) {
+            err = ptk_buf_set_u8(buf, (ptk_u8_t)msg->payload[i]);
             if (err != PTK_OK) return err;
         }
     }
@@ -1080,10 +1080,10 @@ static ptk_err protocol_message_serialize(ptk_buf *buf, ptk_serializable_t *obj)
 }
 
 // Deserialization implementation
-static ptk_err protocol_message_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
+static ptk_err_t protocol_message_deserialize(ptk_buf *buf, ptk_serializable_t *obj) {
     protocol_message_t *msg = (protocol_message_t*)obj;
     
-    ptk_err err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN,
+    ptk_err_t err = ptk_buf_deserialize(buf, false, PTK_BUF_BIG_ENDIAN,
                                      &msg->message_id, &msg->message_type, &msg->payload_length);
     if (err != PTK_OK) return err;
     
@@ -1092,7 +1092,7 @@ static ptk_err protocol_message_deserialize(ptk_buf *buf, ptk_serializable_t *ob
         msg->payload = ptk_alloc(msg->payload_length + 1, NULL);
         if (!msg->payload) return PTK_ERR_NO_RESOURCES;
         
-        for (u16 i = 0; i < msg->payload_length; i++) {
+        for (ptk_u16_t i = 0; i < msg->payload_length; i++) {
             msg->payload[i] = (char)ptk_buf_get_u8(buf);
         }
         msg->payload[msg->payload_length] = '\0';
@@ -1102,7 +1102,7 @@ static ptk_err protocol_message_deserialize(ptk_buf *buf, ptk_serializable_t *ob
 }
 
 // Create protocol message
-protocol_message_t *protocol_message_create(u32 id, u16 type, const char *payload) {
+protocol_message_t *protocol_message_create(ptk_u32_t id, ptk_u16_t type, const char *payload) {
     protocol_message_t *msg = ptk_alloc(sizeof(protocol_message_t), protocol_message_destructor);
     if (!msg) return NULL;
     
@@ -1127,15 +1127,15 @@ protocol_message_t *protocol_message_create(u32 id, u16 type, const char *payloa
 
 // Shared server state
 typedef struct {
-    u32 message_counter;
-    u32 client_counter;
+    ptk_u32_t message_counter;
+    ptk_u32_t client_counter;
     bool running;
 } server_state_t;
 
 // Client connection context
 typedef struct {
     ptk_sock *socket;
-    u32 client_id;
+    ptk_u32_t client_id;
     ptk_shared_handle_t server_state_handle;
 } client_context_t;
 
@@ -1146,7 +1146,7 @@ static void client_context_destructor(void *ptr) {
         if (ctx->socket) {
             ptk_free(&ctx->socket);
         }
-        if (PTK_SHARED_IS_VALID(ctx->server_state_handle)) {
+        if (ptk_shared_is_valid(ctx->server_state_handle)) {
             ptk_shared_release(ctx->server_state_handle);
         }
     }
@@ -1162,7 +1162,7 @@ void client_handler_threadlet(void *param) {
         // Receive message
         ptk_buf *recv_buf = ptk_tcp_socket_recv(ctx->socket, false, 30000);
         if (!recv_buf) {
-            ptk_err err = ptk_get_err();
+            ptk_err_t err = ptk_get_err();
             if (err == PTK_ERR_TIMEOUT) {
                 debug("Client %u receive timeout", ctx->client_id);
                 continue;
@@ -1185,7 +1185,7 @@ void client_handler_threadlet(void *param) {
             break;
         }
         
-        ptk_err err = protocol_message_deserialize(recv_buf, (ptk_serializable_t*)msg);
+        ptk_err_t err = protocol_message_deserialize(recv_buf, (ptk_serializable_t*)msg);
         ptk_free(&recv_buf);
         
         if (err != PTK_OK) {
@@ -1278,7 +1278,7 @@ void server_threadlet(void *param) {
     state->running = true;
     
     ptk_shared_handle_t state_handle = ptk_shared_wrap(state);
-    if (!PTK_SHARED_IS_VALID(state_handle)) {
+    if (!ptk_shared_is_valid(state_handle)) {
         error("Failed to wrap server state");
         ptk_free(&state);
         return;
@@ -1286,7 +1286,7 @@ void server_threadlet(void *param) {
     
     // Create listening socket
     ptk_address_t server_addr;
-    ptk_err err = ptk_address_init_any(&server_addr, port);
+    ptk_err_t err = ptk_address_init_any(&server_addr, port);
     if (err != PTK_OK) {
         error("Failed to initialize server address: %d", err);
         ptk_shared_release(state_handle);
@@ -1306,7 +1306,7 @@ void server_threadlet(void *param) {
     while (true) {
         ptk_sock *client_sock = ptk_tcp_socket_accept(server_sock, 0);
         if (!client_sock) {
-            ptk_err err = ptk_get_err();
+            ptk_err_t err = ptk_get_err();
             if (err == PTK_ERR_ABORT) {
                 info("Server shutting down");
                 break;
@@ -1316,7 +1316,7 @@ void server_threadlet(void *param) {
         }
         
         // Update client counter
-        u32 client_id;
+        ptk_u32_t client_id;
         use_shared(state_handle, server_state_t *shared_state) {
             shared_state->client_counter++;
             client_id = shared_state->client_counter;
@@ -1370,7 +1370,7 @@ void run_client(const char *server_ip, uint16_t port) {
     info("Connecting to server %s:%u", server_ip, port);
     
     ptk_address_t server_addr;
-    ptk_err err = ptk_address_init(&server_addr, server_ip, port);
+    ptk_err_t err = ptk_address_init(&server_addr, server_ip, port);
     if (err != PTK_OK) {
         error("Failed to initialize server address: %d", err);
         return;
@@ -1482,7 +1482,7 @@ int main(int argc, char *argv[]) {
         PTK_CONFIG_END
     };
     
-    ptk_err err = ptk_config_parse(argc, argv, config_fields, "ptk_example");
+    ptk_err_t err = ptk_config_parse(argc, argv, config_fields, "ptk_example");
     if (err == 1) {
         return 0;  // Help shown
     } else if (err != PTK_OK) {

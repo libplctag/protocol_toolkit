@@ -5,32 +5,7 @@
  * @brief Timekeeping utilities and interrupt handler configuration.
  */
 
-#include <stdint.h>
-#include <ptk_err.h>
-
-/**
- * @def PTK_TIME_WAIT_FOREVER
- * @brief Indicates an infinite timeout duration.
- */
-#define PTK_TIME_WAIT_FOREVER (INT64_MAX)
-
-/**
- * @def PTK_TIME_NO_WAIT
- * @brief Indicates non-blocking behavior (no wait).
- */
-#define PTK_TIME_NO_WAIT (INT64_MIN)
-
-/**
- * @typedef ptk_time_ms
- * @brief Represents absolute time in milliseconds since the Unix epoch.
- */
-typedef int64_t ptk_time_ms;
-
-/**
- * @typedef ptk_duration_ms
- * @brief Represents a time duration in milliseconds.
- */
-typedef int64_t ptk_duration_ms;
+#include <ptk_defs.h>
 
 /**
  * @brief Registers a custom interrupt handler.
@@ -39,13 +14,24 @@ typedef int64_t ptk_duration_ms;
  * On Windows, it uses equivalent mechanisms to handle console interrupts.
  *
  * @param handler Function pointer to user-defined interrupt handler.
- * @return `PTK_OK` on success or an appropriate `ptk_err` code on failure.
+ * @return `PTK_OK` on success or an appropriate `ptk_err_t` code on failure.
  */
-extern ptk_err ptk_set_interrupt_handler(void (*handler)(void));
+PTK_API ptk_err_t ptk_set_interrupt_handler(void (*handler)(void));
 
 /**
  * @brief Retrieves the current system time in milliseconds since the Unix epoch.
  *
  * @return Time in milliseconds as an `ptk_time_ms` value.
  */
-extern ptk_time_ms ptk_now_ms(void);
+PTK_API ptk_time_ms ptk_now_ms(void);
+
+
+/**
+ * @brief Sleeps for the specified duration in milliseconds.
+ *
+ * This function blocks the current thread for the given duration.
+ *
+ * @param duration Duration to sleep in milliseconds.
+ * @return `PTK_OK` on success or an appropriate `ptk_err_t` code on failure.
+ */
+PTK_API ptk_err_t ptk_sleep_ms(ptk_duration_ms duration);

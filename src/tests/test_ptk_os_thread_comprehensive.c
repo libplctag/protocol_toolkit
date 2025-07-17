@@ -33,7 +33,14 @@ typedef struct {
 // Thread Functions for Testing
 //=============================================================================
 
-void basic_thread_func(ptk_shared_handle_t param) {
+void basic_thread_func(void) {
+    // Use ptk_thread_get_handle_arg(0) to get the argument
+    ptk_shared_handle_t param = ptk_thread_get_handle_arg(0);
+    if (!ptk_shared_is_valid(param)) {
+        error("Basic thread failed to get parameter handle");
+        return;
+    }
+    
     thread_test_data_t *data = ptk_shared_acquire(param, PTK_TIME_WAIT_FOREVER);
     if (!data) {
         error("Basic thread failed to acquire parameter data");
@@ -47,7 +54,7 @@ void basic_thread_func(ptk_shared_handle_t param) {
     usleep(10000); // 10ms
     
     // Set result
-    if (PTK_SHARED_IS_VALID(data->result_handle)) {
+    if (ptk_shared_is_valid(data->result_handle)) {
         thread_result_t *result = ptk_shared_acquire(data->result_handle, PTK_TIME_WAIT_FOREVER);
         if (result) {
             result->value = data->thread_id * 100;
@@ -60,7 +67,14 @@ void basic_thread_func(ptk_shared_handle_t param) {
     ptk_shared_release(param);
 }
 
-void signaling_thread_func(ptk_shared_handle_t param) {
+void signaling_thread_func(void) {
+    // Use ptk_thread_get_handle_arg(0) to get the argument
+    ptk_shared_handle_t param = ptk_thread_get_handle_arg(0);
+    if (!ptk_shared_is_valid(param)) {
+        error("Signaling thread failed to get parameter handle");
+        return;
+    }
+    
     thread_test_data_t *data = ptk_shared_acquire(param, PTK_TIME_WAIT_FOREVER);
     if (!data) {
         error("Signaling thread failed to acquire parameter data");
@@ -78,7 +92,7 @@ void signaling_thread_func(ptk_shared_handle_t param) {
     // Signal parent if requested
     if (data->should_signal_parent) {
         ptk_thread_handle_t parent = ptk_thread_get_parent(ptk_thread_self());
-        if (PTK_SHARED_IS_VALID(parent)) {
+        if (ptk_shared_is_valid(parent)) {
             info("Thread %d signaling parent with signal %d", data->thread_id, data->signal_to_send);
             ptk_thread_signal(parent, data->signal_to_send);
         }
@@ -88,7 +102,14 @@ void signaling_thread_func(ptk_shared_handle_t param) {
     ptk_shared_release(param);
 }
 
-void long_running_thread_func(ptk_shared_handle_t param) {
+void long_running_thread_func(void) {
+    // Use ptk_thread_get_handle_arg(0) to get the argument
+    ptk_shared_handle_t param = ptk_thread_get_handle_arg(0);
+    if (!ptk_shared_is_valid(param)) {
+        error("Long running thread failed to get parameter handle");
+        return;
+    }
+    
     thread_test_data_t *data = ptk_shared_acquire(param, PTK_TIME_WAIT_FOREVER);
     if (!data) {
         error("Long running thread failed to acquire parameter data");
@@ -127,7 +148,7 @@ int test_thread_creation_and_self(void) {
     info("test_thread_creation_and_self entry");
     
     // Initialize shared memory
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -135,7 +156,8 @@ int test_thread_creation_and_self(void) {
     
     // Test ptk_thread_self
     ptk_thread_handle_t self = ptk_thread_self();
-    if (!PTK_SHARED_IS_VALID(self)) {
+    (void)self;
+    if (!ptk_shared_is_valid(self)) {
         error("ptk_thread_self returned invalid handle");
         ptk_shared_shutdown();
         return 2;
@@ -145,14 +167,14 @@ int test_thread_creation_and_self(void) {
     
     // Create thread data
     ptk_shared_handle_t thread_data = ptk_shared_alloc(sizeof(thread_test_data_t), NULL);
-    if (!PTK_SHARED_IS_VALID(thread_data)) {
+    if (!ptk_shared_is_valid(thread_data)) {
         error("Failed to allocate thread data");
         ptk_shared_shutdown();
         return 3;
     }
     
     ptk_shared_handle_t result_handle = ptk_shared_alloc(sizeof(thread_result_t), NULL);
-    if (!PTK_SHARED_IS_VALID(result_handle)) {
+    if (!ptk_shared_is_valid(result_handle)) {
         error("Failed to allocate result handle");
         ptk_shared_release(thread_data);
         ptk_shared_shutdown();
@@ -174,9 +196,39 @@ int test_thread_creation_and_self(void) {
     ptk_shared_release(result_handle);
     
     // Test ptk_thread_create
-    ptk_thread_handle_t child = ptk_thread_create(self, basic_thread_func, thread_data);
-    if (!PTK_SHARED_IS_VALID(child)) {
+    ptk_thread_handle_t child = ptk_thread_create();
+    if (!ptk_shared_is_valid(child)) {
         error("ptk_thread_create failed");
+        ptk_shared_release(thread_data);
+        ptk_shared_release(result_handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    err = ptk_thread_add_handle_arg(child, 0, &thread_data);
+    if (err != PTK_OK) {
+        error("Failed to add handle arg to child thread: %d", err);
+        ptk_shared_release(child);
+        ptk_shared_release(thread_data);
+        ptk_shared_release(result_handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    err = ptk_thread_set_run_function(child, basic_thread_func);
+    if (err != PTK_OK) {
+        error("Failed to set run function for child thread: %d", err);
+        ptk_shared_release(child);
+        ptk_shared_release(thread_data);
+        ptk_shared_release(result_handle);
+        ptk_shared_shutdown();
+        return 5;
+    }
+    
+    err = ptk_thread_start(child);
+    if (err != PTK_OK) {
+        error("Failed to start child thread: %d", err);
+        ptk_shared_release(child);
         ptk_shared_release(thread_data);
         ptk_shared_release(result_handle);
         ptk_shared_shutdown();
@@ -186,7 +238,7 @@ int test_thread_creation_and_self(void) {
     info("Child thread created successfully");
     
     // Wait for thread to complete
-    ptk_err wait_result = ptk_thread_wait(5000); // 5 second timeout
+    ptk_err_t wait_result = ptk_thread_wait(5000); // 5 second timeout
     if (wait_result != PTK_ERR_SIGNAL) {
         error("ptk_thread_wait failed or timed out");
         ptk_shared_release(thread_data);
@@ -230,7 +282,7 @@ int test_thread_signaling(void) {
     info("test_thread_signaling entry");
     
     // Initialize shared memory
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -240,7 +292,7 @@ int test_thread_signaling(void) {
     
     // Create thread data
     ptk_shared_handle_t thread_data = ptk_shared_alloc(sizeof(thread_test_data_t), NULL);
-    if (!PTK_SHARED_IS_VALID(thread_data)) {
+    if (!ptk_shared_is_valid(thread_data)) {
         error("Failed to allocate thread data");
         ptk_shared_shutdown();
         return 2;
@@ -256,9 +308,36 @@ int test_thread_signaling(void) {
     ptk_shared_release(thread_data);
     
     // Create thread
-    ptk_thread_handle_t child = ptk_thread_create(self, signaling_thread_func, thread_data);
-    if (!PTK_SHARED_IS_VALID(child)) {
+    ptk_thread_handle_t child = ptk_thread_create();
+    if (!ptk_shared_is_valid(child)) {
         error("ptk_thread_create failed");
+        ptk_shared_release(thread_data);
+        ptk_shared_shutdown();
+        return 3;
+    }
+    
+    err = ptk_thread_add_handle_arg(child, 0, &thread_data);
+    if (err != PTK_OK) {
+        error("Failed to add handle arg to child thread: %d", err);
+        ptk_shared_release(child);
+        ptk_shared_release(thread_data);
+        ptk_shared_shutdown();
+        return 3;
+    }
+    
+    err = ptk_thread_set_run_function(child, signaling_thread_func);
+    if (err != PTK_OK) {
+        error("Failed to set run function for child thread: %d", err);
+        ptk_shared_release(child);
+        ptk_shared_release(thread_data);
+        ptk_shared_shutdown();
+        return 3;
+    }
+    
+    err = ptk_thread_start(child);
+    if (err != PTK_OK) {
+        error("Failed to start child thread: %d", err);
+        ptk_shared_release(child);
         ptk_shared_release(thread_data);
         ptk_shared_shutdown();
         return 3;
@@ -267,7 +346,7 @@ int test_thread_signaling(void) {
     info("Waiting for thread to signal us...");
     
     // Wait for signal
-    ptk_err wait_result = ptk_thread_wait(5000); // 5 second timeout
+    ptk_err_t wait_result = ptk_thread_wait(5000); // 5 second timeout
     if (wait_result != PTK_ERR_SIGNAL) {
         error("ptk_thread_wait failed or timed out");
         ptk_shared_release(thread_data);
@@ -306,7 +385,7 @@ int test_thread_signaling(void) {
     }
     
     // Test ptk_thread_get_pending_signals
-    uint64_t pending = ptk_thread_get_pending_signals(self);
+    uint64_t pending = ptk_thread_get_pending_signals();
     info("Pending signals: 0x%lx", pending);
     
     // Clean up
@@ -323,7 +402,7 @@ int test_thread_parent_child_relationships(void) {
     info("test_thread_parent_child_relationships entry");
     
     // Initialize shared memory
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -342,7 +421,7 @@ int test_thread_parent_child_relationships(void) {
     
     for (int i = 0; i < num_children; i++) {
         thread_data_handles[i] = ptk_shared_alloc(sizeof(thread_test_data_t), NULL);
-        if (!PTK_SHARED_IS_VALID(thread_data_handles[i])) {
+        if (!ptk_shared_is_valid(thread_data_handles[i])) {
             error("Failed to allocate thread data %d", i);
             // Clean up previous allocations
             for (int j = 0; j < i; j++) {
@@ -359,9 +438,54 @@ int test_thread_parent_child_relationships(void) {
         data->result_handle = PTK_SHARED_INVALID_HANDLE;
         ptk_shared_release(thread_data_handles[i]);
         
-        children[i] = ptk_thread_create(self, basic_thread_func, thread_data_handles[i]);
-        if (!PTK_SHARED_IS_VALID(children[i])) {
+        children[i] = ptk_thread_create();
+        if (!ptk_shared_is_valid(children[i])) {
             error("Failed to create child thread %d", i);
+            // Clean up
+            for (int j = 0; j <= i; j++) {
+                ptk_shared_release(thread_data_handles[j]);
+            }
+            for (int j = 0; j < i; j++) {
+                ptk_shared_release(children[j]);
+            }
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_add_handle_arg(children[i], 0, &thread_data_handles[i]);
+        if (err != PTK_OK) {
+            error("Failed to add handle arg to child thread %d: %d", i, err);
+            ptk_shared_release(children[i]);
+            // Clean up
+            for (int j = 0; j <= i; j++) {
+                ptk_shared_release(thread_data_handles[j]);
+            }
+            for (int j = 0; j < i; j++) {
+                ptk_shared_release(children[j]);
+            }
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_set_run_function(children[i], basic_thread_func);
+        if (err != PTK_OK) {
+            error("Failed to set run function for child thread %d: %d", i, err);
+            ptk_shared_release(children[i]);
+            // Clean up
+            for (int j = 0; j <= i; j++) {
+                ptk_shared_release(thread_data_handles[j]);
+            }
+            for (int j = 0; j < i; j++) {
+                ptk_shared_release(children[j]);
+            }
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_start(children[i]);
+        if (err != PTK_OK) {
+            error("Failed to start child thread %d: %d", i, err);
+            ptk_shared_release(children[i]);
             // Clean up
             for (int j = 0; j <= i; j++) {
                 ptk_shared_release(thread_data_handles[j]);
@@ -395,7 +519,7 @@ int test_thread_parent_child_relationships(void) {
     // Wait for all children to complete
     int completed_children = 0;
     while (completed_children < num_children) {
-        ptk_err wait_result = ptk_thread_wait(5000);
+        ptk_err_t wait_result = ptk_thread_wait(5000);
         if (wait_result == PTK_ERR_SIGNAL && ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
             completed_children++;
             info("Child completed (%d/%d)", completed_children, num_children);
@@ -439,7 +563,7 @@ int test_thread_signal_all_children(void) {
     info("test_thread_signal_all_children entry");
     
     // Initialize shared memory
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -454,7 +578,7 @@ int test_thread_signal_all_children(void) {
     
     for (int i = 0; i < num_children; i++) {
         thread_data_handles[i] = ptk_shared_alloc(sizeof(thread_test_data_t), NULL);
-        if (!PTK_SHARED_IS_VALID(thread_data_handles[i])) {
+        if (!ptk_shared_is_valid(thread_data_handles[i])) {
             error("Failed to allocate thread data %d", i);
             // Clean up previous allocations
             for (int j = 0; j < i; j++) {
@@ -471,9 +595,54 @@ int test_thread_signal_all_children(void) {
         data->result_handle = PTK_SHARED_INVALID_HANDLE;
         ptk_shared_release(thread_data_handles[i]);
         
-        children[i] = ptk_thread_create(self, long_running_thread_func, thread_data_handles[i]);
-        if (!PTK_SHARED_IS_VALID(children[i])) {
+        children[i] = ptk_thread_create();
+        if (!ptk_shared_is_valid(children[i])) {
             error("Failed to create long-running child thread %d", i);
+            // Clean up
+            for (int j = 0; j <= i; j++) {
+                ptk_shared_release(thread_data_handles[j]);
+            }
+            for (int j = 0; j < i; j++) {
+                ptk_shared_release(children[j]);
+            }
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_add_handle_arg(children[i], 0, &thread_data_handles[i]);
+        if (err != PTK_OK) {
+            error("Failed to add handle arg to long-running child thread %d: %d", i, err);
+            ptk_shared_release(children[i]);
+            // Clean up
+            for (int j = 0; j <= i; j++) {
+                ptk_shared_release(thread_data_handles[j]);
+            }
+            for (int j = 0; j < i; j++) {
+                ptk_shared_release(children[j]);
+            }
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_set_run_function(children[i], long_running_thread_func);
+        if (err != PTK_OK) {
+            error("Failed to set run function for long-running child thread %d: %d", i, err);
+            ptk_shared_release(children[i]);
+            // Clean up
+            for (int j = 0; j <= i; j++) {
+                ptk_shared_release(thread_data_handles[j]);
+            }
+            for (int j = 0; j < i; j++) {
+                ptk_shared_release(children[j]);
+            }
+            ptk_shared_shutdown();
+            return 3;
+        }
+        
+        err = ptk_thread_start(children[i]);
+        if (err != PTK_OK) {
+            error("Failed to start long-running child thread %d: %d", i, err);
+            ptk_shared_release(children[i]);
             // Clean up
             for (int j = 0; j <= i; j++) {
                 ptk_shared_release(thread_data_handles[j]);
@@ -498,7 +667,7 @@ int test_thread_signal_all_children(void) {
     // Wait for all children to complete
     int completed_children = 0;
     while (completed_children < num_children) {
-        ptk_err wait_result = ptk_thread_wait(5000);
+        ptk_err_t wait_result = ptk_thread_wait(5000);
         if (wait_result == PTK_ERR_SIGNAL && ptk_thread_has_signal(PTK_THREAD_SIGNAL_CHILD_DIED)) {
             completed_children++;
             info("Child terminated (%d/%d)", completed_children, num_children);
@@ -540,16 +709,14 @@ int test_thread_timeout_scenarios(void) {
     info("test_thread_timeout_scenarios entry");
     
     // Initialize shared memory
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
     }
     
-    ptk_thread_handle_t self = ptk_thread_self();
-    
     // Test timeout with no children
-    ptk_err wait_result = ptk_thread_wait(100); // 100ms timeout
+    ptk_err_t wait_result = ptk_thread_wait(100); // 100ms timeout
     if (wait_result != PTK_OK) {
         info("Thread wait with no children timed out correctly");
     } else {
@@ -578,7 +745,7 @@ int test_thread_signal_combinations(void) {
     info("test_thread_signal_combinations entry");
     
     // Initialize shared memory
-    ptk_err err = ptk_shared_init();
+    ptk_err_t err = ptk_shared_init();
     if (err != PTK_OK) {
         error("ptk_shared_init failed");
         return 1;
@@ -604,7 +771,7 @@ int test_thread_signal_combinations(void) {
     }
     
     // Test getting pending signals
-    uint64_t pending = ptk_thread_get_pending_signals(self);
+    uint64_t pending = ptk_thread_get_pending_signals();
     info("Pending signals: 0x%lx", pending);
     
     if (!(pending & PTK_THREAD_SIGNAL_WAKE)) {
@@ -674,7 +841,7 @@ int test_thread_error_conditions(void) {
     info("test_thread_error_conditions entry");
     
     // Test operations with invalid handles
-    ptk_err result = ptk_thread_signal(PTK_SHARED_INVALID_HANDLE, PTK_THREAD_SIGNAL_WAKE);
+    ptk_err_t result = ptk_thread_signal(PTK_SHARED_INVALID_HANDLE, PTK_THREAD_SIGNAL_WAKE);
     if (result == PTK_OK) {
         error("ptk_thread_signal should fail with invalid handle");
         return 1;
@@ -682,7 +849,7 @@ int test_thread_error_conditions(void) {
     
     // Test parent operations with invalid handles
     ptk_thread_handle_t invalid_parent = ptk_thread_get_parent(PTK_SHARED_INVALID_HANDLE);
-    if (PTK_SHARED_IS_VALID(invalid_parent)) {
+    if (ptk_shared_is_valid(invalid_parent)) {
         error("ptk_thread_get_parent should return invalid handle for invalid input");
         return 2;
     }
@@ -754,4 +921,8 @@ int test_ptk_os_thread_main(void) {
     
     info("=== All PTK OS Thread Tests Passed ===");
     return 0;
+}
+
+int main(void) {
+    return test_ptk_os_thread_main();
 }

@@ -2,7 +2,7 @@
 #include <ptk_log.h>
 #include <ptk_err.h>
 #include <ptk_sock.h>
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_buf.h>
 #include <ptk_array.h>
 #include <string.h>
@@ -104,7 +104,7 @@ static void modbus_pdu_destructor(void *ptr) {
  * @param buf Buffer to write to
  * @return PTK_OK on success, error code on failure
  */
-static ptk_err modbus_pdu_serialize(modbus_pdu_base_t *pdu, ptk_buf *buf) {
+static ptk_err_t modbus_pdu_serialize(modbus_pdu_base_t *pdu, ptk_buf *buf) {
     if (!pdu || !buf) {
         warn("null parameters for PDU serialize");
         return PTK_ERR_INVALID_PARAM;
@@ -123,7 +123,7 @@ static ptk_err modbus_pdu_serialize(modbus_pdu_base_t *pdu, ptk_buf *buf) {
         case MODBUS_READ_COILS_RESP_TYPE: {
             modbus_read_coils_resp_t *resp = (modbus_read_coils_resp_t *)pdu;
             uint8_t byte_count = (uint8_t)((modbus_bit_array_len(resp->coil_status) + 7) / 8);
-            ptk_err err = ptk_buf_serialize_impl(buf, PTK_BUF_BIG_ENDIAN, 2,
+            ptk_err_t err = ptk_buf_serialize_impl(buf, PTK_BUF_BIG_ENDIAN, 2,
                 PTK_BUF_TYPE_U8, resp->function_code,
                 PTK_BUF_TYPE_U8, byte_count);
             if (err != PTK_OK) return err;
@@ -191,7 +191,7 @@ static modbus_pdu_base_t *modbus_pdu_deserialize(ptk_buf *buf, modbus_connection
     }
 
     uint8_t function_code;
-    ptk_err err = ptk_buf_deserialize_impl(buf, true, PTK_BUF_BIG_ENDIAN, 1, 
+    ptk_err_t err = ptk_buf_deserialize_impl(buf, true, PTK_BUF_BIG_ENDIAN, 1, 
         PTK_BUF_TYPE_U8, &function_code);
     if (err != PTK_OK) {
         warn("failed to peek function code");
@@ -440,7 +440,7 @@ modbus_pdu_base_t *modbus_pdu_send(modbus_pdu_base_t **pdu, ptk_duration_ms time
     uint16_t length = 1 + MODBUS_MAX_PDU_SIZE;
     uint8_t unit_id = conn->unit_id;
 
-    ptk_err err = ptk_buf_serialize_impl(buf, PTK_BUF_BIG_ENDIAN, 4,
+    ptk_err_t err = ptk_buf_serialize_impl(buf, PTK_BUF_BIG_ENDIAN, 4,
         PTK_BUF_TYPE_U16, transaction_id,
         PTK_BUF_TYPE_U16, protocol_id,
         PTK_BUF_TYPE_U16, length,
@@ -454,7 +454,7 @@ modbus_pdu_base_t *modbus_pdu_send(modbus_pdu_base_t **pdu, ptk_duration_ms time
         return NULL;
     }
 
-    buf_size_t header_end = ptk_buf_get_end(buf);
+    ptk_buf_size_t header_end = ptk_buf_get_end(buf);
     
     err = modbus_pdu_serialize(pdu_to_send, buf);
     if (err != PTK_OK) {
@@ -465,8 +465,8 @@ modbus_pdu_base_t *modbus_pdu_send(modbus_pdu_base_t **pdu, ptk_duration_ms time
         return NULL;
     }
 
-    buf_size_t total_len = ptk_buf_get_end(buf);
-    buf_size_t pdu_len = total_len - header_end;
+    ptk_buf_size_t total_len = ptk_buf_get_end(buf);
+    ptk_buf_size_t pdu_len = total_len - header_end;
     uint16_t actual_length = pdu_len + 1;
 
     ptk_buf_set_end(buf, header_end - 3);
@@ -546,7 +546,7 @@ modbus_pdu_u modbus_pdu_recv(modbus_connection_t *conn, ptk_duration_ms timeout_
     }
 
     ptk_buf *recv_buf = ptk_tcp_socket_recv(conn->socket, false, timeout_ms);
-    ptk_err err = (recv_buf != NULL) ? PTK_OK : ptk_get_err();
+    ptk_err_t err = (recv_buf != NULL) ? PTK_OK : ptk_get_err();
     if (recv_buf) {
         // Copy received data into buf
         memcpy(buf->data, recv_buf->data, recv_buf->end);

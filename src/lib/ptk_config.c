@@ -26,7 +26,7 @@ static void set_field_value(const ptk_config_field_t *field, const char *value) 
     }
 }
 
-ptk_err ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *fields, const char *program_name) {
+ptk_err_t ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *fields, const char *program_name) {
     for (int i = 1; i < argc; ++i) {
         const char *arg = argv[i];
         if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
@@ -64,7 +64,7 @@ ptk_err ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *field
     return PTK_OK;
 }
 
-ptk_err ptk_config_print_help(const char *program_name, const ptk_config_field_t *fields, const char *description) {
+ptk_err_t ptk_config_print_help(const char *program_name, const ptk_config_field_t *fields, const char *description) {
     printf("Usage: %s [options]\n", program_name);
     if (description) printf("%s\n", description);
     printf("Options:\n");

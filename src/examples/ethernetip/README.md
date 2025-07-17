@@ -92,7 +92,7 @@ ptk_alloc_free(parent); // Frees everything automatically
 
 ## Error Handling
 
-All functions return `ptk_err` status codes:
+All functions return `ptk_err_t` status codes:
 - `PTK_OK`: Success
 - `PTK_ERR_*`: Various error conditions with descriptive names
 

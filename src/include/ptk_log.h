@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include <ptk_defs.h>
 #include <ptk_err.h>
 
 // Forward declaration to avoid circular dependency
@@ -48,14 +49,14 @@ typedef enum {
  * @param level New log level to set.
  * @return The previous log level.
  */
-extern ptk_log_level ptk_log_level_set(ptk_log_level level);
+PTK_API extern ptk_log_level ptk_log_level_set(ptk_log_level level);
 
 /**
  * @brief Gets the current global log level.
  *
  * @return Current log level.
  */
-extern ptk_log_level ptk_log_level_get(void);
+PTK_API extern ptk_log_level ptk_log_level_get(void);
 
 /**
  * @brief Internal log function used by log macros.
@@ -66,7 +67,7 @@ extern ptk_log_level ptk_log_level_get(void);
  * @param tmpl     printf-style format string.
  * @param ...      Additional arguments for the format string.
  */
-extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level, const char *tmpl, ...);
+PTK_API extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level, const char *tmpl, ...);
 
 /** @def error
  *  @brief Logs a message at ERROR level using variadic arguments.
@@ -111,7 +112,7 @@ extern void ptk_log_impl(const char *func, int line_num, ptk_log_level log_level
  * @param log_level Log severity.
  * @param data      Buffer containing the data to log.
  */
-extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data);
+PTK_API extern void ptk_log_buf_impl(const char *func, int line_num, ptk_log_level log_level, ptk_buf *data);
 
 /** @def error_buf
  *  @brief Logs a binary buffer at ERROR level.

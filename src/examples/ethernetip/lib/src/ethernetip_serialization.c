@@ -1,5 +1,5 @@
 #include "../include/ethernetip.h"
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_buf.h>
 #include <ptk_err.h>
 #include <string.h>
@@ -92,13 +92,13 @@ const char *eip_device_state_to_string(uint8_t state) {
 // CIP SEGMENT OPERATIONS
 //=============================================================================
 
-static ptk_err cip_segment_serialize_port(ptk_buf *buf, const cip_port_segment_t *seg) {
+static ptk_err_t cip_segment_serialize_port(ptk_buf *buf, const cip_port_segment_t *seg) {
     return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
                            (uint8_t)seg->segment_type,
                            (uint8_t)seg->port_number);
 }
 
-static ptk_err cip_segment_serialize_class(ptk_buf *buf, const cip_class_segment_t *seg) {
+static ptk_err_t cip_segment_serialize_class(ptk_buf *buf, const cip_class_segment_t *seg) {
     if (seg->class_id <= 0xFF) {
         return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
                                (uint8_t)seg->segment_type,
@@ -112,7 +112,7 @@ static ptk_err cip_segment_serialize_class(ptk_buf *buf, const cip_class_segment
     }
 }
 
-static ptk_err cip_segment_serialize_instance(ptk_buf *buf, const cip_instance_segment_t *seg) {
+static ptk_err_t cip_segment_serialize_instance(ptk_buf *buf, const cip_instance_segment_t *seg) {
     if (seg->instance_id <= 0xFF) {
         return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
                                (uint8_t)seg->segment_type,
@@ -126,7 +126,7 @@ static ptk_err cip_segment_serialize_instance(ptk_buf *buf, const cip_instance_s
     }
 }
 
-static ptk_err cip_segment_serialize_member(ptk_buf *buf, const cip_member_segment_t *seg) {
+static ptk_err_t cip_segment_serialize_member(ptk_buf *buf, const cip_member_segment_t *seg) {
     if (seg->member_id <= 0xFF) {
         return ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN,
                                (uint8_t)seg->segment_type,
@@ -140,14 +140,14 @@ static ptk_err cip_segment_serialize_member(ptk_buf *buf, const cip_member_segme
     }
 }
 
-static ptk_err cip_segment_serialize_symbolic(ptk_buf *buf, const cip_symbolic_segment_t *seg) {
+static ptk_err_t cip_segment_serialize_symbolic(ptk_buf *buf, const cip_symbolic_segment_t *seg) {
     if (!seg->symbol_name || seg->symbol_length == 0) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
     
     uint8_t segment_byte = (uint8_t)seg->segment_type | (uint8_t)(seg->symbol_length & 0x1F);
     
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, segment_byte);
+    ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, segment_byte);
     if (err != PTK_OK) return err;
     
     // Write symbol name
@@ -164,14 +164,14 @@ static ptk_err cip_segment_serialize_symbolic(ptk_buf *buf, const cip_symbolic_s
     return err;
 }
 
-static ptk_err cip_segment_serialize_data(ptk_buf *buf, const cip_data_segment_t *seg) {
+static ptk_err_t cip_segment_serialize_data(ptk_buf *buf, const cip_data_segment_t *seg) {
     if (!seg->data || seg->data_length == 0) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
     
     uint8_t segment_byte = (uint8_t)seg->segment_type | (uint8_t)(seg->data_length & 0x1F);
     
-    ptk_err err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, segment_byte);
+    ptk_err_t err = ptk_buf_serialize(buf, PTK_BUF_LITTLE_ENDIAN, segment_byte);
     if (err != PTK_OK) return err;
     
     // Write data
@@ -188,7 +188,7 @@ static ptk_err cip_segment_serialize_data(ptk_buf *buf, const cip_data_segment_t
     return err;
 }
 
-ptk_err cip_segment_serialize(ptk_buf *buf, const cip_segment_u *segment) {
+ptk_err_t cip_segment_serialize(ptk_buf *buf, const cip_segment_u *segment) {
     if (!buf || !segment) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
@@ -217,7 +217,7 @@ ptk_err cip_segment_serialize(ptk_buf *buf, const cip_segment_u *segment) {
     }
 }
 
-ptk_err cip_segment_array_serialize(ptk_buf *buf, const cip_segment_array_t *segments) {
+ptk_err_t cip_segment_array_serialize(ptk_buf *buf, const cip_segment_array_t *segments) {
     if (!buf || !segments) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
@@ -229,7 +229,7 @@ ptk_err cip_segment_array_serialize(ptk_buf *buf, const cip_segment_array_t *seg
             return PTK_ERR_INVALID_ARGUMENT;
         }
         
-        ptk_err err = cip_segment_serialize(buf, segment);
+        ptk_err_t err = cip_segment_serialize(buf, segment);
         if (err != PTK_OK) {
             return err;
         }
@@ -242,7 +242,7 @@ ptk_err cip_segment_array_serialize(ptk_buf *buf, const cip_segment_array_t *seg
 // CIP PATH PARSING
 //=============================================================================
 
-static ptk_err parse_path_component(const char **path_str, cip_segment_u *segment) {
+static ptk_err_t parse_path_component(const char **path_str, cip_segment_u *segment) {
     const char *start = *path_str;
     const char *equals = strchr(start, '=');
     const char *comma = strchr(start, ',');
@@ -307,7 +307,7 @@ static ptk_err parse_path_component(const char **path_str, cip_segment_u *segmen
     return PTK_OK;
 }
 
-ptk_err cip_ioi_path_pdu_create_from_string(cip_segment_array_t *path, const char *path_string) {
+ptk_err_t cip_ioi_path_pdu_create_from_string(cip_segment_array_t *path, const char *path_string) {
     if (!path || !path_string) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
@@ -329,7 +329,7 @@ ptk_err cip_ioi_path_pdu_create_from_string(cip_segment_array_t *path, const cha
         cip_segment_u segment;
         memset(&segment, 0, sizeof(segment));
         
-        ptk_err err = parse_path_component(&current, &segment);
+        ptk_err_t err = parse_path_component(&current, &segment);
         if (err != PTK_OK) {
             return err;
         }
@@ -347,7 +347,7 @@ ptk_err cip_ioi_path_pdu_create_from_string(cip_segment_array_t *path, const cha
 // PDU SERIALIZATION FUNCTIONS
 //=============================================================================
 
-ptk_err eip_list_identity_req_serialize(ptk_buf *buf, eip_list_identity_req_t *req) {
+ptk_err_t eip_list_identity_req_serialize(ptk_buf *buf, eip_list_identity_req_t *req) {
     if (!buf || !req) {
         return PTK_ERR_INVALID_ARGUMENT;
     }
@@ -362,7 +362,7 @@ ptk_err eip_list_identity_req_serialize(ptk_buf *buf, eip_list_identity_req_t *r
                            (uint32_t)0);      // Options
 }
 
-ptk_err eip_list_identity_resp_serialize(ptk_buf *buf, eip_list_identity_resp_t *resp) {
+ptk_err_t eip_list_identity_resp_serialize(ptk_buf *buf, eip_list_identity_resp_t *resp) {
     // Response serialization is typically handled by servers
     // For now, return not implemented
     return PTK_ERR_NOT_IMPLEMENTED;

@@ -21,21 +21,21 @@ int test_log_level_operations(void) {
     info("test_log_level_operations entry");
     
     // Test getting default log level
-    ptk_log_level_t current_level = ptk_log_level_get();
+    ptk_log_level current_level = ptk_log_level_get();
     info("Default log level: %d", current_level);
     
     // Test setting different log levels
-    ptk_log_level_t test_levels[] = {
-        PTK_LOG_TRACE,
-        PTK_LOG_DEBUG,
-        PTK_LOG_INFO,
-        PTK_LOG_WARN,
-        PTK_LOG_ERROR
+    ptk_log_level test_levels[] = {
+        PTK_LOG_LEVEL_TRACE,
+        PTK_LOG_LEVEL_DEBUG,
+        PTK_LOG_LEVEL_INFO,
+        PTK_LOG_LEVEL_WARN,
+        PTK_LOG_LEVEL_ERROR
     };
     
     for (size_t i = 0; i < sizeof(test_levels)/sizeof(test_levels[0]); i++) {
         ptk_log_level_set(test_levels[i]);
-        ptk_log_level_t retrieved = ptk_log_level_get();
+        ptk_log_level retrieved = ptk_log_level_get();
         
         if (retrieved != test_levels[i]) {
             error("Log level not set correctly: expected %d, got %d", test_levels[i], retrieved);
@@ -56,7 +56,7 @@ int test_log_level_filtering(void) {
     info("test_log_level_filtering entry");
     
     // Set to INFO level
-    ptk_log_level_set(PTK_LOG_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
     
     info("This INFO message should appear");
     warn("This WARN message should appear");
@@ -68,14 +68,14 @@ int test_log_level_filtering(void) {
     trace("This TRACE message should NOT appear");
     
     // Set to ERROR level
-    ptk_log_level_set(PTK_LOG_ERROR);
+    ptk_log_level_set(PTK_LOG_LEVEL_ERROR);
     
     error("This ERROR message should appear");
     info("This INFO message should NOT appear");
     warn("This WARN message should NOT appear");
     
     // Set to TRACE level (most verbose)
-    ptk_log_level_set(PTK_LOG_TRACE);
+    ptk_log_level_set(PTK_LOG_LEVEL_TRACE);
     
     trace("This TRACE message should appear");
     debug("This DEBUG message should appear");
@@ -84,7 +84,7 @@ int test_log_level_filtering(void) {
     error("This ERROR message should appear");
     
     // Reset to INFO
-    ptk_log_level_set(PTK_LOG_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
     
     info("test_log_level_filtering exit");
     return 0;
@@ -98,7 +98,7 @@ int test_all_logging_macros(void) {
     info("test_all_logging_macros entry");
     
     // Set to TRACE level to see all messages
-    ptk_log_level_set(PTK_LOG_TRACE);
+    ptk_log_level_set(PTK_LOG_LEVEL_TRACE);
     
     // Test all logging macros with simple messages
     trace("TRACE: This is a trace message");
@@ -162,51 +162,79 @@ int test_buffer_logging(void) {
         0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
     };
     
-    memcpy(ptk_buf_get_start(test_buf), test_data, sizeof(test_data));
-    ptk_buf_set_end(test_buf, ptk_buf_get_start(test_buf) + sizeof(test_data));
+    for (size_t i = 0; i < sizeof(test_data); i++) {
+        ptk_buf_set_u8(test_buf, test_data[i]);
+    }
+    ptk_buf_set_end(test_buf, sizeof(test_data));
+
+    // check the size of the contents of the buffer
+    size_t buf_size = ptk_buf_get_len(test_buf);
+
+    if(buf_size != sizeof(test_data)) {
+        error("Buffer size mismatch: expected %zu, got %zu", sizeof(test_data), buf_size);
+        ptk_local_free(&test_buf);
+        return 2;
+    }
     
     // Test buffer logging at different levels
-    trace_buf("TRACE buffer log", test_buf);
-    debug_buf("DEBUG buffer log", test_buf);
-    info_buf("INFO buffer log", test_buf);
-    warn_buf("WARN buffer log", test_buf);
-    error_buf("ERROR buffer log", test_buf);
-    
+    trace_buf(test_buf);
+    debug_buf(test_buf);
+    info_buf(test_buf);
+    warn_buf(test_buf);
+    error_buf(test_buf);
+
+    ptk_local_free(&test_buf);
+
     // Test with empty buffer
     ptk_buf *empty_buf = ptk_buf_alloc(100);
-    if (empty_buf) {
-        info_buf("Empty buffer log", empty_buf);
-        ptk_local_free(&empty_buf);
+    if(!empty_buf) {
+        error("Failed to allocate empty buffer");
+        ptk_local_free(&test_buf);
+        return 1;
     }
-    
+
+    info_buf(empty_buf);
+
+    ptk_local_free(&empty_buf);
+
     // Test with single byte buffer
     ptk_buf *single_buf = ptk_buf_alloc(1);
-    if (single_buf) {
-        uint8_t single_byte = 0xAB;
-        memcpy(ptk_buf_get_start(single_buf), &single_byte, 1);
-        ptk_buf_set_end(single_buf, ptk_buf_get_start(single_buf) + 1);
-        
-        info_buf("Single byte buffer log", single_buf);
-        ptk_local_free(&single_buf);
+    if(!single_buf) {
+        error("Failed to allocate single byte buffer");
+        ptk_local_free(&test_buf);
+        return 1;
     }
+
+    ptk_buf_set_u8(single_buf, 0xAB);
+    if(ptk_get_err() != PTK_OK) {
+        error("Failed to set single byte in buffer");
+        ptk_local_free(&single_buf);
+        ptk_local_free(&test_buf);
+        return 1;
+    }
+
+    info_buf(single_buf);
+
+    ptk_local_free(&single_buf);
     
     // Test with large buffer (should be truncated in display)
     ptk_buf *large_buf = ptk_buf_alloc(1024);
-    if (large_buf) {
-        uint8_t *data = (uint8_t*)ptk_buf_get_start(large_buf);
-        for (int i = 0; i < 1024; i++) {
-            data[i] = (uint8_t)(i & 0xFF);
-        }
-        ptk_buf_set_end(large_buf, ptk_buf_get_start(large_buf) + 1024);
-        
-        info_buf("Large buffer log (should be truncated)", large_buf);
+    if (!large_buf) {
+        error("Failed to allocate large buffer");
         ptk_local_free(&large_buf);
+        return 1;
     }
-    
+
+    for (int i = 0; i < 1024; i++) {
+        ptk_buf_set_u8(large_buf, (uint8_t)(i & 0xFF));
+    }
+
+    info_buf(large_buf);
+
+    ptk_local_free(&large_buf);
+
     // Test with NULL buffer (should handle gracefully)
-    info_buf("NULL buffer log", NULL);
-    
-    ptk_local_free(&test_buf);
+    info_buf(NULL);
     
     info("test_buffer_logging exit");
     return 0;
@@ -220,18 +248,20 @@ int test_direct_logging_implementation(void) {
     info("test_direct_logging_implementation entry");
     
     // Test ptk_log_impl directly
-    ptk_log_impl(PTK_LOG_INFO, __FILE__, __LINE__, "Direct ptk_log_impl test");
-    ptk_log_impl(PTK_LOG_WARN, __FILE__, __LINE__, "Direct warning with format: %d", 123);
-    ptk_log_impl(PTK_LOG_ERROR, __FILE__, __LINE__, "Direct error with multiple args: %s %d %f", "test", 42, 3.14);
-    
+    ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_DEBUG, "Direct debug message with int %d", 456);
+    ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, "Direct ptk_log_impl test");
+    ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_WARN, "Direct warning with format: %d", 123);
+    ptk_log_impl(__func__, __LINE__, PTK_LOG_LEVEL_ERROR, "Direct error with multiple args: %s %d %f", "test", 42, 3.14);
     // Test buffer logging implementation directly
     ptk_buf *test_buf = ptk_buf_alloc(16);
     if (test_buf) {
         uint8_t pattern[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE};
-        memcpy(ptk_buf_get_start(test_buf), pattern, sizeof(pattern));
-        ptk_buf_set_end(test_buf, ptk_buf_get_start(test_buf) + sizeof(pattern));
-        
-        ptk_log_buf_impl(PTK_LOG_INFO, __FILE__, __LINE__, "Direct buffer log test", test_buf);
+        for (size_t i = 0; i < sizeof(pattern); i++) {
+            ptk_buf_set_u8(test_buf, pattern[i]);
+        }
+        ptk_buf_set_end(test_buf, sizeof(pattern));
+
+        ptk_log_buf_impl(__func__, __LINE__, PTK_LOG_LEVEL_INFO, test_buf);
         ptk_local_free(&test_buf);
     }
     
@@ -269,7 +299,7 @@ int test_logging_edge_cases(void) {
     info(long_fmt, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10);
     
     // Test logging at different levels when level is set high
-    ptk_log_level_set(PTK_LOG_ERROR);
+    ptk_log_level_set(PTK_LOG_LEVEL_ERROR);
     
     trace("This trace should not appear");
     debug("This debug should not appear");
@@ -278,7 +308,7 @@ int test_logging_edge_cases(void) {
     error("This error should appear");
     
     // Reset to INFO
-    ptk_log_level_set(PTK_LOG_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
     
     info("test_logging_edge_cases exit");
     return 0;
@@ -302,7 +332,7 @@ int test_logging_performance(void) {
     }
     
     // Test logging at disabled level (should be fast)
-    ptk_log_level_set(PTK_LOG_ERROR);
+    ptk_log_level_set(PTK_LOG_LEVEL_ERROR);
     
     info("Starting disabled level logging test...");
     for (int i = 0; i < 1000; i++) {
@@ -312,7 +342,7 @@ int test_logging_performance(void) {
     }
     
     // Reset level
-    ptk_log_level_set(PTK_LOG_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
     
     info("test_logging_performance exit");
     return 0;
@@ -332,31 +362,31 @@ int test_logging_thread_safety(void) {
     info("Thread safety test - logging from different contexts");
     
     // Simulate different thread contexts by changing log levels
-    ptk_log_level_set(PTK_LOG_TRACE);
+    ptk_log_level_set(PTK_LOG_LEVEL_TRACE);
     trace("Message from 'thread 1'");
     
-    ptk_log_level_set(PTK_LOG_DEBUG);
+    ptk_log_level_set(PTK_LOG_LEVEL_DEBUG);
     debug("Message from 'thread 2'");
     
-    ptk_log_level_set(PTK_LOG_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
     info("Message from 'thread 3'");
     
-    ptk_log_level_set(PTK_LOG_WARN);
+    ptk_log_level_set(PTK_LOG_LEVEL_WARN);
     warn("Message from 'thread 4'");
     
-    ptk_log_level_set(PTK_LOG_ERROR);
+    ptk_log_level_set(PTK_LOG_LEVEL_ERROR);
     error("Message from 'thread 5'");
     
     // Reset to INFO
-    ptk_log_level_set(PTK_LOG_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
     
     // Test rapid level changes
     for (int i = 0; i < 10; i++) {
-        ptk_log_level_set(PTK_LOG_TRACE + (i % 5));
+        ptk_log_level_set(PTK_LOG_LEVEL_TRACE + (i % 5));
         info("Level change test %d", i);
     }
     
-    ptk_log_level_set(PTK_LOG_INFO);
+    ptk_log_level_set(PTK_LOG_LEVEL_INFO);
     
     info("test_logging_thread_safety exit");
     return 0;
@@ -420,4 +450,8 @@ int test_ptk_log_main(void) {
     
     info("=== All PTK Logging Tests Passed ===");
     return 0;
+}
+
+int main(void) {
+    return test_ptk_log_main();
 }

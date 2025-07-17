@@ -1,5 +1,5 @@
 #include "../include/ethernetip.h"
-#include <ptk_alloc.h>
+#include <ptk_mem.h>
 #include <ptk_utils.h>
 #include <unistd.h>
 
@@ -16,7 +16,7 @@ int eip_discover_devices_simple(ptk_duration_ms response_time_range_ms,
     }
     
     // Get network interfaces from discovery API
-    ptk_network_interface_array_t *interfaces = ptk_network_discover_interfaces();
+    ptk_network_interface_array_t *interfaces = ptk_network_list_interfaces();
     if (!interfaces) {
         return -1; // No network interfaces available
     }

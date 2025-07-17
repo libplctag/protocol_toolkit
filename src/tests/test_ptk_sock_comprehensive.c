@@ -12,6 +12,7 @@
 #include <ptk_mem.h>
 #include <ptk_os_thread.h>
 #include <ptk_buf.h>
+#include <ptk_utils.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,76 +25,91 @@
 int test_address_operations(void) {
     info("test_address_operations entry");
     
-    ptk_address_t addr;
-    
-    // Test ptk_address_init with valid IP
-    ptk_err result = ptk_address_init(&addr, "127.0.0.1", 8080);
-    if (result != PTK_OK) {
-        error("ptk_address_init failed for 127.0.0.1:8080");
+    ptk_address_t *addr = ptk_address_create("127.0.0.1", 8080);
+    if (!addr) {
+        error("ptk_address_create failed for 127.0.0.1:8080");
         return 1;
     }
-    
+
     // Test ptk_address_get_port
-    uint16_t port = ptk_address_get_port(&addr);
+    uint16_t port = ptk_address_get_port(addr);
     if (port != 8080) {
         error("ptk_address_get_port returned wrong port: %u != 8080", port);
+        ptk_local_free(&addr);
         return 2;
     }
-    
+
     // Test ptk_address_to_string
-    char *addr_str = ptk_address_to_string(&addr);
+    char *addr_str = ptk_address_to_string(addr);
     if (!addr_str) {
         error("ptk_address_to_string returned NULL");
+        ptk_local_free(&addr);
         return 3;
     }
-    
+
     info("Address string: %s", addr_str);
-    
+
     // Should contain "127.0.0.1"
     if (strstr(addr_str, "127.0.0.1") == NULL) {
         error("Address string doesn't contain expected IP: %s", addr_str);
         ptk_local_free(&addr_str);
+        ptk_local_free(&addr);
         return 4;
     }
-    
+
     ptk_local_free(&addr_str);
+    ptk_local_free(&addr);
     
-    // Test ptk_address_init_any
-    ptk_address_t any_addr;
-    result = ptk_address_init_any(&any_addr, 3000);
-    if (result != PTK_OK) {
-        error("ptk_address_init_any failed");
+    // Test ptk_address_create_any
+    ptk_address_t *any_addr = ptk_address_create_any(3000);
+    if (!any_addr) {
+        error("ptk_address_create_any failed");
         return 5;
     }
-    
-    if (ptk_address_get_port(&any_addr) != 3000) {
-        error("ptk_address_init_any set wrong port: %u != 3000", ptk_address_get_port(&any_addr));
+
+    if (ptk_address_get_port(any_addr) != 3000) {
+        error("ptk_address_create_any set wrong port: %u != 3000", ptk_address_get_port(any_addr));
+        ptk_local_free(&any_addr);
         return 6;
     }
+    ptk_local_free(&any_addr);
     
     // Test ptk_address_equals
-    ptk_address_t addr1, addr2, addr3;
-    ptk_address_init(&addr1, "192.168.1.1", 80);
-    ptk_address_init(&addr2, "192.168.1.1", 80);
-    ptk_address_init(&addr3, "192.168.1.1", 8080);
-    
-    if (!ptk_address_equals(&addr1, &addr2)) {
+    ptk_address_t *addr1 = ptk_address_create("192.168.1.1", 80);
+    ptk_address_t *addr2 = ptk_address_create("192.168.1.1", 80);
+    ptk_address_t *addr3 = ptk_address_create("192.168.1.1", 8080);
+
+    if (!ptk_address_equals(addr1, addr2)) {
         error("ptk_address_equals failed for identical addresses");
+        ptk_local_free(&addr1);
+        ptk_local_free(&addr2);
+        ptk_local_free(&addr3);
         return 7;
     }
-    
-    if (ptk_address_equals(&addr1, &addr3)) {
+
+    if (ptk_address_equals(addr1, addr3)) {
         error("ptk_address_equals returned true for different ports");
+        ptk_local_free(&addr1);
+        ptk_local_free(&addr2);
+        ptk_local_free(&addr3);
         return 8;
     }
-    
-    ptk_address_t addr4;
-    ptk_address_init(&addr4, "192.168.1.2", 80);
-    
-    if (ptk_address_equals(&addr1, &addr4)) {
+
+    ptk_address_t *addr4 = ptk_address_create("192.168.1.2", 80);
+
+    if (ptk_address_equals(addr1, addr4)) {
         error("ptk_address_equals returned true for different IPs");
+        ptk_local_free(&addr1);
+        ptk_local_free(&addr2);
+        ptk_local_free(&addr3);
+        ptk_local_free(&addr4);
         return 9;
     }
+
+    ptk_local_free(&addr1);
+    ptk_local_free(&addr2);
+    ptk_local_free(&addr3);
+    ptk_local_free(&addr4);
     
     info("test_address_operations exit");
     return 0;
@@ -102,74 +118,73 @@ int test_address_operations(void) {
 int test_address_edge_cases(void) {
     info("test_address_edge_cases entry");
     
-    ptk_address_t addr;
-    
     // Test with NULL IP (should use INADDR_ANY)
-    ptk_err result = ptk_address_init(&addr, NULL, 8080);
-    if (result != PTK_OK) {
-        error("ptk_address_init failed with NULL IP");
+    ptk_address_t *addr = ptk_address_create(NULL, 8080);
+    if (!addr) {
+        error("ptk_address_create failed with NULL IP");
         return 1;
     }
-    
+    ptk_local_free(&addr);
+
     // Test with port 0
-    result = ptk_address_init(&addr, "127.0.0.1", 0);
-    if (result != PTK_OK) {
-        error("ptk_address_init failed with port 0");
+    addr = ptk_address_create("127.0.0.1", 0);
+    if (!addr) {
+        error("ptk_address_create failed with port 0");
         return 2;
     }
-    
+    ptk_local_free(&addr);
+
     // Test with maximum port
-    result = ptk_address_init(&addr, "127.0.0.1", 65535);
-    if (result != PTK_OK) {
-        error("ptk_address_init failed with port 65535");
+    addr = ptk_address_create("127.0.0.1", 65535);
+    if (!addr) {
+        error("ptk_address_create failed with port 65535");
         return 3;
     }
-    
+    ptk_local_free(&addr);
+
     // Test with invalid IP addresses
-    result = ptk_address_init(&addr, "invalid.ip", 8080);
-    if (result == PTK_OK) {
-        error("ptk_address_init should have failed with invalid IP");
+    addr = ptk_address_create("invalid.ip", 8080);
+    if (addr) {
+        error("ptk_address_create should have failed with invalid IP");
+        ptk_local_free(&addr);
         return 4;
     }
-    
-    result = ptk_address_init(&addr, "256.256.256.256", 8080);
-    if (result == PTK_OK) {
-        error("ptk_address_init should have failed with out-of-range IP");
+
+    addr = ptk_address_create("256.256.256.256", 8080);
+    if (addr) {
+        error("ptk_address_create should have failed with out-of-range IP");
+        ptk_local_free(&addr);
         return 5;
     }
-    
-    // Test with NULL address parameter
-    result = ptk_address_init(NULL, "127.0.0.1", 8080);
-    if (result == PTK_OK) {
-        error("ptk_address_init should have failed with NULL address");
-        return 6;
-    }
-    
+
     // Test ptk_address_get_port with NULL
     uint16_t port = ptk_address_get_port(NULL);
     if (port != 0) {
         error("ptk_address_get_port should return 0 for NULL address");
         return 7;
     }
-    
+
     // Test ptk_address_to_string with NULL
     char *str = ptk_address_to_string(NULL);
     if (str != NULL) {
         error("ptk_address_to_string should return NULL for NULL address");
+        ptk_local_free(&str);
         return 8;
     }
-    
+
     // Test ptk_address_equals with NULL
-    ptk_address_init(&addr, "127.0.0.1", 8080);
-    if (ptk_address_equals(NULL, &addr) || ptk_address_equals(&addr, NULL)) {
+    addr = ptk_address_create("127.0.0.1", 8080);
+    if (ptk_address_equals(NULL, addr) || ptk_address_equals(addr, NULL)) {
         error("ptk_address_equals should return false for NULL addresses");
+        ptk_local_free(&addr);
         return 9;
     }
-    
     if (ptk_address_equals(NULL, NULL)) {
         error("ptk_address_equals should return false for both NULL addresses");
+        ptk_local_free(&addr);
         return 10;
     }
+    ptk_local_free(&addr);
     
     info("test_address_edge_cases exit");
     return 0;
@@ -182,10 +197,10 @@ int test_address_edge_cases(void) {
 int test_network_discovery(void) {
     info("test_network_discovery entry");
     
-    // Test ptk_network_discover_interfaces
-    ptk_network_interface_array_t *interfaces = ptk_network_discover_interfaces();
+    // Test ptk_network_list_interfaces
+    ptk_network_interface_array_t *interfaces = ptk_network_list_interfaces();
     if (!interfaces) {
-        error("ptk_network_discover_interfaces returned NULL");
+        error("ptk_network_list_interfaces returned NULL");
         return 1;
     }
     
@@ -247,46 +262,6 @@ int test_network_discovery(void) {
     
     ptk_local_free(&interfaces);
     
-    // Test legacy network discovery API
-    ptk_network_info *network_info = ptk_socket_network_list();
-    if (!network_info) {
-        error("ptk_socket_network_list returned NULL");
-        return 8;
-    }
-    
-    size_t legacy_count = ptk_socket_network_info_count(network_info);
-    info("Legacy API found %zu network interfaces", legacy_count);
-    
-    if (legacy_count == 0) {
-        error("Legacy API found no network interfaces");
-        ptk_local_free(&network_info);
-        return 9;
-    }
-    
-    // Check legacy interface entries
-    for (size_t i = 0; i < legacy_count; i++) {
-        const ptk_network_info_entry *entry = ptk_socket_network_info_get(network_info, i);
-        if (!entry) {
-            error("ptk_socket_network_info_get returned NULL for index %zu", i);
-            ptk_local_free(&network_info);
-            return 10;
-        }
-        
-        info("Legacy Interface %zu: %s IP:%s Mask:%s Broadcast:%s",
-             i, entry->interface_name, entry->ip_address, 
-             entry->netmask, entry->broadcast);
-    }
-    
-    // Test out-of-bounds access
-    const ptk_network_info_entry *invalid_entry = ptk_socket_network_info_get(network_info, legacy_count);
-    if (invalid_entry != NULL) {
-        error("ptk_socket_network_info_get should return NULL for out-of-bounds index");
-        ptk_local_free(&network_info);
-        return 11;
-    }
-    
-    ptk_local_free(&network_info);
-    
     info("test_network_discovery exit");
     return 0;
 }
@@ -296,91 +271,87 @@ int test_network_discovery(void) {
 //=============================================================================
 
 // Thread function for UDP server
-void udp_server_thread(ptk_shared_handle_t param) {
+void udp_server_thread(ptk_sock *socket, ptk_shared_handle_t param) {
     // This is a placeholder - actual UDP server implementation would be complex
     info("UDP server thread started");
     
-    // Simulate server operation
-    usleep(100000); // 100ms
+    // Simulate server operation - in a real implementation, this would:
+    // 1. Call ptk_udp_socket_recv_from(socket, &sender_addr, timeout) to receive data
+    // 2. Process the received data
+    // 3. Optionally call ptk_udp_socket_send_to(socket, response, &sender_addr, false, timeout) to respond
     
+    ptk_sleep_ms(100); // 100ms
+
     info("UDP server thread finished");
 }
 
 // Thread function for UDP client
-void udp_client_thread(ptk_shared_handle_t param) {
+void udp_client_thread(ptk_sock *socket, ptk_shared_handle_t param) {
     info("UDP client thread started");
     
-    // Simulate client operation
-    usleep(50000); // 50ms
+    // Simulate client operation - in a real implementation, this would:
+    // 1. Create a buffer with ptk_buf_alloc()
+    // 2. Write data using ptk_buf_set_u8() 
+    // 3. Call ptk_udp_socket_send_to(socket, buffer, &dest_addr, false, timeout) to send data
+    // 4. Optionally call ptk_udp_socket_recv_from(socket, &sender_addr, timeout) to receive response
     
+    ptk_sleep_ms(50); // 50ms
+
     info("UDP client thread finished");
 }
 
 int test_udp_socket_creation(void) {
     info("test_udp_socket_creation entry");
     
-    // Initialize shared memory for threading
-    ptk_err err = ptk_shared_init();
-    if (err != PTK_OK) {
-        error("ptk_shared_init failed");
+    // Test UDP socket creation for server
+    ptk_address_t *server_addr = ptk_address_create_any(12345);
+    if (!server_addr) {
+        error("Failed to create server address");
         return 1;
     }
-    
-    // Create shared context
-    ptk_shared_handle_t context = ptk_shared_alloc(sizeof(int), NULL);
-    if (!PTK_SHARED_IS_VALID(context)) {
-        error("Failed to allocate shared context");
-        ptk_shared_shutdown();
-        return 2;
-    }
-    
-    // Test UDP socket creation for server
-    ptk_address_t server_addr;
-    ptk_address_init_any(&server_addr, 12345);
-    
-    ptk_sock *udp_server = ptk_udp_socket_create(&server_addr, false, udp_server_thread, context);
+    ptk_sock *udp_server = ptk_udp_socket_create(server_addr, false);
+    ptk_local_free(&server_addr);
     if (!udp_server) {
         error("Failed to create UDP server socket");
-        ptk_shared_release(context);
-        ptk_shared_shutdown();
-        return 3;
+        return 1;
     }
-    
+
     info("UDP server socket created successfully");
-    
+
     // Test UDP socket creation for client (no binding)
-    ptk_sock *udp_client = ptk_udp_socket_create(NULL, false, udp_client_thread, context);
+    ptk_sock *udp_client = ptk_udp_socket_create(NULL, false);
     if (!udp_client) {
         error("Failed to create UDP client socket");
         ptk_socket_close(udp_server);
-        ptk_shared_release(context);
-        ptk_shared_shutdown();
-        return 4;
+        return 2;
     }
-    
+
     info("UDP client socket created successfully");
-    
-    // Test UDP socket with broadcast enabled
-    ptk_sock *udp_broadcast = ptk_udp_socket_create(&server_addr, true, udp_server_thread, context);
+
+    // Test UDP socket with broadcast enabled (use different port)
+    ptk_address_t *broadcast_addr = ptk_address_create_any(12346);
+    if (!broadcast_addr) {
+        error("Failed to create broadcast address");
+        ptk_socket_close(udp_server);
+        ptk_socket_close(udp_client);
+        return 3;
+    }
+    ptk_sock *udp_broadcast = ptk_udp_socket_create(broadcast_addr, true);
+    ptk_local_free(&broadcast_addr);
     if (!udp_broadcast) {
         error("Failed to create UDP broadcast socket");
         ptk_socket_close(udp_server);
         ptk_socket_close(udp_client);
-        ptk_shared_release(context);
-        ptk_shared_shutdown();
-        return 5;
+        return 3;
     }
-    
+
     info("UDP broadcast socket created successfully");
-    
+
     // Clean up
     ptk_socket_close(udp_server);
     ptk_socket_close(udp_client);
     ptk_socket_close(udp_broadcast);
-    
-    ptk_shared_release(context);
-    ptk_shared_shutdown();
-    
+
     info("test_udp_socket_creation exit");
     return 0;
 }
@@ -388,30 +359,17 @@ int test_udp_socket_creation(void) {
 int test_udp_socket_communication(void) {
     info("test_udp_socket_communication entry");
     
-    // Initialize shared memory
-    ptk_err err = ptk_shared_init();
-    if (err != PTK_OK) {
-        error("ptk_shared_init failed");
+    // Create UDP socket for testing
+    ptk_address_t *test_addr = ptk_address_create("127.0.0.1", 54321);
+    if (!test_addr) {
+        error("Failed to create test address");
         return 1;
     }
-    
-    ptk_shared_handle_t context = ptk_shared_alloc(sizeof(int), NULL);
-    if (!PTK_SHARED_IS_VALID(context)) {
-        error("Failed to allocate shared context");
-        ptk_shared_shutdown();
-        return 2;
-    }
-    
-    // Create UDP socket for testing
-    ptk_address_t test_addr;
-    ptk_address_init(&test_addr, "127.0.0.1", 54321);
-    
-    ptk_sock *udp_sock = ptk_udp_socket_create(&test_addr, false, udp_server_thread, context);
+    ptk_sock *udp_sock = ptk_udp_socket_create(test_addr, false);
+    ptk_local_free(&test_addr);
     if (!udp_sock) {
         error("Failed to create UDP socket for communication test");
-        ptk_shared_release(context);
-        ptk_shared_shutdown();
-        return 3;
+        return 1;
     }
     
     // Test UDP send
@@ -419,20 +377,33 @@ int test_udp_socket_communication(void) {
     if (!send_buf) {
         error("Failed to allocate send buffer");
         ptk_socket_close(udp_sock);
-        ptk_shared_release(context);
-        ptk_shared_shutdown();
-        return 4;
+        return 2;
     }
     
     const char *test_message = "Hello UDP!";
-    memcpy(ptk_buf_get_start(send_buf), test_message, strlen(test_message));
-    ptk_buf_set_end(send_buf, ptk_buf_get_start(send_buf) + strlen(test_message));
+    size_t msg_len = strlen(test_message);
     
-    ptk_address_t dest_addr;
-    ptk_address_init(&dest_addr, "127.0.0.1", 54321);
+    // Use proper buffer accessors to write data safely
+    for (size_t i = 0; i < msg_len; i++) {
+        ptk_err_t write_err = ptk_buf_set_u8(send_buf, (ptk_u8_t)test_message[i]);
+        if (write_err != PTK_OK) {
+            error("Failed to write byte %zu to buffer", i);
+            ptk_local_free(&send_buf);
+            ptk_socket_close(udp_sock);
+            return 3;
+        }
+    }
     
+    ptk_address_t *dest_addr = ptk_address_create("127.0.0.1", 54321);
+    if (!dest_addr) {
+        error("Failed to create dest address");
+        ptk_local_free(&send_buf);
+        ptk_socket_close(udp_sock);
+        return 4;
+    }
     // Test ptk_udp_socket_send_to
-    err = ptk_udp_socket_send_to(udp_sock, send_buf, &dest_addr, false, 1000);
+    ptk_err_t err = ptk_udp_socket_send_to(udp_sock, send_buf, dest_addr, false, 1000);
+    ptk_local_free(&dest_addr);
     if (err != PTK_OK) {
         // This might fail if we can't actually send to ourselves
         info("UDP send failed (expected in test environment): %d", err);
@@ -441,10 +412,15 @@ int test_udp_socket_communication(void) {
     }
     
     // Test broadcast send
-    ptk_address_t broadcast_addr;
-    ptk_address_init(&broadcast_addr, "255.255.255.255", 54321);
-    
-    err = ptk_udp_socket_send_to(udp_sock, send_buf, &broadcast_addr, true, 1000);
+    ptk_address_t *broadcast_addr = ptk_address_create("255.255.255.255", 54321);
+    if (!broadcast_addr) {
+        error("Failed to create broadcast address");
+        ptk_local_free(&send_buf);
+        ptk_socket_close(udp_sock);
+        return 5;
+    }
+    err = ptk_udp_socket_send_to(udp_sock, send_buf, broadcast_addr, true, 1000);
+    ptk_local_free(&broadcast_addr);
     if (err != PTK_OK) {
         info("UDP broadcast send failed (expected in test environment): %d", err);
     } else {
@@ -474,8 +450,6 @@ int test_udp_socket_communication(void) {
     
     // Clean up
     ptk_socket_close(udp_sock);
-    ptk_shared_release(context);
-    ptk_shared_shutdown();
     
     info("test_udp_socket_communication exit");
     return 0;
@@ -488,42 +462,28 @@ int test_udp_socket_communication(void) {
 int test_socket_error_conditions(void) {
     info("test_socket_error_conditions entry");
     
-    // Test with NULL parameters
-    ptk_sock *null_sock = ptk_udp_socket_create(NULL, false, NULL, PTK_SHARED_INVALID_HANDLE);
-    if (null_sock != NULL) {
-        error("UDP socket creation should fail with NULL thread function");
-        ptk_socket_close(null_sock);
-        return 1;
-    }
-    
     // Test sending to closed socket
     ptk_socket_close(NULL); // Should handle NULL gracefully
     
     // Test address operations with edge cases
-    ptk_address_t addr;
-    ptk_err result = ptk_address_init(&addr, "0.0.0.0", 1);
-    if (result != PTK_OK) {
-        error("ptk_address_init failed for 0.0.0.0");
+    ptk_address_t *addr = ptk_address_create("0.0.0.0", 1);
+    if (!addr) {
+        error("ptk_address_create failed for 0.0.0.0");
         return 2;
     }
-    
-    result = ptk_address_init(&addr, "255.255.255.255", 65535);
-    if (result != PTK_OK) {
-        error("ptk_address_init failed for 255.255.255.255:65535");
+    ptk_local_free(&addr);
+
+    addr = ptk_address_create("255.255.255.255", 65535);
+    if (!addr) {
+        error("ptk_address_create failed for 255.255.255.255:65535");
         return 3;
     }
+    ptk_local_free(&addr);
     
     // Test network discovery error cases
-    size_t invalid_count = ptk_socket_network_info_count(NULL);
-    if (invalid_count != 0) {
-        error("ptk_socket_network_info_count should return 0 for NULL");
-        return 4;
-    }
-    
-    const ptk_network_info_entry *invalid_entry = ptk_socket_network_info_get(NULL, 0);
-    if (invalid_entry != NULL) {
-        error("ptk_socket_network_info_get should return NULL for NULL network_info");
-        return 5;
+    ptk_network_interface_array_t *null_interfaces = ptk_network_list_interfaces();
+    if (null_interfaces) {
+        ptk_local_free(&null_interfaces);
     }
     
     info("test_socket_error_conditions exit");
@@ -575,4 +535,8 @@ int test_ptk_sock_main(void) {
     
     info("=== All PTK Socket Tests Passed ===");
     return 0;
+}
+
+int main(void) {
+    return test_ptk_sock_main();
 }

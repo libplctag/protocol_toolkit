@@ -63,8 +63,8 @@ typedef struct {
 // Implementation functions
 ptk_shared_handle_t ptk_shared_wrap_impl(const char *file, int line, void *ptr);
 void *ptk_shared_acquire(ptk_shared_handle_t handle);
-ptk_err ptk_shared_release(ptk_shared_handle_t handle);
-ptk_err ptk_shared_realloc(ptk_shared_handle_t handle, size_t new_size);
+ptk_err_t ptk_shared_release(ptk_shared_handle_t handle);
+ptk_err_t ptk_shared_realloc(ptk_shared_handle_t handle, size_t new_size);
 ```
 
 ### Type-Safe Wrappers
@@ -171,7 +171,7 @@ void *ptk_shared_acquire(ptk_shared_handle_t handle) {
 
 ### Memory Release
 ```c
-ptk_err ptk_shared_release(ptk_shared_handle_t handle) {
+ptk_err_t ptk_shared_release(ptk_shared_handle_t handle) {
     ptk_mutex_wait_lock(global_table_mutex, PTK_TIME_WAIT_FOREVER);
     
     shared_entry_t *entry = lookup_entry_unsafe(handle);
@@ -212,7 +212,7 @@ ptk_err ptk_shared_release(ptk_shared_handle_t handle) {
 
 ### Safe Reallocation
 ```c
-ptk_err ptk_shared_realloc(ptk_shared_handle_t handle, size_t new_size) {
+ptk_err_t ptk_shared_realloc(ptk_shared_handle_t handle, size_t new_size) {
     // Use existing functions for safety
     void *ptr = ptk_shared_acquire(handle);
     if (!ptr) {
@@ -270,7 +270,7 @@ ptk_err ptk_shared_realloc(ptk_shared_handle_t handle, size_t new_size) {
 
 ### Growth Strategy
 ```c
-static ptk_err expand_shared_table(void) {
+static ptk_err_t expand_shared_table(void) {
     size_t old_capacity = shared_table.capacity;
     size_t new_capacity = old_capacity * 2;
     
@@ -300,7 +300,7 @@ static ptk_err expand_shared_table(void) {
 
 ### Startup (ptk_startup())
 ```c
-ptk_err ptk_startup(void) {
+ptk_err_t ptk_startup(void) {
     // Initialize shared memory system
     if (!shared_table_initialized) {
         shared_table.table_mutex = ptk_mutex_create();
@@ -323,7 +323,7 @@ ptk_err ptk_startup(void) {
 
 ### Shutdown (ptk_shutdown())
 ```c
-ptk_err ptk_shutdown(void) {
+ptk_err_t ptk_shutdown(void) {
     if (shared_table_initialized) {
         // Force cleanup of all remaining entries
         for (size_t i = 0; i < shared_table.capacity; i++) {

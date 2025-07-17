@@ -13,7 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "ptk_alloc.h"
+#include "ptk_mem.h"
 #include "ptk_buf.h"
 #include "ptk_err.h"
 #include "ptk_sock.h"
@@ -72,7 +72,7 @@ typedef struct {
 // Error handling macro
 #define CHECK_PTK_ERR(call)             \
     do {                                \
-        ptk_err _err = (call);          \
+        ptk_err_t _err = (call);          \
         if(_err != PTK_OK) return _err; \
     } while(0)
 
@@ -183,7 +183,7 @@ static const char *cip_get_device_state_name(uint8_t state) {
 /**
  * Parse SHORT_STRING from buffer
  */
-static ptk_err parse_short_string(ptk_buf *buffer, char *output, size_t max_len) {
+static ptk_err_t parse_short_string(ptk_buf *buffer, char *output, size_t max_len) {
     uint8_t length;
     CHECK_PTK_ERR(ptk_buf_deserialize(buffer, false, PTK_BUF_NATIVE_ENDIAN, &length));
 
@@ -202,7 +202,7 @@ static ptk_err parse_short_string(ptk_buf *buffer, char *output, size_t max_len)
 /**
  * Build EtherNet/IP List Identity request packet using type-safe serialization
  */
-static ptk_err build_list_identity_request(ptk_buf *buffer) {
+static ptk_err_t build_list_identity_request(ptk_buf *buffer) {
     return ptk_buf_serialize(buffer, PTK_BUF_LITTLE_ENDIAN,
                              (uint16_t)EIP_LIST_IDENTITY_CMD,  // Command
                              (uint16_t)0,                      // Length
@@ -215,7 +215,7 @@ static ptk_err build_list_identity_request(ptk_buf *buffer) {
 /**
  * Parse EIP encapsulation header
  */
-static ptk_err parse_eip_header(ptk_buf *buffer, eip_encap_header_t *header) {
+static ptk_err_t parse_eip_header(ptk_buf *buffer, eip_encap_header_t *header) {
     return ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, &header->command, &header->length, &header->session_handle,
                                &header->status, &header->sender_context, &header->options);
 }
@@ -223,14 +223,14 @@ static ptk_err parse_eip_header(ptk_buf *buffer, eip_encap_header_t *header) {
 /**
  * Parse CPF (Common Packet Format) header
  */
-static ptk_err parse_cpf_header(ptk_buf *buffer, uint16_t *item_count) {
+static ptk_err_t parse_cpf_header(ptk_buf *buffer, uint16_t *item_count) {
     return ptk_buf_deserialize(buffer, false, PTK_BUF_LITTLE_ENDIAN, item_count);
 }
 
 /**
  * Parse CIP Identity item structure
  */
-static ptk_err parse_cip_identity_item(ptk_buf *buffer, cip_identity_item_t *identity, uint16_t item_length) {
+static ptk_err_t parse_cip_identity_item(ptk_buf *buffer, cip_identity_item_t *identity, uint16_t item_length) {
     if(item_length < 34) {  // Minimum size for identity item
         return PTK_ERR_BUFFER_TOO_SMALL;
     }
@@ -300,7 +300,7 @@ static void display_device_info(const cip_identity_item_t *identity, const char 
 /**
  * Broadcast to all network interfaces
  */
-static ptk_err broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf, ptk_network_info *networks) {
+static ptk_err_t broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf, ptk_network_info *networks) {
     size_t num_networks = ptk_socket_network_info_count(networks);
     bool broadcast_sent = false;
 
@@ -339,7 +339,7 @@ static ptk_err broadcast_to_all_networks(ptk_sock *socket, ptk_buf *request_buf,
 /**
  * Parse EtherNet/IP List Identity response using structured approach
  */
-static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t *sender_addr) {
+static ptk_err_t parse_list_identity_response(ptk_buf *buffer, const ptk_address_t *sender_addr) {
     eip_encap_header_t header;
 
     // Parse EIP header
@@ -380,7 +380,7 @@ static ptk_err parse_list_identity_response(ptk_buf *buffer, const ptk_address_t
                 if(item_length > parsed_bytes + 6) {  // status + serial + at least 1 byte for name
                     parsed_bytes += 6;                // status + serial
                     if(item_length > parsed_bytes) {
-                        ptk_err name_err = parse_short_string(buffer, product_name, sizeof(product_name));
+                        ptk_err_t name_err = parse_short_string(buffer, product_name, sizeof(product_name));
                         if(name_err == PTK_OK) {
                             parsed_bytes += strlen(product_name) + 1;  // +1 for length byte
                         }
@@ -435,7 +435,7 @@ static void discovery_thread(void *arg) {
 
     // Create local address for UDP socket
     ptk_address_t local_addr;
-    ptk_err err = ptk_address_create_any(&local_addr, 0);
+    ptk_err_t err = ptk_address_create_any(&local_addr, 0);
     if(err != PTK_OK) {
         printf("Failed to create local address: %s\n", ptk_err_to_string(err));
         if(networks) { ptk_socket_network_info_dispose(networks); }
@@ -472,7 +472,7 @@ static void discovery_thread(void *arg) {
 
                 // Send to all discovered networks
                 if(networks && num_networks > 0) {
-                    ptk_err broadcast_err = broadcast_to_all_networks(g_udp_socket, request_buf, networks);
+                    ptk_err_t broadcast_err = broadcast_to_all_networks(g_udp_socket, request_buf, networks);
                     if(broadcast_err == PTK_OK) { broadcast_sent = true; }
                 }
 
@@ -519,7 +519,7 @@ static void discovery_thread(void *arg) {
             }
             ptk_free(&response_buffers);
         } else {
-            ptk_err recv_err = ptk_get_err();
+            ptk_err_t recv_err = ptk_get_err();
             if(recv_err == PTK_ERR_ABORT) {
                 if(g_config.verbose_output) { printf("Discovery aborted\n"); }
                 break;
@@ -583,7 +583,7 @@ int main(int argc, char *argv[]) {
     printf("Discovery started. Press Ctrl+C to stop early...\n\n");
 
     // Wait for discovery thread to complete
-    ptk_err err = ptk_thread_join(g_discovery_thread);
+    ptk_err_t err = ptk_thread_join(g_discovery_thread);
     if(err != PTK_OK) { printf("Error joining discovery thread: %s\n", ptk_err_to_string(err)); }
 
     // Cleanup

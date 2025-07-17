@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <ptk_defs.h>
 #include <ptk_err.h>
 
 /**
@@ -49,7 +50,7 @@ typedef struct {
  * @param program_name Program name for help text (can be NULL to use argv[0])
  * @return 0 on success, 1 if help was shown, -1 on error
  */
-ptk_err ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *fields, const char *program_name);
+PTK_API ptk_err_t ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *fields, const char *program_name);
 
 /**
  * Print help for configuration fields
@@ -58,4 +59,4 @@ ptk_err ptk_config_parse(int argc, char *argv[], const ptk_config_field_t *field
  * @param fields Array of field definitions
  * @param description Optional program description
  */
-ptk_err ptk_config_print_help(const char *program_name, const ptk_config_field_t *fields, const char *description);
+PTK_API ptk_err_t ptk_config_print_help(const char *program_name, const ptk_config_field_t *fields, const char *description);
