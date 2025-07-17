@@ -94,20 +94,23 @@ POSIX_ATOMIC_ALL_OPS(ptk_u16_t, u16)
 POSIX_ATOMIC_ALL_OPS(ptk_u32_t, u32)
 POSIX_ATOMIC_ALL_OPS(ptk_u64_t, u64)
 
-// Pointer operations
+
+#include <stdint.h>
+// Pointer operations using uintptr_t for atomicity
 void *ptk_atomic_load_ptr(ptk_atomic void **src_value) {
-    return atomic_load((_Atomic void **)src_value);
+    uintptr_t val = atomic_load((_Atomic uintptr_t *)src_value);
+    return (void *)val;
 }
 
 ptk_err_t ptk_atomic_store_ptr(ptk_atomic void **dest_value, void *src_value) {
-    atomic_store((_Atomic void **)dest_value, src_value);
+    atomic_store((_Atomic uintptr_t *)dest_value, (uintptr_t)src_value);
     return PTK_OK;
 }
 
 void *ptk_atomic_compare_and_swap_ptr(ptk_atomic void **dest_value, void *old_value, void *new_value) {
-    void *expected = old_value;
-    atomic_compare_exchange_strong((_Atomic void **)dest_value, &expected, new_value);
-    return expected;
+    uintptr_t expected = (uintptr_t)old_value;
+    atomic_compare_exchange_strong((_Atomic uintptr_t *)dest_value, &expected, (uintptr_t)new_value);
+    return (void *)expected;
 }
 
 #else
