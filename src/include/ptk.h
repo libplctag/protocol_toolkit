@@ -39,16 +39,11 @@ ptk_status_t ptk_init(void);
  */
 void ptk_cleanup(void);
 
-/**
- * Get the last error for the current thread
- * PTK functions store errors in thread-local storage for composability
- */
-ptk_status_t ptk_get_last_error(void);
+void ptk_set_last_error(ptk_error_t error_code);
+ptk_error_t ptk_get_last_error(void);
+const char *ptk_error_string(ptk_error_t error_code);
 
-/**
- * Clear the last error for the current thread
- */
-void ptk_clear_error(void);
+uint64_t ptk_get_time_ms(void);
 
 #ifdef __cplusplus
 }

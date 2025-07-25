@@ -29,36 +29,6 @@ typedef enum {
     PTK_ERROR_INTERRUPTED = 13     /* Operation interrupted */
 } ptk_status_t;
 
-/**
- * Connection state flags - can be combined
- */
-typedef enum {
-    PTK_CONN_DATA_READY = 1,    /* Data available to read */
-    PTK_CONN_WRITE_READY = 2,   /* Ready for write */
-    PTK_CONN_ERROR = 4,         /* Error condition */
-    PTK_CONN_CLOSED = 8,        /* Connection closed */
-    PTK_CONN_TIMEOUT = 16       /* Timeout occurred */
-} ptk_connection_state_t;
-
-/**
- * Event source types for polymorphic event handling
- */
-typedef enum {
-    PTK_EVENT_SOURCE_TCP = 1,      /* TCP socket */
-    PTK_EVENT_SOURCE_UDP = 2,      /* UDP socket */
-    PTK_EVENT_SOURCE_SERIAL = 3,   /* Serial port */
-    PTK_EVENT_SOURCE_EVENT = 4,    /* Application event */
-    PTK_EVENT_SOURCE_TIMER = 5     /* Timer event source */
-} ptk_event_source_type_t;
-
-/**
- * Base event source - all connection types include this as first element
- * This enables polymorphism through casting
- */
-typedef struct {
-    ptk_event_source_type_t type;     /* Type of event source */
-    ptk_connection_state_t state;     /* Current state */
-} ptk_event_source_t;
 
 /**
  * Endianness specification for serialization
@@ -87,6 +57,13 @@ typedef volatile uint64_t ptk_atomic64_t;
 
 /* Backward compatibility */
 typedef ptk_atomic32_t ptk_atomic_t;
+
+
+
+/* common typedefs */
+typedef int64_t ptk_time_ms;
+typedef int64_t ptk_duration_ms;
+
 
 #ifdef __cplusplus
 }

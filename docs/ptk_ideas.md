@@ -89,27 +89,6 @@ typedef struct {
     uint32_t read_timeout_ms;
 } ptk_serial_connection_t;
 
-/* Protocol connections - much larger, contain transport reference + protocol state */
-typedef struct {
-    ptk_event_source_t base;      /* Must be first - enables polymorphism */
-    ptk_tcp_connection_t* transport;
-    uint32_t session_handle;      /* Persistent session state */
-    uint16_t connection_id;       /* Persistent connection state */
-    uint8_t sequence_number;      /* Persistent sequence tracking */
-    uint32_t registration_timeout_ms;
-    uint8_t sender_context[8];    /* EIP sender context */
-    uint16_t encap_sequence;      /* Encapsulation sequence number */
-} ptk_eip_connection_t;
-
-typedef struct {
-    ptk_event_source_t base;      /* Must be first - enables polymorphism */
-    ptk_tcp_connection_t* transport;
-    uint16_t transaction_id;      /* Persistent transaction tracking */
-    uint8_t unit_id;             /* Persistent unit identifier */
-    uint8_t function_code;       /* Last function code used */
-    uint16_t retry_count;        /* Protocol retry handling */
-    uint32_t response_timeout_ms; /* Protocol-specific timeout */
-} ptk_modbus_connection_t;
 
 typedef enum {
     PTK_CONN_DATA_READY = 1,    /* Data available to read */
@@ -138,9 +117,6 @@ ptk_status_t ptk_init_tcp_connection(ptk_tcp_connection_t* conn, const char* hos
 ptk_status_t ptk_init_udp_connection(ptk_udp_connection_t* conn, const char* host, uint16_t port);
 ptk_status_t ptk_init_serial_connection(ptk_serial_connection_t* conn, const char* device, int baud);
 
-/* Protocol-specific connection initialization - takes event source (any connection) */
-ptk_status_t ptk_init_eip_connection(ptk_eip_connection_t* eip_conn, ptk_tcp_connection_t* tcp_conn);
-ptk_status_t ptk_init_modbus_connection(ptk_modbus_connection_t* mb_conn, ptk_event_source_t* transport_conn);
 
 /* Type-Safe Slice System */
 
