@@ -1,40 +1,57 @@
-
-#pragma once
-
-/**
- * @file ptk.h
- * @brief Protocol Toolkit global initialization and shutdown API
- *
- * This header provides the entry points for initializing and shutting down the Protocol Toolkit library.
- * You must call ptk_startup() before using any PTK functionality, and ptk_shutdown() when your application exits.
- * These functions set up and tear down platform-specific resources and global state for all PTK modules.
- *
- * Usage:
- *   if(ptk_startup() != PTK_OK) {
- *       // handle error
- *   }
- *   // ... use PTK APIs ...
- *   ptk_shutdown();
- */
-
-#include <ptk_defs.h>
+#ifndef PTK_H
+#define PTK_H
 
 /**
- * @brief Initialize the PTK library
+ * PTK - Protocol Toolkit
  * 
- * This function must be called once before using any PTK functionality.
- * It initializes platform-specific resources and global state.
- * 
- * @return PTK_OK on success, error code on failure
+ * Main umbrella header that includes all PTK components.
+ * Include this single header to get access to all PTK functionality.
  */
-PTK_API ptk_err_t ptk_startup(void);
+
+#include "ptk_types.h"
+#include "ptk_slice.h"
+#include "ptk_scratch.h"
+#include "ptk_connection.h"
+#include "ptk_event.h"
+#include "ptk_serialization.h"
+#include "ptk_protocols.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /**
- * @brief Shutdown the PTK library
- * 
- * This function should be called once when the application is shutting down.
- * It cleans up platform-specific resources and global state.
- * 
- * @return PTK_OK on success, error code on failure
+ * PTK Library Information
  */
-PTK_API ptk_err_t ptk_shutdown(void);
+#define PTK_VERSION_MAJOR 1
+#define PTK_VERSION_MINOR 0
+#define PTK_VERSION_PATCH 0
+
+/**
+ * Initialize the PTK library
+ * Call this once before using any other PTK functions
+ */
+ptk_status_t ptk_init(void);
+
+/**
+ * Cleanup the PTK library
+ * Call this to release any global resources
+ */
+void ptk_cleanup(void);
+
+/**
+ * Get the last error for the current thread
+ * PTK functions store errors in thread-local storage for composability
+ */
+ptk_status_t ptk_get_last_error(void);
+
+/**
+ * Clear the last error for the current thread
+ */
+void ptk_clear_error(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* PTK_H */
