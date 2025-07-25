@@ -5,8 +5,11 @@
 #include "ptk_slice.h"
 #include "ptk_scratch.h"
 #include <stdint.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+
+// Platform-independent socket handle - opaque type
+// Implementation details hidden in platform-specific source files
+typedef struct ptk_socket_handle ptk_socket_handle_t;
+typedef struct ptk_address_handle ptk_address_handle_t;
 
 #ifdef __cplusplus
 extern "C" {

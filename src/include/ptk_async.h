@@ -5,16 +5,14 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#ifdef PTK_THREAD_SAFETY
-#include <pthread.h>
-typedef pthread_t ptk_thread_id_t;
-#define PTK_CURRENT_THREAD() pthread_self()
-#define PTK_THREAD_EQUAL(a, b) pthread_equal(a, b)
-#else
-typedef int ptk_thread_id_t;
-#define PTK_CURRENT_THREAD() 0
-#define PTK_THREAD_EQUAL(a, b) 1
-#endif
+// Platform-independent thread handle - opaque type
+// Implementation details hidden in platform-specific source files
+typedef struct ptk_thread_handle ptk_thread_handle_t;
+
+// Thread management functions - implemented per platform
+ptk_thread_handle_t* ptk_thread_current(void);
+bool ptk_thread_equal(ptk_thread_handle_t* a, ptk_thread_handle_t* b);
+void ptk_thread_handle_destroy(ptk_thread_handle_t* handle);
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,19 +45,15 @@ typedef struct {
     size_t read_index;
     size_t write_index;
     size_t capacity;
-#ifdef PTK_THREAD_SAFETY
-    ptk_thread_id_t owner_thread;
-#endif
+    ptk_thread_handle_t* owner_thread;  // Always present, NULL if no thread safety
 } ptk_buf_t;
 
 ptk_error_t ptk_buffer_init(ptk_buf_t *buf, uint8_t *backing_data, size_t backing_capacity);
 
-#ifdef PTK_THREAD_SAFETY
 /* Transfer buffer ownership to current thread - use with caution */
 ptk_error_t ptk_buffer_transfer_ownership(ptk_buf_t *buf);
 /* Check if buffer is owned by current thread */
 bool ptk_buffer_owned_by_current_thread(const ptk_buf_t *buf);
-#endif
 
 
 static inline size_t ptk_buffer_data_len(const ptk_buf_t *buf) {
