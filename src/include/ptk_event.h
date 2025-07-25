@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+#define PTK_APP_EVENT_DATA_SIZE 256
+
 /**
  * Connection state flags - can be combined
  */
@@ -27,7 +29,6 @@ typedef enum {
 typedef enum {
     PTK_EVENT_SOURCE_TCP = 1,      /* TCP socket */
     PTK_EVENT_SOURCE_UDP = 2,      /* UDP socket */
-    PTK_EVENT_SOURCE_SERIAL = 3,   /* Serial port */
     PTK_EVENT_SOURCE_APP_EVENT = 4,    /* Application event */
     PTK_EVENT_SOURCE_TIMER = 5     /* Timer event source */
 } ptk_connection_type_t;
@@ -60,23 +61,13 @@ typedef struct {
     bool repeating;               /* Whether timer repeats automatically */
     uint64_t next_fire_time;      /* Internal: next fire time */
     bool active;                  /* Internal: timer is active */
-} ptk_timer_event_source_t;
-
-/**
- * Application/user event source
- * Thread-safe signaling mechanism for inter-thread communication
- */
-typedef struct {
-    ptk_connection_t base;      /* Must be first - enables polymorphism */
-    ptk_atomic32_t signal_count;  /* Atomic signal counter */
-    uint32_t id;                  /* User-defined event ID */
-} ptk_app_event_source_t;
+} ptk_timer_connection_t;
 
 
 /**
  * Timer operations
  */
-ptk_status_t ptk_init_timer(ptk_timer_event_source_t* timer, 
+ptk_status_t ptk_init_timer(ptk_timer_connection_t* timer, 
                            uint32_t interval_ms, 
                            uint32_t id, 
                            bool repeating);
@@ -98,37 +89,50 @@ typedef struct {
     int fd;
     struct sockaddr_in addr;
     uint32_t connect_timeout_ms;
-} ptk_tcp_connection_t;
+} ptk_tcp_client_connection_t;
 
 typedef struct {
     ptk_connection_t base;      /* Must be first - enables polymorphism */
     int fd;
     struct sockaddr_in addr;
-    uint32_t bind_timeout_ms;
-} ptk_udp_connection_t;
+    uint32_t connect_timeout_ms;
+} ptk_tcp_server_connection_t;
 
 typedef struct {
     ptk_connection_t base;      /* Must be first - enables polymorphism */
     int fd;
-    char device_path[256];
-    int baud_rate;
-    uint32_t read_timeout_ms;
-} ptk_serial_connection_t;
+    struct sockaddr_in local_addr;
+    struct sockaddr_in remote_addr;
+    uint32_t bind_timeout_ms;
+} ptk_udp_connection_t;
+
+
+
 
 typedef struct {
     ptk_connection_t base;      /* Must be first - enables polymorphism */
     int fd; /* might not be used */
-    uint8_t data[PTK_APP_EVENT_DATA_SIZE]
+    ptk_slice_bytes_t buffer;   /* User-provided buffer slice */
+    size_t data_len;            /* Amount of valid data */
+    volatile int8_t data_ready; /* 0 = empty, 1 = full */
+    // For POSIX: pthread_mutex_t mutex; pthread_cond_t cond;
 } ptk_app_event_connection_t;
 
 /**
  * Stack-based connection initialization
  * No memory allocation - all data structures are provided by caller
  */
-ptk_status_t ptk_init_tcp_connection(ptk_tcp_connection_t* conn, const char* host, uint16_t port);
+ptk_status_t ptk_init_tcp_client_connection(ptk_tcp_client_connection_t* conn, const char* host, uint16_t port);
+ptk_status_t ptk_init_tcp_server_connection(ptk_tcp_server_connection_t* conn, const char* host, uint16_t port);
 ptk_status_t ptk_init_udp_connection(ptk_udp_connection_t* conn, const char* host, uint16_t port);
-ptk_status_t ptk_init_serial_connection(ptk_serial_connection_t* conn, const char* device, int baud);
-ptk_status_t ptk_init_app_event_connection(ptk_app_event_connection_t* conn);
+/**
+ * Initialize an app event connection with a user-provided buffer slice.
+ * The buffer must remain valid for the lifetime of the connection.
+ * @param conn Pointer to the connection struct
+ * @param buffer_slice User-provided byte slice
+ * @return PTK_OK on success, error code otherwise
+ */
+ptk_status_t ptk_init_app_event_connection(ptk_app_event_connection_t* conn, ptk_slice_bytes_t buffer_slice);
 
 /**
  * Connection I/O operations
@@ -138,11 +142,10 @@ ptk_slice_t ptk_connection_read(ptk_connection_t* conn, ptk_slice_t *buffer, uin
 ptk_status_t ptk_connection_write(ptk_connection_t* conn, ptk_slice_t *data, uint32_t timeout_ms);
 ptk_status_t ptk_connection_close(ptk_connection_t* conn);
 
-
 /**
- * Get current time in milliseconds (platform abstracted)
- * Used internally by timer system
+ * @brief  * TCP server accept operation
  */
+ptk_status_t ptk_tcp_server_accept(ptk_tcp_server_connection_t* server, ptk_tcp_client_connection_t* client_conn, uint32_t timeout_ms);
 
 
 /* Universal wait function - polymorphic, works with any event source including timers */
@@ -155,9 +158,8 @@ int ptk_wait_for_multiple(ptk_connection_t** event_sources,
 /**
  * Declare slice types for event management
  */
-PTK_DECLARE_SLICE_TYPE(timers, ptk_timer_event_source_t);
-PTK_DECLARE_SLICE_TYPE(app_events, ptk_app_event_source_t);
-PTK_DECLARE_SLICE_TYPE(event_conns, ptk_event_connection_t);
+PTK_DECLARE_SLICE_TYPE(timers, ptk_timer_connection_t);
+PTK_DECLARE_SLICE_TYPE(app_events, ptk_app_event_connection_t);
 
 #ifdef __cplusplus
 }
