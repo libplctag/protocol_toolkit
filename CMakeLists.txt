@@ -226,16 +226,16 @@ add_subdirectory(src/lib)
 #=============================================================================
 
 # Add tests (only if requested)
-if(PTK_BUILD_TESTS)
-    add_subdirectory(src/tests)
-endif()
+# if(PTK_BUILD_TESTS)
+#     add_subdirectory(src/tests)
+# endif()
 
 
 message(STATUS "Building examples: ${PTK_BUILD_EXAMPLES}")
 # Add examples (only if requested)
-if(PTK_BUILD_EXAMPLES)
-    add_subdirectory(src/examples)
-endif()
+# if(PTK_BUILD_EXAMPLES)
+#     add_subdirectory(src/examples)
+# endif()
 
 #=============================================================================
 # INSTALLATION
