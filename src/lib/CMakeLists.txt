@@ -78,6 +78,7 @@ target_include_directories(ptk
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        $<$<PLATFORM_ID:Linux,Android,FreeBSD,OpenBSD,NetBSD,Darwin>:${CMAKE_CURRENT_SOURCE_DIR}/posix/include>
 )
 
 # Platform-specific compile definitions

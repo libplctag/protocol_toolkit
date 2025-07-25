@@ -16,8 +16,13 @@
 ---
 
 ## 1. File Naming and Structure
-**Note:** All public types (usually via typedef) should be named with a `_t` suffix (e.g., `ptk_buf_t`, `ptk_err_t`).
-Some existing types in `ptk_defs.h` do not follow this rule for historical reasons (e.g., `ptk_u8_t` should be `ptk_u8_t`). New public types must follow the `_t` naming convention.
+
+**Note:** All public types (usually via typedef) must be named with a `_t` suffix (e.g., `ptk_buf_t`, `ptk_err_t`, `ptk_slice_bytes_t`).
+All public types and functions must use the `ptk_` prefix. Internal/private types and functions must not use the `ptk_` prefix.
+New public types must follow the `_t` naming convention. Implementation-specific or private structs should be forward declared in public headers and defined only in the corresponding implementation file.
+
+**Implementation-specific header note:**
+If a struct's size or layout is platform-dependent, the public header should forward-declare the struct and include the implementation-specific header (e.g., `#include "posix/ptk_x_impl.h"`) in the `.c` file to ensure correct sizing and layout. This allows the public API to remain portable and opaque while the implementation can use the correct platform-specific details.
 
 - **Public API files** use the `ptk_` prefix (e.g., `ptk_sock.h`, `ptk_mem.c`).
 - **Private/implementation files** must NOT use the `ptk_` prefix, and no platform-specific suffix (e.g., `os_thread.c`, `linux/address.c`).
@@ -56,67 +61,30 @@ Some existing types in `ptk_defs.h` do not follow this rule for historical reaso
 
 ---
 
+
+
 ## 4. Memory Management
 
-- All thread-local memory allocation must use `ptk_local_alloc()` (not `malloc()`/`free()`).
-- All data to be accessed by more than one thread must use `ptk_shared_alloc()` and use the `use_shared()` helper macro to avoid many errors with shared memory and locks.
-- Always provide a destructor if any attached data needs to be freed or disposed of safely.
-- If you find code like:
-  ```c
-  if(obj->field) { ptk_free(obj->field); }
-  ptk_free(obj);
-  ```
-  then a destructor should have been provided at allocation.
-- Do not provide public destructors; use the destructor callback with `ptk_local_alloc()` and `ptk_shared_alloc()`.
-- All local memory should be freed with `ptk_local_free()`.
-- All shared memory should be freed with `pkt_shared_free()`.
+- All memory allocation for temporary/thread-local data must use the scratch allocator API (`ptk_scratch_t*`, see `ptk_scratch.h`). Do not use `malloc()`/`free()` directly.
+- Use `ptk_scratch_alloc()`, `ptk_scratch_alloc_aligned()`, `ptk_scratch_alloc_slice()`, or `ptk_slice_alloc()` for all buffer and array allocations.
+- For persistent or shared data, use explicit user-provided buffers or platform-appropriate allocation APIs as required by the public API.
+- Resource cleanup should be handled by the allocator or by explicit API calls; there is no destructor callback in the public API.
 - Ownership rules:
-  - If a function returns a pointer, the caller owns it and must free it with `ptk_local_free()`.
+  - If a function returns a pointer or slice, the caller owns it and must release it using the appropriate allocator or by resetting the scratch allocator.
   - If a function takes a pointer-to-pointer, it owns the value and will null out your pointer.
-
-**IMPORTANT: When using `use_shared()` or `on_shared_fail` blocks, you MUST NOT use `return` to exit the block. Only `break` is allowed for early exit.**
-
-> **WARNING:**
->   Using `return` inside a `use_shared()` or `on_shared_fail` block will result in undefined behavior and may leak resources. The macro relies on structured control flow to ensure proper resource release. Always use `break` to exit these blocks early.
-
-**Example (correct):**
-```c
-use_shared(handle, 100, my_struct_t *ptr) {
-    if(ptr->field == 0) {
-        break; // OK: releases resources properly
-    }
-    // ...
-} on_shared_fail {
-    // ...
-}
-```
-
-**Example (incorrect, do NOT do this):**
-```c
-use_shared(handle, 100, my_struct_t *ptr) {
-    if(ptr->field == 0) {
-        return; // ERROR: do NOT use return here!
-    }
-    // ...
-} on_shared_fail {
-    // ...
-}
-```
-
-This restriction is required for correct resource management!
 
 ---
 
+
+
+
 ## 5. Logging and Debugging
 
-- Use the logging functions/macros in `ptk_log.h` for all logging.
-- Do not include function names or line numbers in log messages (the macros do this automatically).
-- Log levels:
-  - `info()`: function entry/exit
-  - `debug()`: important steps within functions
-  - `warn()`: recoverable failures (e.g., out of file descriptors)
-  - `error()`: catastrophic failures (e.g., allocation failure)
-  - `trace()`: very frequent events (e.g., tight loops, frequent callbacks)
+- Use the logging macros in `ptk_log.h` for all logging. The available macros are:
+  - `PTK_LOG(fmt, ...)` for general logging with file, function, and line number automatically included.
+  - `PTK_LOG_SLICE(slice)` to print a byte slice as hex with context.
+- There are no separate log levels; use `PTK_LOG` for all log messages.
+- Do not include function names or line numbers in log messages; the macro adds these automatically.
 
 ---
 
@@ -154,16 +122,15 @@ This restriction is required for correct resource management!
 
 ---
 
+
+
 ## 8. General Coding Practices
 
-- All code must be bounds-checked; avoid pointer arithmetic.
-- Use safe array/buffer accessors.
-- Do not store raw pointers from shared memory beyond their acquire/release block.
-- Handle reference count overflow gracefully in shared memory APIs.
-- Shared memory is thread-safe, but the data it points to may not be—add your own synchronization if needed.
+- All code must be bounds-checked; avoid pointer arithmetic. Use the type-safe slice system (`ptk_slice_*_t` and helpers) for all buffer and array access.
+- Use the provided slice macros and functions (see `ptk_slice.h`) for safe, type-checked access to arrays and buffers.
+- Do not store raw pointers from shared memory or buffers beyond their valid lifetime.
 - Internal implementation functions and data definitions within a `.c` file should always be `static`.
 - Header files that declare public functions and data must use `extern` explicitly.
-- Static inline functions are typesafe.  Macros are not.  Do not use macros when it would be just as easy to add a static inline function.
-- Use the safe array template.
+- Use static inline functions for type safety where possible. Macros are used for slice and serialization helpers where appropriate.
 
 ---

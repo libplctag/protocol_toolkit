@@ -1,4 +1,5 @@
 #include <ptk_event.h>
+#include <ptk_dgram_mem_socket_impl.h>
 #include <ptk_log.h>
 #include <ptk_time.h>
 #include <stdbool.h>
@@ -107,18 +108,17 @@ ptk_status_t ptk_init_udp_connection(ptk_udp_connection_t* conn, const char* hos
     return PTK_OK;
 }
 
-// App event connection initialization
+// App event connection initialization (now uses in-memory dgram socket)
 ptk_status_t ptk_init_app_event_connection(ptk_app_event_connection_t* conn, ptk_slice_bytes_t buffer_slice) {
-    if (!conn || !buffer_slice.data || buffer_slice.len == 0) return PTK_ERROR_INVALID_PARAM;
+    if (!conn) return PTK_ERROR_INVALID_PARAM;
     memset(conn, 0, sizeof(*conn));
     conn->base.type = PTK_EVENT_SOURCE_APP_EVENT;
     conn->base.state = 0;
-    conn->fd = -1;
-    conn->buffer = buffer_slice;
-    conn->data_len = 0;
-    conn->data_ready = 0;
-    // pthread_mutex_init(&conn->mutex, NULL);
-    // pthread_cond_init(&conn->cond, NULL);
+    // Initialize the in-memory dgram socket (platform-specific)
+    ptk_status_t st = ptk_dgram_mem_socket_init(&conn->dgram_sock, buffer_slice);
+    if (st != PTK_OK) return st;
+    // Expose the read end of the notification pipe as fd for select()
+    conn->fd = ptk_dgram_mem_socket_get_fd(&conn->dgram_sock);
     return PTK_OK;
 }
 
@@ -157,9 +157,8 @@ ptk_slice_t ptk_connection_read(ptk_connection_t* conn, ptk_slice_t* buffer, uin
         }
         case PTK_EVENT_SOURCE_APP_EVENT: {
             ptk_app_event_connection_t* app = (ptk_app_event_connection_t*)conn;
-            size_t to_copy = buffer->len < PTK_APP_EVENT_DATA_SIZE ? buffer->len : PTK_APP_EVENT_DATA_SIZE;
-            memcpy(buffer->data, app->data, to_copy);
-            n = to_copy;
+            // Use the dgram socket receive function
+            n = ptk_dgram_mem_socket_recv(&app->dgram_sock, buffer->data, buffer->len, timeout_ms);
             break;
         }
         default: return (ptk_slice_t){0};
@@ -186,9 +185,8 @@ ptk_status_t ptk_connection_write(ptk_connection_t* conn, ptk_slice_t* data, uin
         }
         case PTK_EVENT_SOURCE_APP_EVENT: {
             ptk_app_event_connection_t* app = (ptk_app_event_connection_t*)conn;
-            size_t to_copy = data->len < PTK_APP_EVENT_DATA_SIZE ? data->len : PTK_APP_EVENT_DATA_SIZE;
-            memcpy(app->data, data->data, to_copy);
-            n = to_copy;
+            // Use the dgram socket send function
+            n = ptk_dgram_mem_socket_send(&app->dgram_sock, data->data, data->len, timeout_ms);
             break;
         }
         default: return PTK_ERROR_INVALID_PARAM;
@@ -263,6 +261,14 @@ int ptk_wait_for_multiple(ptk_connection_t** event_sources, size_t count, uint32
             }
             case PTK_EVENT_SOURCE_TIMER: {
                 // Timers handled below
+                break;
+            }
+            case PTK_EVENT_SOURCE_APP_EVENT: {
+                // The fd is already included in the fd set, so state will be set by select()
+                int fd = ((ptk_app_event_connection_t*)conn)->fd;
+                if (fd >= 0 && FD_ISSET(fd, &readfds)) {
+                    conn->state |= PTK_CONN_DATA_READY;
+                }
                 break;
             }
             default: break;
