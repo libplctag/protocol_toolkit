@@ -1,341 +1,279 @@
-# Detailed Explanation of libuv and State Machine Functions
+# **Protothread-Based Event-Driven System**
 
-This document describes the key functions from `libuv` and the state machine design. Each function includes a detailed explanation of its parameters, behavior, and callback signatures, sufficient to reimplement these components in C using the C11 standard. Additionally, the proposed structs for the state machine implementation are included.
+## **Overview**
 
----
-
-## **libuv Functions**
-
-### **1. Initialization and Tear Down**
-
-#### **a. uv_loop_init**
-Initializes a new event loop.
-
-- **Parameters:**
-  - `uv_loop_t* loop`: A pointer to an uninitialized `uv_loop_t` structure.
-
-- **Behavior:**
-  Allocates and initializes the internal structures for the event loop. This function must be called before any operations involving the loop.
+This system provides a lightweight, event-driven framework for managing cooperative multitasking using protothreads. Protothreads allow you to write sequential-looking code while leveraging event-driven mechanisms underneath. The system is designed for embedded environments with constrained resources, such as network protocol stacks.
 
 ---
 
-#### **b. uv_loop_close**
-Closes an event loop.
+## **Definitions**
 
-- **Parameters:**
-  - `uv_loop_t* loop`: A pointer to the initialized `uv_loop_t` structure.
+### **1. Protothread**
+A protothread (PT) is a lightweight, stackless coroutine that allows cooperative multitasking. It executes sequential logic but yields control explicitly using macros. Only one protothread runs at a time, and it can suspend itself to wait for events.
 
-- **Behavior:**
-  Releases all resources associated with the event loop. The loop must not have any active handles or requests when this function is called (all handles must be closed first).
+### **2. Event**
+An event is a signal that something has occurred, such as:
+- A socket becoming readable/writable.
+- A timer expiring.
+- A hardware interrupt.
 
----
+### **3. Event Source**
+An event source is a producer of events. Examples include:
+- Sockets (for network I/O events).
+- Timers (for timeout or periodic events).
+- Queues (for task or message notifications).
 
-#### **c. uv_run**
-Runs the event loop.
+Each event source maintains one or more event queues, which hold protothreads waiting for specific events.
 
-- **Parameters:**
-  - `uv_loop_t* loop`: The event loop to run.
-  - `uv_run_mode mode`: The mode to run the loop in. Can be one of:
-    - `UV_RUN_DEFAULT`: Runs the loop until no active handles or requests remain.
-    - `UV_RUN_ONCE`: Polls for I/O events once and returns.
-    - `UV_RUN_NOWAIT`: Polls for I/O events without blocking and returns immediately.
+### **4. Event Queue**
+An event queue is a linked list or circular buffer that stores protothreads waiting for a specific event from an event source. When the event occurs, protothreads are dequeued and executed by the event loop.
 
-- **Behavior:**
-  Starts the event loop, processing events until the specified condition is met. This function drives the entire program's execution by repeatedly invoking callbacks for ready events.
-
----
-
-#### **d. uv_default_loop**
-Retrieves the default event loop.
-
-- **Parameters:**
-  None.
-
-- **Returns:**
-  A pointer to the default `uv_loop_t` structure.
-
-- **Behavior:**
-  Returns a pointer to the globally shared default event loop. This loop is allocated and initialized automatically and can be used instead of creating a custom loop.
+### **5. Event Loop**
+The event loop is the core of the system. It:
+1. Monitors all event sources.
+2. Processes events by dequeuing protothreads waiting for those events.
+3. Executes protothreads until they suspend themselves or finish execution.
 
 ---
 
-### **2. TCP Functions**
+## **System Requirements**
 
-#### **a. uv_tcp_init**
-Initializes a TCP handle.
+### **1. Lightweight Design**
+- Use minimal memory (stackless protothreads, small data structures).
+- Ensure efficient CPU utilization by avoiding unnecessary polling or context switching.
 
-- **Parameters:**
-  - `uv_loop_t* loop`: A pointer to the event loop where the handle will be registered.
-  - `uv_tcp_t* handle`: A pointer to a user-allocated TCP handle structure.
+### **2. Event-Driven Architecture**
+- Allow protothreads to suspend themselves and wait for specific events.
+- Resume protothreads only when their events occur.
 
-- **Behavior:**
-  Initializes a TCP handle and binds it to the provided event loop. This must be called before using the handle.
+### **3. Thread-Safe Event Raising**
+- Ensure event sources can raise events safely from other threads or interrupt service routines (ISRs).
+- Use appropriate synchronization (e.g., mutexes or atomic operations) for event queues.
 
----
+### **4. Dynamic Event Switching**
+- Support protothreads dynamically switching between different events (e.g., waiting for a request, then waiting for a response).
 
-#### **b. uv_tcp_connect**
-Connects a TCP handle to a remote server.
+### **5. Scalability**
+- Handle multiple protothreads, event sources, and events efficiently without excessive overhead.
 
-- **Parameters:**
-  - `uv_connect_t* req`: A request object for the connection operation.
-  - `uv_tcp_t* handle`: The TCP handle to use for the connection.
-  - `const struct sockaddr* addr`: The address of the remote server.
-  - `uv_connect_cb cb`: A callback invoked when the connection is established or fails.
-
-- **Callback Signature (`uv_connect_cb`):**
-  ```c
-  void connect_cb(uv_connect_t* req, int status);
-  ```
-  - `uv_connect_t* req`: The connection request.
-  - `int status`: The status of the connection. A value of `0` indicates success, while a negative value indicates an error.
-
-- **Behavior:**
-  Initiates a connection to a remote server. The `cb` is called upon success or failure.
+### **6. Debugging**
+- Provide utilities for logging and debugging protothread states, event queues, and event handling.
 
 ---
 
-#### **c. uv_tcp_bind**
-Binds a TCP handle to a local address and port.
+## **APIs**
 
-- **Parameters:**
-  - `uv_tcp_t* handle`: The TCP handle to bind.
-  - `const struct sockaddr* addr`: The local address to bind to.
-  - `unsigned int flags`: Optional flags for the binding (e.g., IPv6 support).
+### **1. Protothread API**
 
-- **Behavior:**
-  Binds the TCP handle to the specified local address and port, enabling it to accept incoming connections.
-
----
-
-#### **d. uv_listen**
-Puts a TCP handle into listening mode.
-
-- **Parameters:**
-  - `uv_stream_t* stream`: A stream handle (typically `uv_tcp_t`) to listen for connections.
-  - `int backlog`: The maximum number of pending connections.
-  - `uv_connection_cb cb`: A callback invoked when a new connection is accepted.
-
-- **Callback Signature (`uv_connection_cb`):**
-  ```c
-  void connection_cb(uv_stream_t* server, int status);
-  ```
-  - `uv_stream_t* server`: The server handle.
-  - `int status`: The status of the new connection. A value of `0` means a new connection is ready to be accepted, while a negative value indicates an error.
-
-- **Behavior:**
-  Starts listening for incoming connections. When a connection is ready, the `cb` is invoked.
-
----
-
-#### **e. uv_accept**
-Accepts an incoming connection.
-
-- **Parameters:**
-  - `uv_stream_t* server`: The server stream handle.
-  - `uv_stream_t* client`: A client stream handle to use for the accepted connection.
-
-- **Behavior:**
-  Accepts a pending connection on the server handle and assigns it to the client handle.
-
----
-
-#### **f. uv_read_start**
-Begins reading data from a stream.
-
-- **Parameters:**
-  - `uv_stream_t* stream`: The stream handle to read from.
-  - `uv_alloc_cb alloc_cb`: A callback to allocate memory for incoming data.
-  - `uv_read_cb read_cb`: A callback invoked when data is read or an error occurs.
-
-- **Callback Signatures:**
-  - **`uv_alloc_cb`:**
-    ```c
-    void alloc_cb(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
-    ```
-    - `uv_handle_t* handle`: The handle for which the buffer is being allocated.
-    - `size_t suggested_size`: The suggested size for the buffer.
-    - `uv_buf_t* buf`: A structure to store the allocated buffer.
-
-  - **`uv_read_cb`:**
-    ```c
-    void read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
-    ```
-    - `uv_stream_t* stream`: The stream handle.
-    - `ssize_t nread`: The number of bytes read (`< 0` indicates an error).
-    - `const uv_buf_t* buf`: The buffer containing the data.
-
-- **Behavior:**
-  Monitors the stream for readable data and invokes the `alloc_cb` and `read_cb` as needed.
-
----
-
-### **3. Timers**
-
-#### **a. uv_timer_init**
-Initializes a timer handle.
-
-- **Parameters:**
-  - `uv_loop_t* loop`: The event loop where the handle will be registered.
-  - `uv_timer_t* handle`: A pointer to a user-allocated timer handle.
-
-- **Behavior:**
-  Prepares the timer handle for use.
-
----
-
-#### **b. uv_timer_start**
-Starts a timer.
-
-- **Parameters:**
-  - `uv_timer_t* handle`: The timer handle to start.
-  - `uv_timer_cb cb`: A callback invoked when the timer expires.
-  - `uint64_t timeout`: Time in milliseconds before the first expiration.
-  - `uint64_t repeat`: Time in milliseconds for subsequent expirations (set to `0` for one-shot timers).
-
-- **Callback Signature (`uv_timer_cb`):**
-  ```c
-  void timer_cb(uv_timer_t* handle);
-  ```
-  - `uv_timer_t* handle`: The timer handle.
-
-- **Behavior:**
-  Starts the timer. The `cb` is invoked when the timer expires.
-
----
-
-#### **c. uv_timer_stop**
-Stops a running timer.
-
-- **Parameters:**
-  - `uv_timer_t* handle`: The timer handle to stop.
-
-- **Behavior:**
-  Stops the timer if it is running.
-
----
-
-## **State Machine Functions**
-
-### **1. State Machine Initialization**
-
-#### **a. state_machine_init**
-Initializes a state machine.
-
-- **Parameters:**
-  - `StateMachine* sm`: Pointer to the state machine instance.
-  - `State initial_state`: The initial state of the state machine.
-  - `TransitionTable* transitions`: Pointer to the transition table.
-  - `void* context`: Optional context for the state machine.
-
-- **Behavior:**
-  Sets up the state machine with its initial state, transition table, and context.
-
----
-
-### **2. Event Processing**
-
-#### **a. state_machine_process_event**
-Processes an event in the state machine.
-
-- **Parameters:**
-  - `StateMachine* sm`: Pointer to the state machine instance.
-  - `Event event`: The event to process.
-
-- **Behavior:**
-  Looks up the appropriate transition for the current state and event, executes the associated action, and updates the state.
-
----
-
-### **3. State and Context Access**
-
-#### **a. state_machine_get_state**
-Retrieves the current state of the state machine.
-
-- **Parameters:**
-  - `StateMachine* sm`: Pointer to the state machine instance.
-
-- **Behavior:**
-  Returns the current state.
-
----
-
-#### **b. state_machine_get_context**
-Retrieves the context associated with the state machine.
-
-- **Parameters:**
-  - `StateMachine* sm`: Pointer to the state machine instance.
-
-- **Behavior:**
-  Returns the context pointer.
-
----
-
-### **4. Transition Management**
-
-#### **a. find_transition**
-Finds a transition for a given state and event.
-
-- **Parameters:**
-  - `TransitionTable* table`: Pointer to the transition table.
-  - `State current_state`: The current state.
-  - `Event event`: The event to process.
-
-- **Behavior:**
-  Searches the transition table for a matching state-event pair and returns the associated transition.
-
----
-
-#### **b. execute_transition**
-Executes a transition in the state machine.
-
-- **Parameters:**
-  - `StateMachine* sm`: Pointer to the state machine instance.
-  - `Transition* transition`: The transition to execute.
-
-- **Behavior:**
-  Executes the action associated with the transition and updates the state machine's state.
-
----
-
-### **5. Proposed Structs for the State Machine**
-
-#### **a. State Machine Definition**
+#### **Protothread Structure**
 ```c
-typedef enum {
-    STATE_IDLE,
-    STATE_WAITING,
-    STATE_PROCESSING,
-    STATE_DONE
-} State;
-
-typedef enum {
-    EVENT_START,
-    EVENT_DATA_RECEIVED,
-    EVENT_TIMEOUT,
-    EVENT_COMPLETE
-} Event;
-
-typedef struct {
-    State next_state;
-    void (*action)(void* context); // Function pointer for the action to execute
-} Transition;
-
-typedef struct {
-    State current_state;           // Current state of the state machine
-    void* context;                 // Pointer to any user-defined context
-    Transition* transitions;       // Pointer to the transition table
-    size_t num_transitions;        // Number of transitions in the table
-} StateMachine;
+typedef struct protothread {
+    void (*function)(struct protothread* self, void* arg); // Function pointer for the protothread
+    void* context;                                         // User-defined context (e.g., socket or app state)
+    struct protothread* next;                              // Next protothread in the event queue
+} protothread_t;
 ```
 
-#### **b. Transition Table Struct**
+#### **Macros**
+
+- **`PT_BEGIN(pt)`**
+  - Marks the start of a protothread function.
+  - Must be the first statement in the protothread.
+
+- **`PT_END(pt)`**
+  - Marks the end of a protothread function.
+  - Indicates that the protothread is finished.
+
+- **`PT_WAIT_UNTIL(pt, condition)`**
+  - Suspends the protothread until the specified condition is true.
+
+- **`PT_WAIT_UNTIL_WITH_EVENT(pt, src, evt, condition)`**
+  - Suspends the protothread, registers it with the event queue for the specified event, and resumes when the condition is true.
+
+- **`suspend_pt(pt, src, evt)`**
+  - A low-level macro that suspends the protothread on the specified event queue.
+
+---
+
+### **2. Event Source API**
+
+#### **Event Queue Structure**
 ```c
-typedef struct {
-    Transition* transitions;       // Array of state-event transitions
-    size_t num_transitions;        // Number of transitions in the table
-} TransitionTable;
+typedef struct event_queue {
+    protothread_t* head;                     // Head of the protothread queue
+    protothread_t* tail;                     // Tail of the protothread queue
+    pthread_mutex_t lock;                    // Mutex for thread-safe access
+} event_queue_t;
+```
+
+#### **Event Source Structure**
+```c
+typedef struct event_source {
+    event_queue_t events[MAX_EVENTS];        // Array of event queues for specific events
+} event_source_t;
+```
+
+#### **Functions**
+
+- **`void enqueue_protothread(event_queue_t* queue, protothread_t* pt)`**
+  - Adds a protothread to the specified event queue (thread-safe).
+
+- **`protothread_t* dequeue_protothread(event_queue_t* queue)`**
+  - Removes and returns the first protothread from the specified event queue (thread-safe).
+
+- **`void raise_event(event_source_t* src, int event_type)`**
+  - Marks an event as raised and schedules all protothreads waiting for the event.
+
+---
+
+### **3. Timer API**
+
+#### **Timer Structure**
+```c
+typedef struct timer {
+    uint64_t expiry_time;                    // Absolute time when the timer expires
+    int active;                              // Whether the timer is active
+} timer_t;
+```
+
+#### **Functions**
+
+- **`void timer_init(timer_t* timer)`**
+  - Initializes the timer object.
+
+- **`void sleep_for_ms(protothread_t* pt, timer_t* timer, uint64_t delay_ms)`**
+  - Suspends the protothread until the specified delay (in milliseconds) has elapsed.
+
+---
+
+### **4. Event Loop API**
+
+#### **Functions**
+
+- **`void process_event(event_source_t* src, int event_type)`**
+  - Processes all protothreads waiting for the specified event.
+
+- **`void run_event_loop(void)`**
+  - Continuously monitors event sources and processes events as they occur.
+
+---
+
+### **5. Convenience Macros**
+
+#### **`wait_for_event(pt, src, evt)`**
+Waits for a specific event on a specific event source.
+```c
+#define wait_for_event(pt, src, evt) \
+    suspend_pt(pt, src, evt)
+```
+
+#### **`receive_data(pt, sock)`**
+Waits for incoming data on a socket and reads the data after the wait ends.
+```c
+#define receive_data(pt, sock, buffer, len) \
+    do { \
+        suspend_pt(pt, sock, EVENT_READABLE); \
+        read_socket(sock, buffer, len); \
+    } while (0)
+```
+
+#### **`send_data(pt, sock, buffer, len)`**
+Waits for the socket to become writable and sends the data after the wait ends.
+```c
+#define send_data(pt, sock, buffer, len) \
+    do { \
+        suspend_pt(pt, sock, EVENT_WRITABLE); \
+        write_socket(sock, buffer, len); \
+    } while (0)
+```
+
+#### **`sleep_for_ms(pt, timer, delay_ms)`**
+Waits for the specified delay using a pre-initialized timer.
+```c
+#define sleep_for_ms(pt, timer, delay_ms) \
+    do { \
+        (timer)->expiry_time = current_time() + (delay_ms); \
+        suspend_pt(pt, timer, TIMER_EVENT); \
+    } while (0)
 ```
 
 ---
 
-This document now includes the proposed structs for the state machine implementation, along with all previously included details about `libuv` and state machine functions.
+## **Example Usage**
+
+### **Request-Response Workflow**
+```c
+void request_handler_protothread(protothread_t* pt, void* arg) {
+    PT_BEGIN(pt);
+
+    request_queue_t* queue = (request_queue_t*)arg;
+    char response_buffer[256];
+    char request_buffer[256];
+
+    while (1) {
+        // Wait for a trigger event
+        wait_for_event(pt, queue->event_source, REQUEST_TRIGGER);
+
+        while (!is_queue_empty(queue)) {
+            request_t* req = dequeue_request(queue);
+
+            // Send the request
+            send_data(pt, req->socket, req->data, req->length);
+
+            // Wait for the response
+            receive_data(pt, req->socket, response_buffer, sizeof(response_buffer));
+
+            process_response(response_buffer);
+            free_request(req);
+        }
+    }
+
+    PT_END(pt);
+}
+```
+
+---
+
+## **Appendix: Implementation Examples**
+
+### **1. Event Queue Management**
+```c
+void enqueue_protothread(event_queue_t* queue, protothread_t* pt) {
+    pthread_mutex_lock(&queue->lock);
+
+    if (queue->tail) {
+        queue->tail->next = pt;
+    } else {
+        queue->head = pt;
+    }
+    queue->tail = pt;
+    pt->next = NULL;
+
+    pthread_mutex_unlock(&queue->lock);
+}
+```
+
+### **2. Timer Example**
+```c
+void timer_init(timer_t* timer) {
+    timer->expiry_time = 0;
+    timer->active = 0;
+}
+```
+
+### **3. Socket Read and Write**
+```c
+int read_socket(socket_t* sock, char* buffer, size_t len) {
+    // Example implementation of reading from a socket
+    return recv(sock->fd, buffer, len, 0);
+}
+
+int write_socket(socket_t* sock, const char* buffer, size_t len) {
+    // Example implementation of writing to a socket
+    return send(sock->fd, buffer, len, 0);
+}
+```
+
+---
+
+End of Document.
