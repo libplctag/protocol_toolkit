@@ -9,7 +9,7 @@ This system provides a lightweight, event-driven framework for managing cooperat
 ## **Definitions**
 
 ### **1. Protothread**
-A protothread (PT) is a lightweight, stackless coroutine that allows cooperative multitasking. It executes sequential logic but yields control explicitly using macros. Only one protothread runs at a time, and it can suspend itself to wait for events.
+A ptk_pt (PT) is a lightweight, stackless coroutine that allows cooperative multitasking. It executes sequential logic but yields control explicitly using macros. Only one ptk_pt runs at a time, and it can suspend itself to wait for events.
 
 ### **2. Event**
 An event is a signal that something has occurred, such as:
@@ -57,7 +57,7 @@ The event loop is the core of the system. It:
 - Handle multiple protothreads, event sources, and events efficiently without excessive overhead.
 
 ### **6. Debugging**
-- Provide utilities for logging and debugging protothread states, event queues, and event handling.
+- Provide utilities for logging and debugging ptk_pt states, event queues, and event handling.
 
 ---
 
@@ -67,31 +67,31 @@ The event loop is the core of the system. It:
 
 #### **Protothread Structure**
 ```c
-typedef struct protothread {
-    void (*function)(struct protothread* self, void* arg); // Function pointer for the protothread
+typedef struct ptk_pt {
+    void (*function)(struct ptk_pt* self, void* arg); // Function pointer for the ptk_pt
     void* context;                                         // User-defined context (e.g., socket or app state)
-    struct protothread* next;                              // Next protothread in the event queue
-} protothread_t;
+    struct ptk_pt* next;                              // Next ptk_pt in the event queue
+} ptk_pt_t;
 ```
 
 #### **Macros**
 
 - **`PT_BEGIN(pt)`**
-  - Marks the start of a protothread function.
-  - Must be the first statement in the protothread.
+  - Marks the start of a ptk_pt function.
+  - Must be the first statement in the ptk_pt.
 
 - **`PT_END(pt)`**
-  - Marks the end of a protothread function.
-  - Indicates that the protothread is finished.
+  - Marks the end of a ptk_pt function.
+  - Indicates that the ptk_pt is finished.
 
 - **`PT_WAIT_UNTIL(pt, condition)`**
-  - Suspends the protothread until the specified condition is true.
+  - Suspends the ptk_pt until the specified condition is true.
 
 - **`PT_WAIT_UNTIL_WITH_EVENT(pt, src, evt, condition)`**
-  - Suspends the protothread, registers it with the event queue for the specified event, and resumes when the condition is true.
+  - Suspends the ptk_pt, registers it with the event queue for the specified event, and resumes when the condition is true.
 
 - **`suspend_pt(pt, src, evt)`**
-  - A low-level macro that suspends the protothread on the specified event queue.
+  - A low-level macro that suspends the ptk_pt on the specified event queue.
 
 ---
 
@@ -99,29 +99,29 @@ typedef struct protothread {
 
 #### **Event Queue Structure**
 ```c
-typedef struct event_queue {
-    protothread_t* head;                     // Head of the protothread queue
-    protothread_t* tail;                     // Tail of the protothread queue
+typedef struct ptk_event_queue {
+    ptk_pt_t* head;                     // Head of the ptk_pt queue
+    ptk_pt_t* tail;                     // Tail of the ptk_pt queue
     pthread_mutex_t lock;                    // Mutex for thread-safe access
-} event_queue_t;
+} ptk_event_queue_t;
 ```
 
 #### **Event Source Structure**
 ```c
-typedef struct event_source {
-    event_queue_t events[MAX_EVENTS];        // Array of event queues for specific events
-} event_source_t;
+typedef struct ptk_event_source {
+    ptk_event_queue_t events[MAX_EVENTS];        // Array of event queues for specific events
+} ptk_event_source_t;
 ```
 
 #### **Functions**
 
-- **`void enqueue_protothread(event_queue_t* queue, protothread_t* pt)`**
-  - Adds a protothread to the specified event queue (thread-safe).
+- **`void enqueue_protothread(ptk_event_queue_t* queue, ptk_pt_t* pt)`**
+  - Adds a ptk_pt to the specified event queue (thread-safe).
 
-- **`protothread_t* dequeue_protothread(event_queue_t* queue)`**
-  - Removes and returns the first protothread from the specified event queue (thread-safe).
+- **`ptk_pt_t* dequeue_protothread(ptk_event_queue_t* queue)`**
+  - Removes and returns the first ptk_pt from the specified event queue (thread-safe).
 
-- **`void raise_event(event_source_t* src, int event_type)`**
+- **`void raise_event(ptk_event_source_t* src, int event_type)`**
   - Marks an event as raised and schedules all protothreads waiting for the event.
 
 ---
@@ -130,19 +130,19 @@ typedef struct event_source {
 
 #### **Timer Structure**
 ```c
-typedef struct timer {
+typedef struct ptk_timer {
     uint64_t expiry_time;                    // Absolute time when the timer expires
     int active;                              // Whether the timer is active
-} timer_t;
+} ptk_timer_t;
 ```
 
 #### **Functions**
 
-- **`void timer_init(timer_t* timer)`**
+- **`void timer_init(ptk_timer_t* timer)`**
   - Initializes the timer object.
 
-- **`void sleep_for_ms(protothread_t* pt, timer_t* timer, uint64_t delay_ms)`**
-  - Suspends the protothread until the specified delay (in milliseconds) has elapsed.
+- **`void sleep_for_ms(ptk_pt_t* pt, ptk_timer_t* timer, uint64_t delay_ms)`**
+  - Suspends the ptk_pt until the specified delay (in milliseconds) has elapsed.
 
 ---
 
@@ -150,7 +150,7 @@ typedef struct timer {
 
 #### **Functions**
 
-- **`void process_event(event_source_t* src, int event_type)`**
+- **`void process_event(ptk_event_source_t* src, int event_type)`**
   - Processes all protothreads waiting for the specified event.
 
 - **`void run_event_loop(void)`**
@@ -203,7 +203,7 @@ Waits for the specified delay using a pre-initialized timer.
 
 ### **Request-Response Workflow**
 ```c
-void request_handler_protothread(protothread_t* pt, void* arg) {
+void request_handler_protothread(ptk_pt_t* pt, void* arg) {
     PT_BEGIN(pt);
 
     request_queue_t* queue = (request_queue_t*)arg;
@@ -238,7 +238,7 @@ void request_handler_protothread(protothread_t* pt, void* arg) {
 
 ### **1. Event Queue Management**
 ```c
-void enqueue_protothread(event_queue_t* queue, protothread_t* pt) {
+void enqueue_protothread(ptk_event_queue_t* queue, ptk_pt_t* pt) {
     pthread_mutex_lock(&queue->lock);
 
     if (queue->tail) {
@@ -255,7 +255,7 @@ void enqueue_protothread(event_queue_t* queue, protothread_t* pt) {
 
 ### **2. Timer Example**
 ```c
-void timer_init(timer_t* timer) {
+void timer_init(ptk_timer_t* timer) {
     timer->expiry_time = 0;
     timer->active = 0;
 }
