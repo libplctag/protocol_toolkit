@@ -66,21 +66,21 @@ endif()
 #=============================================================================
 
 # Add protocol toolkit library
-add_subdirectory(src/lib)
+add_library(ptk STATIC ${SOURCES})
 
 #=============================================================================
 # EXAMPLES
 #=============================================================================
 
 # Add examples (only if requested)
-if(PTK_BUILD_EXAMPLES)
-    add_subdirectory(src/examples)
-endif()
+# if(PTK_BUILD_EXAMPLES)
+#     add_subdirectory(src/examples)
+# endif()
 
 # Add tests (only if requested)
-if(PTK_BUILD_TESTS)
-    add_subdirectory(src/tests)
-endif()
+# if(PTK_BUILD_TESTS)
+#     add_subdirectory(src/tests)
+# endif()
 
 #=============================================================================
 # INSTALLATION
@@ -88,7 +88,7 @@ endif()
 
 if(PTK_INSTALL)
     include(CMakePackageConfigHelpers)
-    
+
     # Install the main library target
     install(TARGETS ptk
         EXPORT PTKTargets
@@ -97,31 +97,19 @@ if(PTK_INSTALL)
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include
     )
-    
+
     # Install headers
     install(FILES
-        src/include/ptk.h
-        src/include/ptk_alloc.h
-        src/include/ptk_array.h
-        src/include/ptk_atomic.h
-        src/include/ptk_buf.h
-        src/include/ptk_config.h
-        src/include/ptk_err.h
-        src/include/ptk_log.h
-        src/include/ptk_os_thread.h
-        src/include/ptk_shared.h
-        src/include/ptk_sock.h
-        src/include/ptk_threadlet.h
-        src/include/ptk_utils.h
+        # none
         DESTINATION include
     )
-    
+
     # Install example executables if built
-    if(TARGET arithmetic_server)
-        install(TARGETS arithmetic_server arithmetic_client
-            RUNTIME DESTINATION bin
-        )
-    endif()
+    # if(TARGET arithmetic_server)
+    #     install(TARGETS arithmetic_server arithmetic_client
+    #         RUNTIME DESTINATION bin
+    #     )
+    # endif()
 
     # Generate and install CMake config files
     write_basic_package_version_file(
@@ -137,7 +125,7 @@ if(PTK_INSTALL)
     )
 
     configure_file(cmake/PTKConfig.cmake.in PTKConfig.cmake @ONLY)
-    install(FILES 
+    install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/PTKConfig.cmake
         ${CMAKE_CURRENT_BINARY_DIR}/PTKConfigVersion.cmake
         DESTINATION lib/cmake/PTK
@@ -190,7 +178,7 @@ if(PTK_IS_MAIN_PROJECT)
     message(STATUS "Libraries built:")
     message(STATUS "  - protocol_toolkit: Core utilities (buf, err, log, socket, thread, utils)")
     message(STATUS "")
-    
+
     if(PTK_BUILD_EXAMPLES)
         message(STATUS "Examples:")
         message(STATUS "  - ethernetip: EtherNet/IP device discovery tool")
@@ -198,7 +186,7 @@ if(PTK_IS_MAIN_PROJECT)
         message(STATUS "  - howto: Arithmetic protocol tutorial (client/server with CRC)")
         message(STATUS "")
     endif()
-    
+
     if(PTK_BUILD_TESTS)
         message(STATUS "Tests available:")
         message(STATUS "  - test_tcp_echo_abort: TCP socket abort functionality")
