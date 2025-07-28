@@ -9,55 +9,62 @@ This system provides a lightweight, event-driven framework for managing cooperat
 ## **Definitions**
 
 ### **1. Protothread**
+
 A ptk_pt (PT) is a lightweight, stackless coroutine that allows cooperative multitasking. It executes sequential logic but yields control explicitly using macros. Only one ptk_pt runs at a time, and it can suspend itself to wait for events.
 
 ### **2. Event**
+
 An event is a signal that something has occurred, such as:
+
 - A socket becoming readable/writable.
 - A timer expiring.
-- A hardware interrupt.
 
 ### **3. Event Source**
+
 An event source is a producer of events. Examples include:
+
 - Sockets (for network I/O events).
 - Timers (for timeout or periodic events).
-- Queues (for task or message notifications).
+- User/app events (for communicating between threads or for external events).
 
-Each event source maintains one or more event queues, which hold protothreads waiting for specific events.
+### **4. Event Loop**
 
-### **4. Event Queue**
-An event queue is a linked list or circular buffer that stores protothreads waiting for a specific event from an event source. When the event occurs, protothreads are dequeued and executed by the event loop.
-
-### **5. Event Loop**
 The event loop is the core of the system. It:
+
 1. Monitors all event sources.
-2. Processes events by dequeuing protothreads waiting for those events.
-3. Executes protothreads until they suspend themselves or finish execution.
+2. Processes events by running protothreads waiting for those events.
 
 ---
 
 ## **System Requirements**
 
 ### **1. Lightweight Design**
+
 - Use minimal memory (stackless protothreads, small data structures).
 - Ensure efficient CPU utilization by avoiding unnecessary polling or context switching.
 
 ### **2. Event-Driven Architecture**
+
 - Allow protothreads to suspend themselves and wait for specific events.
 - Resume protothreads only when their events occur.
 
 ### **3. Thread-Safe Event Raising**
+
 - Ensure event sources can raise events safely from other threads or interrupt service routines (ISRs).
-- Use appropriate synchronization (e.g., mutexes or atomic operations) for event queues.
+- Event handlers run in the context of the event loop.
 
 ### **4. Dynamic Event Switching**
+
 - Support protothreads dynamically switching between different events (e.g., waiting for a request, then waiting for a response).
 
 ### **5. Scalability**
+
 - Handle multiple protothreads, event sources, and events efficiently without excessive overhead.
 
 ### **6. Debugging**
+
 - Provide utilities for logging and debugging ptk_pt states, event queues, and event handling.
+- Support embedded use by removing all debugging logging when compiled with NDEBUG set.
 
 ---
 
@@ -66,11 +73,16 @@ The event loop is the core of the system. It:
 ### **1. Protothread API**
 
 #### **Protothread Structure**
+
+The base protothread structure below should be wrapped by application
+code to include any necessary application data.  The ptk_pt_t item
+should be the first in the larger struct so that the internals can
+get to the protothread step.
+
 ```c
 typedef struct ptk_pt {
-    void (*function)(struct ptk_pt* self, void* arg); // Function pointer for the ptk_pt
-    void* context;                                         // User-defined context (e.g., socket or app state)
-    struct ptk_pt* next;                              // Next ptk_pt in the event queue
+    void (*function)(struct ptk_pt *self);   // Function pointer for the ptk_pt
+    int step;                                // Step for saving the current state of the protothread
 } ptk_pt_t;
 ```
 
@@ -89,110 +101,99 @@ typedef struct ptk_pt {
 
 ### **2. Event Source API**
 
-#### **Event Queue Structure**
+#### **Event Handler Functions**
+
 ```c
-typedef struct ptk_event_queue {
-    ptk_pt_t* waiting_pt;                // Single protothread waiting for the event
-    pthread_mutex_t lock;               // Mutex for thread-safe access
-} ptk_event_queue_t;
+void set_event_handler(ptk_event_source_t* src, int event_type, ptk_pt_t* handler);
+void remove_event_handler(ptk_event_source_t* src, int event_type);
 ```
-
-#### **Event Source Structure**
-```c
-typedef struct ptk_event_source {
-    ptk_pt_t* events[MAX_EVENTS];        // Array of pointers to protothreads waiting for specific events
-    pthread_mutex_t lock;               // Mutex for thread-safe access
-} ptk_event_source_t;
-```
-
-#### **Functions**
-
-- **`void set_event_handler(ptk_event_source_t* src, int event_type, ptk_pt_t* handler)`**
-  - Sets the handler for a specific event in the event source.
-
-- **`void remove_event_handler(ptk_event_source_t* src, int event_type)`**
-  - Removes the handler for a specific event in the event source.
 
 ---
 
 ### **3. Timer API**
 
-#### **Timer Structure**
+#### **Timer Functions**
+
 ```c
-typedef struct ptk_timer {
-    uint64_t expiry_time;                    // Absolute time when the timer expires
-    int active;                              // Whether the timer is active
-} ptk_timer_t;
+ptk_handle_t ptk_timer_create(void);
+void ptk_timer_start(ptk_handle_t timer_handle, uint64_t interval_ms, bool is_repeating);
+void ptk_timer_stop(ptk_handle_t timer_handle);
+bool ptk_timer_is_running(ptk_handle_t timer_handle);
 ```
-
-#### **Functions**
-
-- **`void timer_init(ptk_timer_t* timer)`**
-  - Initializes the timer object.
-
-- **`void sleep_for_ms(ptk_pt_t* pt, ptk_timer_t* timer, uint64_t delay_ms)`**
-  - Suspends the ptk_pt until the specified delay (in milliseconds) has elapsed.
 
 ---
 
-### **4. Event Loop API**
+### **4. Error Handling**
 
-#### **Functions**
+#### **Error Codes**
 
-- **`void process_event(ptk_event_source_t* src, int event_type)`**
-  - Processes all protothreads waiting for the specified event.
+```c
+typedef enum {
+    PTK_ERR_NONE = 0,          // No error
+    PTK_ERR_INVALID_HANDLE,   // Invalid handle
+    PTK_ERR_WRONG_HANDLE_TYPE, // Handle type mismatch
+    PTK_ERR_NO_RESOURCES,     // No resources available
+    PTK_ERR_INVALID_ARGUMENT, // Invalid argument passed to a function
+    PTK_ERR_TIMER_FAILURE,    // Timer-related error
+    PTK_ERR_SOCKET_FAILURE,   // Socket-related error
+    PTK_ERR_EVENT_FAILURE,    // Event-related error
+    PTK_ERR_UNKNOWN           // Unknown error
+} ptk_error_t;
+```
 
-- **`void run_event_loop(void)`**
-  - Continuously monitors event sources and processes events as they occur.
+#### **Error Handling Functions**
+
+Get and set the last error code.  On supported platforms,
+this will be thread local.  It will be emulated on other platforms.
+
+```c
+int ptk_get_last_err();
+void ptk_set_last_err(int err);
+```
 
 ---
 
 ### **5. Convenience Macros**
 
-#### **`wait_for_event(pt, src, evt)`**
-Waits for a specific event on a specific event source.
+#### **`ptk_wait_for_event(pt, src, evt)`**
+
 ```c
-#define wait_for_event(pt, src, evt) \
+#define ptk_wait_for_event(pt, src, evt) \
     do { \
-        pthread_mutex_lock(&(src)->events[evt].lock); \
-        if ((src)->events[evt].tail) { \
-            (src)->events[evt].tail->next = (pt); \
-        } else { \
-            (src)->events[evt].head = (pt); \
-        } \
-        (src)->events[evt].tail = (pt); \
-        (pt)->next = NULL; \
-        pthread_mutex_unlock(&(src)->events[evt].lock); \
+        (pt)->step = __LINE__; \
+        ptk_set_event_handler(src, evt, pt); \
+        return; \
+        case __LINE__:; \
     } while (0)
 ```
 
-#### **`receive_data(pt, sock)`**
-Waits for incoming data on a socket and reads the data after the wait ends.
+#### **`ptk_receive_data(pt, sock, buffer, len)`**
+
 ```c
-#define receive_data(pt, sock, buffer, len) \
+#define ptk_receive_data(pt, sock, buffer, len) \
     do { \
-        wait_for_event(pt, sock, EVENT_READABLE); \
-        read_socket(sock, buffer, len); \
+        ptk_wait_for_event(pt, sock, EVENT_READABLE); \
+        ptk_read_socket(sock, buffer, len); \
     } while (0)
 ```
 
 #### **`send_data(pt, sock, buffer, len)`**
-Waits for the socket to become writable and sends the data after the wait ends.
+
 ```c
 #define send_data(pt, sock, buffer, len) \
     do { \
-        wait_for_event(pt, sock, EVENT_WRITABLE); \
-        write_socket(sock, buffer, len); \
+        ptk_wait_for_event(pt, sock, EVENT_WRITABLE); \
+        ptk_write_socket(sock, buffer, len); \
     } while (0)
 ```
 
-#### **`sleep_for_ms(pt, timer, delay_ms)`**
-Waits for the specified delay using a pre-initialized timer.
+#### **`pkt_sleep_ms(pt, timer, delay_ms)`**
+
 ```c
-#define sleep_for_ms(pt, timer, delay_ms) \
+#define pkt_sleep_ms(pt, timer, delay_ms) \
     do { \
-        (timer)->expiry_time = current_time() + (delay_ms); \
-        wait_for_event(pt, timer, TIMER_EVENT); \
+        (timer)->expiry_time = ptk_time_ms() + (delay_ms); \
+        ptk_wait_for_event(pt, timer, TIMER_EVENT); \
     } while (0)
 ```
 
@@ -201,6 +202,7 @@ Waits for the specified delay using a pre-initialized timer.
 ## **Example Usage**
 
 ### **Request-Response Workflow**
+
 ```c
 void request_handler_protothread(ptk_pt_t* pt, void* arg) {
     PTK_PT_BEGIN(pt);
@@ -236,6 +238,7 @@ void request_handler_protothread(ptk_pt_t* pt, void* arg) {
 ## **Appendix: Implementation Examples**
 
 ### **1. Event Queue Management**
+
 ```c
 void set_event_handler(ptk_event_source_t* src, int event_type, ptk_pt_t* handler) {
     pthread_mutex_lock(&src->lock);
@@ -255,6 +258,7 @@ void remove_event_handler(ptk_event_source_t* src, int event_type) {
 ```
 
 ### **2. Timer Example**
+
 ```c
 void timer_init(ptk_timer_t* timer) {
     timer->expiry_time = 0;
@@ -263,6 +267,7 @@ void timer_init(ptk_timer_t* timer) {
 ```
 
 ### **3. Socket Read and Write**
+
 ```c
 int read_socket(socket_t* sock, char* buffer, size_t len) {
     // Example implementation of reading from a socket
