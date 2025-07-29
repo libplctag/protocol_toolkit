@@ -1,198 +1,182 @@
-cmake_minimum_required(VERSION 3.18)
-project(protocol_toolkit)
-
-# Determine if this is the main project or a subproject
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    set(PTK_IS_MAIN_PROJECT TRUE)
-else()
-    set(PTK_IS_MAIN_PROJECT FALSE)
-endif()
-
-# Options
-option(PTK_BUILD_EXAMPLES "Build Protocol Toolkit examples" ${PTK_IS_MAIN_PROJECT})
-option(PTK_BUILD_TESTS "Build Protocol Toolkit tests" ${PTK_IS_MAIN_PROJECT})
-option(PTK_INSTALL "Install Protocol Toolkit files" ${PTK_IS_MAIN_PROJECT})
+cmake_minimum_required(VERSION 3.16)
+project(protocol_toolkit VERSION 4.0.0 LANGUAGES C)
 
 # Set C standard
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# Set build type if not specified
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
+# Enable testing
+enable_testing()
 
-# Set output directories
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-
-# Compiler-specific options
-if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-    # GCC and Clang options
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-unused-parameter")
-    set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG")
-    set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG")
-elseif(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-    # MSVC options
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
-    set(CMAKE_C_FLAGS_DEBUG "/Zi /Od /DDEBUG")
-    set(CMAKE_C_FLAGS_RELEASE "/O2 /DNDEBUG")
-endif()
-
-# Platform-specific settings
-if(WIN32)
-    # Windows-specific settings
-    add_definitions(-D_WIN32_WINNT=0x0601)  # Windows 7 and later
-    if(MSVC)
-        add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-    endif()
-elseif(APPLE)
-    # macOS-specific settings
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
+# Platform detection
+if(APPLE)
+    set(PTK_PLATFORM "macos")
+    set(PTK_PLATFORM_DIR "include/macos")
+    set(PTK_PLATFORM_SOURCES "")
 elseif(UNIX)
-    # Linux/BSD-specific settings
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pthread")
-
-    # Find required libraries
-    find_library(RT_LIBRARY rt)
-    if(RT_LIBRARY)
-        set(PLATFORM_LIBS ${PLATFORM_LIBS} ${RT_LIBRARY})
-    endif()
-endif()
-
-#=============================================================================
-# PROTOCOL TOOLKIT LIBRARY
-#=============================================================================
-
-# Add protocol toolkit library
-add_library(ptk STATIC ${SOURCES})
-
-#=============================================================================
-# EXAMPLES
-#=============================================================================
-
-# Add examples (only if requested)
-# if(PTK_BUILD_EXAMPLES)
-#     add_subdirectory(src/examples)
-# endif()
-
-# Add tests (only if requested)
-# if(PTK_BUILD_TESTS)
-#     add_subdirectory(src/tests)
-# endif()
-
-#=============================================================================
-# INSTALLATION
-#=============================================================================
-
-if(PTK_INSTALL)
-    include(CMakePackageConfigHelpers)
-
-    # Install the main library target
-    install(TARGETS ptk
-        EXPORT PTKTargets
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION bin
-        INCLUDES DESTINATION include
-    )
-
-    # Install headers
-    install(FILES
-        # none
-        DESTINATION include
-    )
-
-    # Install example executables if built
-    # if(TARGET arithmetic_server)
-    #     install(TARGETS arithmetic_server arithmetic_client
-    #         RUNTIME DESTINATION bin
-    #     )
-    # endif()
-
-    # Generate and install CMake config files
-    write_basic_package_version_file(
-        PTKConfigVersion.cmake
-        VERSION 1.0.0
-        COMPATIBILITY AnyNewerVersion
-    )
-
-    install(EXPORT PTKTargets
-        FILE PTKTargets.cmake
-        NAMESPACE ptk::
-        DESTINATION lib/cmake/PTK
-    )
-
-    configure_file(cmake/PTKConfig.cmake.in PTKConfig.cmake @ONLY)
-    install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/PTKConfig.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/PTKConfigVersion.cmake
-        DESTINATION lib/cmake/PTK
-    )
-
-    # Install documentation
-    install(FILES
-        how-to-use-protocol-toolkit.md
-        DESTINATION share/doc/protocol_toolkit
-    )
-
-    # Install example documentation if it exists
-    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/examples/howto/howto.md)
-        install(FILES
-            src/examples/howto/howto.md
-            DESTINATION share/doc/protocol_toolkit/examples
-        )
-    endif()
-endif()
-
-#=============================================================================
-# TESTING
-#=============================================================================
-
-# Add test targets
-# add_custom_target(test_sockets
-#     COMMENT "Testing socket implementation"
-#     DEPENDS test_tcp_echo_abort test_udp_echo_abort
-# )
-
-#=============================================================================
-# INFORMATION
-#=============================================================================
-
-# Only print detailed information if this is the main project
-if(PTK_IS_MAIN_PROJECT)
-    # Print build information
-    message(STATUS "Building Protocol Toolkit")
-    message(STATUS "  Build type: ${CMAKE_BUILD_TYPE}")
-    message(STATUS "  C Compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
-    message(STATUS "  Platform: ${CMAKE_SYSTEM_NAME}")
-
-    # Usage instructions
-    message(STATUS "")
-    message(STATUS "Build instructions:")
-    message(STATUS "  mkdir build && cd build")
-    message(STATUS "  cmake ..")
-    message(STATUS "  make")
-    message(STATUS "")
-    message(STATUS "Libraries built:")
-    message(STATUS "  - protocol_toolkit: Core utilities (buf, err, log, socket, thread, utils)")
-    message(STATUS "")
-
-    if(PTK_BUILD_EXAMPLES)
-        message(STATUS "Examples:")
-        message(STATUS "  - ethernetip: EtherNet/IP device discovery tool")
-        message(STATUS "  - modbus: Implementation guide and documentation")
-        message(STATUS "  - howto: Arithmetic protocol tutorial (client/server with CRC)")
-        message(STATUS "")
-    endif()
-
-    if(PTK_BUILD_TESTS)
-        message(STATUS "Tests available:")
-        message(STATUS "  - test_tcp_echo_abort: TCP socket abort functionality")
-        message(STATUS "  - test_udp_echo_abort: UDP socket abort functionality")
-        message(STATUS "")
-    endif()
+    set(PTK_PLATFORM "linux")
+    set(PTK_PLATFORM_DIR "lib/linux")
+    set(PTK_PLATFORM_SOURCES "src/lib/linux/protocol_toolkit_linux.c")
+    find_package(Threads REQUIRED)
 else()
-    message(STATUS "Protocol Toolkit - included as subproject")
+    set(PTK_PLATFORM "generic")
+    set(PTK_PLATFORM_DIR "include")
+    set(PTK_PLATFORM_SOURCES "")
 endif()
+
+message(STATUS "Building for platform: ${PTK_PLATFORM}")
+
+# ========================================================================
+# PROTOCOL TOOLKIT LIBRARY
+# ========================================================================
+
+# Create the main library target
+add_library(protocol_toolkit INTERFACE)
+
+# Set include directories based on platform
+target_include_directories(protocol_toolkit INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${PTK_PLATFORM_DIR}>
+    $<INSTALL_INTERFACE:include>
+)
+
+# Platform-specific configuration
+if(PTK_PLATFORM STREQUAL "linux")
+    # Linux requires pthread
+    target_link_libraries(protocol_toolkit INTERFACE Threads::Threads)
+
+    # Add the implementation source for Linux
+    add_library(protocol_toolkit_impl STATIC ${PTK_PLATFORM_SOURCES})
+    target_include_directories(protocol_toolkit_impl PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/${PTK_PLATFORM_DIR}>
+    )
+    target_link_libraries(protocol_toolkit_impl PUBLIC Threads::Threads)
+    target_link_libraries(protocol_toolkit INTERFACE protocol_toolkit_impl)
+
+elseif(PTK_PLATFORM STREQUAL "macos")
+    # macOS requires system frameworks
+    find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    target_link_libraries(protocol_toolkit INTERFACE ${FOUNDATION_FRAMEWORK})
+endif()
+
+# Compiler-specific flags
+target_compile_options(protocol_toolkit INTERFACE
+    $<$<C_COMPILER_ID:GNU>:-Wall -Wextra -Wpedantic>
+    $<$<C_COMPILER_ID:Clang>:-Wall -Wextra -Wpedantic>
+    $<$<C_COMPILER_ID:MSVC>:/W4>
+)
+
+# ========================================================================
+# EXAMPLES
+# ========================================================================
+
+# Function to add an example
+function(add_ptk_example name source_file)
+    add_executable(${name} ${source_file})
+    target_link_libraries(${name} PRIVATE protocol_toolkit)
+
+    # Platform-specific example configuration
+    if(PTK_PLATFORM STREQUAL "linux")
+        target_link_libraries(${name} PRIVATE protocol_toolkit_impl)
+    endif()
+
+    # Set output directory
+    set_target_properties(${name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/examples"
+    )
+endfunction()
+
+# Add all examples
+add_ptk_example(simple_tcp_protothread "src/examples/simple_tcp_protothread.c")
+add_ptk_example(tcp_client_protothread_example "src/examples/tcp_client_protothread_example.c")
+add_ptk_example(embedded_pattern_example "src/examples/embedded_pattern_example.c")
+
+# Platform-specific examples
+if(PTK_PLATFORM STREQUAL "linux")
+    add_ptk_example(linux_example "src/examples/linux_example.c")
+endif()
+
+# ========================================================================
+# TESTS
+# ========================================================================
+
+# Function to add a test
+function(add_ptk_test name source_file)
+    add_executable(${name} ${source_file})
+    target_link_libraries(${name} PRIVATE protocol_toolkit)
+
+    # Platform-specific test configuration
+    if(PTK_PLATFORM STREQUAL "linux")
+        target_link_libraries(${name} PRIVATE protocol_toolkit_impl)
+    endif()
+
+    # Set output directory
+    set_target_properties(${name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
+    )
+
+    # Register with CTest
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+# Add all tests
+add_ptk_test(test_basic_functionality "src/tests/test_basic_functionality.c")
+add_ptk_test(test_protothread_macros "src/tests/test_protothread_macros.c")
+
+# ========================================================================
+# CUSTOM TARGETS
+# ========================================================================
+
+# Run all tests
+add_custom_target(run_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
+    DEPENDS test_basic_functionality test_protothread_macros
+    COMMENT "Running all Protocol Toolkit tests"
+)
+
+# Run all examples
+add_custom_target(run_examples
+    COMMENT "Running all Protocol Toolkit examples"
+)
+
+# Add example dependencies
+add_dependencies(run_examples
+    simple_tcp_protothread
+    tcp_client_protothread_example
+    embedded_pattern_example
+)
+
+if(PTK_PLATFORM STREQUAL "linux")
+    add_dependencies(run_examples linux_example)
+endif()
+
+# ========================================================================
+# BUILD SUMMARY
+# ========================================================================
+
+message(STATUS "")
+message(STATUS "========================================================================")
+message(STATUS "Protocol Toolkit Build Configuration")
+message(STATUS "========================================================================")
+message(STATUS "Platform: ${PTK_PLATFORM}")
+message(STATUS "Include Directory: ${PTK_PLATFORM_DIR}")
+message(STATUS "")
+message(STATUS "Available targets:")
+message(STATUS "  run_tests                   - Run all tests using CTest")
+message(STATUS "  run_examples                - Build all examples")
+message(STATUS "  test_basic_functionality    - Basic functionality tests")
+message(STATUS "  test_protothread_macros     - Protothread macro tests")
+message(STATUS "  simple_tcp_protothread      - Simple TCP example")
+message(STATUS "  tcp_client_protothread_example - TCP client example")
+message(STATUS "  embedded_pattern_example   - Embedded pattern demo")
+if(PTK_PLATFORM STREQUAL "linux")
+    message(STATUS "  protocol_toolkit_impl      - Linux implementation")
+    message(STATUS "  linux_example              - Linux-specific example")
+endif()
+message(STATUS "")
+message(STATUS "Build commands:")
+message(STATUS "  mkdir build && cd build")
+message(STATUS "  cmake ..")
+message(STATUS "  make run_tests")
+message(STATUS "  make run_examples")
+message(STATUS "========================================================================")
+message(STATUS "")
