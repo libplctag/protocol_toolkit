@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(ProtocolToolkit
+project(ProtocolToolkit 
     VERSION 1.0.0
     DESCRIPTION "Protocol Toolkit - Event-driven framework for industrial network protocols"
     LANGUAGES C

@@ -52,6 +52,69 @@ static ptk_error_t ptk_set_nonblocking(int fd) {
     return PTK_SUCCESS;
 }
 
+// Register socket events with kevent
+static ptk_error_t ptk_register_socket_events(ptk_loop_t *loop, ptk_socket_t *socket, ptk_event_source_t *read_source,
+                                              ptk_event_source_t *write_source) {
+    if(!loop || !socket || loop->macos.kqueue_fd == -1) { return PTK_ERR_INVALID_ARG; }
+
+    struct kevent changes[2];
+    int nchanges = 0;
+
+    // Register read events if read_source provided
+    if(read_source && !socket->macos.registered_read) {
+        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, read_source);
+        nchanges++;
+        socket->macos.registered_read = true;
+        socket->macos.read_source = read_source;
+        read_source->macos.type = PTK_ES_SOCKET;
+        read_source->macos.ident = socket->socket_fd;
+        read_source->macos.active = true;
+    }
+
+    // Register write events if write_source provided
+    if(write_source && !socket->macos.registered_write) {
+        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, write_source);
+        nchanges++;
+        socket->macos.registered_write = true;
+        socket->macos.write_source = write_source;
+        write_source->macos.type = PTK_ES_SOCKET;
+        write_source->macos.ident = socket->socket_fd;
+        write_source->macos.active = true;
+    }
+
+    if(nchanges > 0) {
+        if(kevent(loop->macos.kqueue_fd, changes, nchanges, NULL, 0, NULL) == -1) { return PTK_ERR_SOCKET_FAILURE; }
+    }
+
+    return PTK_SUCCESS;
+}
+
+// Unregister socket events from kevent
+static ptk_error_t ptk_unregister_socket_events(ptk_loop_t *loop, ptk_socket_t *socket) {
+    if(!loop || !socket || loop->macos.kqueue_fd == -1) { return PTK_ERR_INVALID_ARG; }
+
+    struct kevent changes[2];
+    int nchanges = 0;
+
+    if(socket->macos.registered_read) {
+        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+        nchanges++;
+        socket->macos.registered_read = false;
+        socket->macos.read_source = NULL;
+    }
+
+    if(socket->macos.registered_write) {
+        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
+        nchanges++;
+        socket->macos.registered_write = false;
+        socket->macos.write_source = NULL;
+    }
+
+    if(nchanges > 0) { kevent(loop->macos.kqueue_fd, changes, nchanges, NULL, 0, NULL); }
+
+    return PTK_SUCCESS;
+}
+
 // =============================================================================
 // EVENT LOOP IMPLEMENTATION
 // =============================================================================
@@ -126,7 +189,8 @@ void ptk_loop_run(ptk_loop_t *loop) {
             struct kevent *kev = &loop->macos.events[i];
             ptk_event_source_t *es = (ptk_event_source_t *)kev->udata;
 
-            if(es && loop->current_sm) { ptk_sm_handle_event(loop->current_sm, es->event_id, es, current_time); }
+            // Route event to the state machine that owns this event source
+            if(es && es->macos.owner_sm) { ptk_sm_handle_event(es->macos.owner_sm, es->event_id, es, current_time); }
         }
 
         // Process expired timers
@@ -138,8 +202,8 @@ void ptk_loop_run(ptk_loop_t *loop) {
                 if(now.tv_sec > es->macos.next_fire.tv_sec
                    || (now.tv_sec == es->macos.next_fire.tv_sec && now.tv_nsec >= es->macos.next_fire.tv_nsec)) {
 
-                    // Timer expired
-                    if(loop->current_sm) { ptk_sm_handle_event(loop->current_sm, es->event_id, es, current_time); }
+                    // Timer expired - route to owning state machine
+                    if(es->macos.owner_sm) { ptk_sm_handle_event(es->macos.owner_sm, es->event_id, es, current_time); }
 
                     // Handle periodic timers
                     if(es->periodic) {
@@ -407,6 +471,9 @@ ptk_error_t ptk_sm_init(ptk_state_machine_t *sm, ptk_transition_table_t **tables
 ptk_error_t ptk_sm_attach_event_source(ptk_state_machine_t *sm, ptk_event_source_t *es) {
     if(!sm || !es || sm->source_count >= sm->max_sources) { return PTK_ERR_INVALID_ARG; }
 
+    // Set the owner state machine
+    es->macos.owner_sm = sm;
+
     // Handle timer event sources
     if(es->macos.type == PTK_ES_TIMER && sm->loop) {
         // Find available timer slot
@@ -490,8 +557,36 @@ ptk_error_t ptk_tt_add_transition(ptk_transition_table_t *tt, int initial_state,
 // =============================================================================
 
 ptk_error_t ptk_socket_accept(ptk_socket_t *server_socket, ptk_socket_t *client_socket) {
-    // Implementation would use accept() and register new socket with kevent
-    return PTK_ERR_UNKNOWN;  // Stub
+    if(!server_socket || !client_socket || server_socket->socket_fd == -1) { return PTK_ERR_INVALID_ARG; }
+
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    int client_fd = accept(server_socket->socket_fd, (struct sockaddr *)&client_addr, &client_len);
+    if(client_fd == -1) {
+        if(errno == EAGAIN || errno == EWOULDBLOCK) {
+            return PTK_ERR_SOCKET_FAILURE;  // No pending connections
+        }
+        return PTK_ERR_SOCKET_FAILURE;
+    }
+
+    // Set client socket to non-blocking
+    if(ptk_set_nonblocking(client_fd) != PTK_SUCCESS) {
+        close(client_fd);
+        return PTK_ERR_SOCKET_FAILURE;
+    }
+
+    // Initialize client socket structure
+    client_socket->type = PTK_SOCKET_TCP;
+    client_socket->socket_fd = client_fd;
+    client_socket->user_data = NULL;
+    client_socket->macos.nonblocking = true;
+    client_socket->macos.registered_read = false;
+    client_socket->macos.registered_write = false;
+    client_socket->macos.read_source = NULL;
+    client_socket->macos.write_source = NULL;
+
+    return PTK_SUCCESS;
 }
 
 ptk_error_t ptk_socket_receive_from(ptk_socket_t *socket, void *buffer, size_t buffer_len, size_t *received_len, char *sender_ip,
@@ -529,4 +624,14 @@ ptk_error_t ptk_sm_add_to_loop(ptk_loop_t *loop, ptk_state_machine_t *sm) {
     loop->current_sm = sm;
     sm->loop = loop;
     return PTK_SUCCESS;
+}
+
+// Public socket event registration functions
+ptk_error_t ptk_socket_register_events(ptk_loop_t *loop, ptk_socket_t *socket, ptk_event_source_t *read_source,
+                                       ptk_event_source_t *write_source) {
+    return ptk_register_socket_events(loop, socket, read_source, write_source);
+}
+
+ptk_error_t ptk_socket_unregister_events(ptk_loop_t *loop, ptk_socket_t *socket) {
+    return ptk_unregister_socket_events(loop, socket);
 }

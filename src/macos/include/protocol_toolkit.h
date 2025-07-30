@@ -70,9 +70,10 @@ typedef struct ptk_event_source {
     // Platform-specific data for macOS kevent
     struct {
         enum { PTK_ES_TIMER, PTK_ES_SOCKET, PTK_ES_USER } type;
-        uintptr_t ident;            // kevent identifier (fd for sockets, timer_id for timers)
-        bool active;                // Whether this event source is currently registered
-        struct timespec next_fire;  // For timers: next fire time (absolute)
+        uintptr_t ident;                     // kevent identifier (fd for sockets, timer_id for timers)
+        bool active;                         // Whether this event source is currently registered
+        struct timespec next_fire;           // For timers: next fire time (absolute)
+        struct ptk_state_machine *owner_sm;  // State machine that owns this event source
     } macos;
 } ptk_event_source_t;
 
@@ -166,5 +167,11 @@ ptk_error_t ptk_socket_send_to(ptk_socket_t *socket, const char *target_ip, uint
 ptk_error_t ptk_socket_attach_multicast(ptk_socket_t *socket, const char *multicast_group, const char *local_ip);
 
 ptk_error_t ptk_socket_detach_multicast(ptk_socket_t *socket, const char *multicast_group, const char *local_ip);
+
+// Socket event registration
+ptk_error_t ptk_socket_register_events(ptk_loop_t *loop, ptk_socket_t *socket, ptk_event_source_t *read_source,
+                                       ptk_event_source_t *write_source);
+
+ptk_error_t ptk_socket_unregister_events(ptk_loop_t *loop, ptk_socket_t *socket);
 
 #endif  // PTK_EVENT_LOOP_H
