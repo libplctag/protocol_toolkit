@@ -1,6 +1,8 @@
 #include "protocol_toolkit.h"
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/timerfd.h>
+#include <sys/eventfd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -20,22 +22,8 @@ static ptk_time_ms ptk_get_time_ms(void) {
     return (ptk_time_ms)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
 }
 
-// Convert milliseconds to absolute timespec
-static void ptk_ms_to_timespec(ptk_time_ms ms, struct timespec *ts) {
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-
-    ts->tv_sec = now.tv_sec + (ms / 1000);
-    ts->tv_nsec = now.tv_nsec + ((ms % 1000) * 1000000);
-
-    if(ts->tv_nsec >= 1000000000) {
-        ts->tv_sec++;
-        ts->tv_nsec -= 1000000000;
-    }
-}
-
 // Find available timer slot
-static int ptk_find_timer_slot(ptk_ev_t *loop) {
+static int ptk_find_timer_slot(ptk_ev_loop_t *loop) {
     for(int i = 0; i < PTK_MAX_TIMERS_PER_LOOP; i++) {
         if(!loop->impl.timers[i].in_use) { return i; }
     }
@@ -52,65 +40,62 @@ static ptk_error_t ptk_set_nonblocking(int fd) {
     return PTK_SUCCESS;
 }
 
-// Register socket events with kevent
-static ptk_error_t ptk_register_socket_events(ptk_ev_t *loop, ptk_socket_t *socket, ptk_ev_source_t *read_source,
+// Register socket events with epoll
+static ptk_error_t ptk_register_socket_events(ptk_ev_loop_t *loop, ptk_socket_t *socket, ptk_ev_source_t *read_source,
                                               ptk_ev_source_t *write_source) {
-    if(!loop || !socket || loop->impl.kqueue_fd == -1) { return PTK_ERR_INVALID_ARG; }
+    if(!loop || !socket || loop->impl.epoll_fd == -1) { return PTK_ERR_INVALID_ARG; }
 
-    struct kevent changes[2];
-    int nchanges = 0;
+    struct epoll_event ev;
+    ev.events = 0;
+    ev.data.ptr = NULL;
 
     // Register read events if read_source provided
     if(read_source && !socket->impl.registered_read) {
-        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, read_source);
-        nchanges++;
-        socket->impl.registered_read = true;
-        socket->impl.read_source = read_source;
+        ev.events |= EPOLLIN;
         read_source->impl.type = PTK_ES_SOCKET;
-        read_source->impl.ident = socket->socket_fd;
+        read_source->impl.fd = socket->socket_fd;
         read_source->impl.active = true;
+        socket->impl.read_source = read_source;
+        socket->impl.registered_read = true;
     }
 
     // Register write events if write_source provided
     if(write_source && !socket->impl.registered_write) {
-        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, write_source);
-        nchanges++;
-        socket->impl.registered_write = true;
-        socket->impl.write_source = write_source;
+        ev.events |= EPOLLOUT;
         write_source->impl.type = PTK_ES_SOCKET;
-        write_source->impl.ident = socket->socket_fd;
+        write_source->impl.fd = socket->socket_fd;
         write_source->impl.active = true;
+        socket->impl.write_source = write_source;
+        socket->impl.registered_write = true;
     }
 
-    if(nchanges > 0) {
-        if(kevent(loop->impl.kqueue_fd, changes, nchanges, NULL, 0, NULL) == -1) { return PTK_ERR_SOCKET_FAILURE; }
+    // Use read_source as the data pointer, write events will be handled separately
+    if(read_source) {
+        ev.data.ptr = read_source;
+    } else if(write_source) {
+        ev.data.ptr = write_source;
+    }
+
+    if(ev.events != 0) {
+        if(epoll_ctl(loop->impl.epoll_fd, EPOLL_CTL_ADD, socket->socket_fd, &ev) == -1) {
+            return PTK_ERR_SOCKET_FAILURE;
+        }
     }
 
     return PTK_SUCCESS;
 }
 
-// Unregister socket events from kevent
-static ptk_error_t ptk_unregister_socket_events(ptk_ev_t *loop, ptk_socket_t *socket) {
-    if(!loop || !socket || loop->impl.kqueue_fd == -1) { return PTK_ERR_INVALID_ARG; }
+// Unregister socket events from epoll
+static ptk_error_t ptk_unregister_socket_events(ptk_ev_loop_t *loop, ptk_socket_t *socket) {
+    if(!loop || !socket || loop->impl.epoll_fd == -1) { return PTK_ERR_INVALID_ARG; }
 
-    struct kevent changes[2];
-    int nchanges = 0;
-
-    if(socket->impl.registered_read) {
-        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
-        nchanges++;
+    if(socket->impl.registered_read || socket->impl.registered_write) {
+        epoll_ctl(loop->impl.epoll_fd, EPOLL_CTL_DEL, socket->socket_fd, NULL);
         socket->impl.registered_read = false;
-        socket->impl.read_source = NULL;
-    }
-
-    if(socket->impl.registered_write) {
-        EV_SET(&changes[nchanges], socket->socket_fd, EVFILT_WRITE, EV_DELETE, 0, 0, NULL);
-        nchanges++;
         socket->impl.registered_write = false;
+        socket->impl.read_source = NULL;
         socket->impl.write_source = NULL;
     }
-
-    if(nchanges > 0) { kevent(loop->impl.kqueue_fd, changes, nchanges, NULL, 0, NULL); }
 
     return PTK_SUCCESS;
 }
@@ -119,12 +104,12 @@ static ptk_error_t ptk_unregister_socket_events(ptk_ev_t *loop, ptk_socket_t *so
 // EVENT LOOP IMPLEMENTATION
 // =============================================================================
 
-ptk_error_t ptk_loop_init(ptk_ev_t *loop, ptk_sm_t *initial_sm) {
+ptk_error_t ptk_loop_init(ptk_ev_loop_t *loop, ptk_sm_t *initial_sm) {
     if(!loop) { return PTK_ERR_INVALID_ARG; }
 
-    // Initialize kqueue
-    loop->impl.kqueue_fd = kqueue();
-    if(loop->impl.kqueue_fd == -1) { return PTK_ERR_SOCKET_FAILURE; }
+    // Initialize epoll
+    loop->impl.epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+    if(loop->impl.epoll_fd == -1) { return PTK_ERR_SOCKET_FAILURE; }
 
     // Initialize state
     loop->current_sm = initial_sm;
@@ -141,85 +126,48 @@ ptk_error_t ptk_loop_init(ptk_ev_t *loop, ptk_sm_t *initial_sm) {
     return PTK_SUCCESS;
 }
 
-void ptk_loop_run(ptk_ev_t *loop) {
-    if(!loop || loop->impl.kqueue_fd == -1) { return; }
+void ptk_loop_run(ptk_ev_loop_t *loop) {
+    if(!loop || loop->impl.epoll_fd == -1) { return; }
 
     loop->impl.running = true;
 
     while(loop->impl.running) {
-        // Calculate timeout for next timer
-        struct timespec timeout = {1, 0};  // Default 1 second timeout
-        struct timespec now;
-        clock_gettime(CLOCK_MONOTONIC, &now);
-
-        // Find the earliest timer
-        bool have_timer = false;
-        for(int i = 0; i < PTK_MAX_TIMERS_PER_LOOP; i++) {
-            if(loop->impl.timers[i].in_use && loop->impl.timers[i].source) {
-                ptk_ev_source_t *es = loop->impl.timers[i].source;
-                if(!have_timer || es->impl.next_fire.tv_sec < timeout.tv_sec
-                   || (es->impl.next_fire.tv_sec == timeout.tv_sec && es->impl.next_fire.tv_nsec < timeout.tv_nsec)) {
-                    timeout = es->impl.next_fire;
-                    have_timer = true;
-                }
-            }
-        }
-
-        // Convert absolute time to relative timeout
-        if(have_timer) {
-            timeout.tv_sec -= now.tv_sec;
-            timeout.tv_nsec -= now.tv_nsec;
-            if(timeout.tv_nsec < 0) {
-                timeout.tv_sec--;
-                timeout.tv_nsec += 1000000000;
-            }
-            if(timeout.tv_sec < 0) {
-                timeout.tv_sec = 0;
-                timeout.tv_nsec = 0;
-            }
-        }
-
-        // Wait for events
-        int nevents = kevent(loop->impl.kqueue_fd, NULL, 0, loop->impl.events, PTK_MAX_KEVENTS, have_timer ? &timeout : NULL);
+        // Wait for events (1 second timeout)
+        int nevents = epoll_wait(loop->impl.epoll_fd, loop->impl.events, PTK_MAX_EPOLL_EVENTS, 1000);
 
         ptk_time_ms current_time = ptk_get_time_ms();
 
-        // Process kevent results
+        // Process epoll results
         for(int i = 0; i < nevents; i++) {
-            struct kevent *kev = &loop->impl.events[i];
-            ptk_ev_source_t *es = (ptk_ev_source_t *)kev->udata;
+            struct epoll_event *ev = &loop->impl.events[i];
+            ptk_ev_source_t *es = (ptk_ev_source_t *)ev->data.ptr;
 
-            // Route event to the state machine that owns this event source
-            if(es && es->impl.owner_sm) { ptk_sm_handle_event(es->impl.owner_sm, es->event_id, es, current_time); }
-        }
-
-        // Process expired timers
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        for(int i = 0; i < PTK_MAX_TIMERS_PER_LOOP; i++) {
-            if(loop->impl.timers[i].in_use && loop->impl.timers[i].source) {
-                ptk_ev_source_t *es = loop->impl.timers[i].source;
-
-                if(now.tv_sec > es->impl.next_fire.tv_sec
-                   || (now.tv_sec == es->impl.next_fire.tv_sec && now.tv_nsec >= es->impl.next_fire.tv_nsec)) {
-
-                    // Timer expired - route to owning state machine
-                    if(es->impl.owner_sm) { ptk_sm_handle_event(es->impl.owner_sm, es->event_id, es, current_time); }
-
-                    // Handle periodic timers
-                    if(es->periodic) {
-                        ptk_ms_to_timespec(es->interval_ms, &es->impl.next_fire);
-                    } else {
-                        // One-shot timer, deactivate
-                        loop->impl.timers[i].in_use = false;
-                        es->impl.active = false;
-                    }
+            if(es && es->impl.owner_sm) {
+                // Handle different event types
+                if(es->impl.type == PTK_ES_TIMER) {
+                    // Read from timerfd to acknowledge the timer
+                    uint64_t expirations;
+                    read(es->impl.fd, &expirations, sizeof(expirations));
+                    
+                    // Route timer event to the state machine
+                    ptk_sm_handle_event(es->impl.owner_sm, es->event_id, es, current_time);
+                } else if(es->impl.type == PTK_ES_SOCKET) {
+                    // Route socket event to the state machine
+                    ptk_sm_handle_event(es->impl.owner_sm, es->event_id, es, current_time);
+                } else if(es->impl.type == PTK_ES_USER) {
+                    // Read from eventfd to acknowledge the event
+                    uint64_t value;
+                    read(es->impl.fd, &value, sizeof(value));
+                    
+                    // Route user event to the state machine
+                    ptk_sm_handle_event(es->impl.owner_sm, es->event_id, es, current_time);
                 }
             }
         }
     }
 }
 
-void ptk_loop_stop(ptk_ev_t *loop) {
+void ptk_loop_stop(ptk_ev_loop_t *loop) {
     if(loop) { loop->impl.running = false; }
 }
 
@@ -235,9 +183,9 @@ ptk_error_t ptk_es_init_timer(ptk_ev_source_t *es, int event_id, ptk_time_ms int
     es->periodic = periodic;
     es->user_data = user_data;
 
-    // Initialize macOS-specific data
+    // Initialize Linux-specific data
     es->impl.type = PTK_ES_TIMER;
-    es->impl.ident = 0;  // Will be set when attached to loop
+    es->impl.fd = -1;  // Will be set when attached to loop
     es->impl.active = false;
 
     return PTK_SUCCESS;
@@ -251,9 +199,9 @@ ptk_error_t ptk_es_init_user_event(ptk_ev_source_t *es, int event_id, void *user
     es->periodic = false;
     es->user_data = user_data;
 
-    // Initialize macOS-specific data
+    // Initialize Linux-specific data
     es->impl.type = PTK_ES_USER;
-    es->impl.ident = 0;
+    es->impl.fd = -1;  // Will be set when attached to loop
     es->impl.active = false;
 
     return PTK_SUCCESS;
@@ -448,11 +396,11 @@ ptk_error_t ptk_socket_receive(ptk_socket_t *socket, void *buffer, size_t buffer
 }
 
 // =============================================================================
-// STATE MACHINE IMPLEMENTATION STUBS
+// STATE MACHINE IMPLEMENTATION
 // =============================================================================
 
 ptk_error_t ptk_sm_init(ptk_sm_t *sm, ptk_tt_t **tables, uint32_t max_tables,
-                        ptk_ev_source_t **sources, uint32_t max_sources, ptk_ev_t *loop, void *user_data) {
+                        ptk_ev_source_t **sources, uint32_t max_sources, ptk_ev_loop_t *loop, void *user_data) {
     if(!sm || !tables || !sources) { return PTK_ERR_INVALID_ARG; }
 
     sm->current_state = 0;
@@ -480,14 +428,55 @@ ptk_error_t ptk_sm_attach_event_source(ptk_sm_t *sm, ptk_ev_source_t *es) {
         int slot = ptk_find_timer_slot(sm->loop);
         if(slot == -1) { return PTK_ERR_OUT_OF_BOUNDS; }
 
-        // Assign timer ID and activate
-        es->impl.ident = sm->loop->impl.next_timer_id++;
+        // Create timerfd
+        es->impl.fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+        if(es->impl.fd == -1) { return PTK_ERR_SOCKET_FAILURE; }
+
+        // Configure timer
+        struct itimerspec timer_spec;
+        timer_spec.it_value.tv_sec = es->interval_ms / 1000;
+        timer_spec.it_value.tv_nsec = (es->interval_ms % 1000) * 1000000;
+        
+        if(es->periodic) {
+            timer_spec.it_interval = timer_spec.it_value;
+        } else {
+            timer_spec.it_interval.tv_sec = 0;
+            timer_spec.it_interval.tv_nsec = 0;
+        }
+
+        if(timerfd_settime(es->impl.fd, 0, &timer_spec, NULL) == -1) {
+            close(es->impl.fd);
+            return PTK_ERR_SOCKET_FAILURE;
+        }
+
+        // Register with epoll
+        struct epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.ptr = es;
+        if(epoll_ctl(sm->loop->impl.epoll_fd, EPOLL_CTL_ADD, es->impl.fd, &ev) == -1) {
+            close(es->impl.fd);
+            return PTK_ERR_SOCKET_FAILURE;
+        }
+
+        // Assign timer slot and activate
         sm->loop->impl.timers[slot].in_use = true;
         sm->loop->impl.timers[slot].source = es;
         es->impl.active = true;
+    } else if(es->impl.type == PTK_ES_USER && sm->loop) {
+        // Create eventfd for user events
+        es->impl.fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+        if(es->impl.fd == -1) { return PTK_ERR_SOCKET_FAILURE; }
 
-        // Set initial fire time
-        ptk_ms_to_timespec(es->interval_ms, &es->impl.next_fire);
+        // Register with epoll
+        struct epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.ptr = es;
+        if(epoll_ctl(sm->loop->impl.epoll_fd, EPOLL_CTL_ADD, es->impl.fd, &ev) == -1) {
+            close(es->impl.fd);
+            return PTK_ERR_SOCKET_FAILURE;
+        }
+
+        es->impl.active = true;
     }
 
     sm->sources[sm->source_count++] = es;
@@ -504,10 +493,12 @@ ptk_error_t ptk_sm_handle_event(ptk_sm_t *sm, int event_id, ptk_ev_source_t *es,
             ptk_tt_entry_t *trans = &tt->transitions[j];
 
             if(trans->initial_state == sm->current_state && trans->event_id == event_id) {
-                // Execute action if present
-                if(trans->action) { trans->action(sm, sm->current_state, tt, es, event_id, tt, trans->next_state); }
+                // Execute action if present - CORRECTED signature to match header
+                if(trans->action) { 
+                    trans->action(sm, sm->current_state, tt, es, event_id, NULL, trans->next_state);
+                }
 
-                // Transition to next state
+                // Infrastructure handles state transition (not the action function)
                 sm->current_state = trans->next_state;
 
                 // Handle state machine transitions
@@ -524,7 +515,7 @@ ptk_error_t ptk_sm_handle_event(ptk_sm_t *sm, int event_id, ptk_ev_source_t *es,
 }
 
 // =============================================================================
-// TRANSITION TABLE IMPLEMENTATION STUBS
+// TRANSITION TABLE IMPLEMENTATION
 // =============================================================================
 
 ptk_error_t ptk_tt_init(ptk_tt_t *tt, ptk_tt_entry_t *transitions, uint32_t max_transitions) {
@@ -618,20 +609,23 @@ ptk_error_t ptk_sm_attach_table(ptk_sm_t *sm, ptk_tt_t *tt) {
     return PTK_SUCCESS;
 }
 
-ptk_error_t ptk_sm_add_to_loop(ptk_ev_t *loop, ptk_sm_t *sm) {
+ptk_error_t ptk_sm_add_to_loop(ptk_ev_loop_t *loop, ptk_sm_t *sm) {
     if(!loop || !sm) { return PTK_ERR_INVALID_ARG; }
 
-    loop->current_sm = sm;
+    loop->state_machines[loop->sm_count++] = sm;
+    if(loop->sm_count > loop->max_sm_count) {
+        /* error handling */
+    }
     sm->loop = loop;
     return PTK_SUCCESS;
 }
 
 // Public socket event registration functions
-ptk_error_t ptk_socket_register_events(ptk_ev_t *loop, ptk_socket_t *socket, ptk_ev_source_t *read_source,
+ptk_error_t ptk_socket_register_events(ptk_ev_loop_t *loop, ptk_socket_t *socket, ptk_ev_source_t *read_source,
                                        ptk_ev_source_t *write_source) {
     return ptk_register_socket_events(loop, socket, read_source, write_source);
 }
 
-ptk_error_t ptk_socket_unregister_events(ptk_ev_t *loop, ptk_socket_t *socket) {
+ptk_error_t ptk_socket_unregister_events(ptk_ev_loop_t *loop, ptk_socket_t *socket) {
     return ptk_unregister_socket_events(loop, socket);
 }

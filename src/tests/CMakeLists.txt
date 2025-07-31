@@ -2,10 +2,12 @@
 
 # Test executables
 add_executable(test_basic_functionality test_basic_functionality.c)
-target_link_libraries(test_basic_functionality ProtocolToolkit::macos)
+target_include_directories(test_basic_functionality PRIVATE ${PTK_COMMON_INCLUDE_DIR} ${PTK_PLATFORM_INCLUDE_DIR})
+target_link_libraries(test_basic_functionality ProtocolToolkit::platform)
 
 add_executable(test_state_machine test_state_machine.c)
-target_link_libraries(test_state_machine ProtocolToolkit::macos)
+target_include_directories(test_state_machine PRIVATE ${PTK_COMMON_INCLUDE_DIR} ${PTK_PLATFORM_INCLUDE_DIR})
+target_link_libraries(test_state_machine ProtocolToolkit::platform)
 
 # Set runtime output directory for tests
 set_target_properties(test_basic_functionality test_state_machine PROPERTIES

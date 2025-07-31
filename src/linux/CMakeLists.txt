@@ -1,7 +1,7 @@
-# macOS Platform Implementation
-# This file defines the Protocol Toolkit library for macOS using kevent
+# Linux Platform Implementation
+# This file defines the Protocol Toolkit library for Linux using epoll
 
-# Generate the unified header for macOS
+# Generate the unified header for Linux
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/src/protocol_toolkit_impl.h.in" PLATFORM_IMPL_CONTENT)
 
 # Create build include directory at project root level
@@ -15,12 +15,12 @@ configure_file(
 )
 
 # Source files for the library
-set(PTK_MACOS_SOURCES
-    src/protocol_toolkit_macos.c
+set(PTK_LINUX_SOURCES
+    src/protocol_toolkit_linux.c
 )
 
 # Create static library (STATIC is explicit to ensure no shared library is built)
-add_library(protocol_toolkit STATIC ${PTK_MACOS_SOURCES})
+add_library(protocol_toolkit STATIC ${PTK_LINUX_SOURCES})
 
 # Set library properties
 set_target_properties(protocol_toolkit PROPERTIES
@@ -38,15 +38,15 @@ target_include_directories(protocol_toolkit PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-# Platform-specific settings for macOS
-if(APPLE)
+# Platform-specific settings for Linux
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_definitions(protocol_toolkit PRIVATE
-        _DARWIN_C_SOURCE
+        _GNU_SOURCE
     )
 endif()
 
 # Create aliases for consistent naming
-add_library(ProtocolToolkit::macos ALIAS protocol_toolkit)
+add_library(ProtocolToolkit::linux ALIAS protocol_toolkit)
 add_library(ProtocolToolkit::platform ALIAS protocol_toolkit)
 
 # Installation (only when root project)

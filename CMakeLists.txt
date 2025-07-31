@@ -42,26 +42,63 @@ else()
     set(PTK_BUILD_TESTS OFF)
 endif()
 
-option(ENABLE_MACOS "Build macOS kevent implementation" ON)# Platform detection
-if(APPLE AND ENABLE_MACOS)
-    set(PLATFORM_DIR "macos")
-    set(PLATFORM_NAME "macOS")
-else()
-    message(FATAL_ERROR "No supported platform implementation available")
+# Platform selection options
+option(PTK_PLATFORM_MACOS "Build macOS kevent implementation" OFF)
+option(PTK_PLATFORM_LINUX "Build Linux epoll implementation" OFF)
+
+# Auto-detect platform if none specified
+if(NOT PTK_PLATFORM_MACOS AND NOT PTK_PLATFORM_LINUX)
+    if(APPLE)
+        set(PTK_PLATFORM_MACOS ON)
+        message(STATUS "Auto-detected platform: macOS")
+    elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(PTK_PLATFORM_LINUX ON)
+        message(STATUS "Auto-detected platform: Linux")
+    else()
+        message(FATAL_ERROR "Unsupported platform: ${CMAKE_SYSTEM_NAME}. Supported: macOS, Linux")
+    endif()
 endif()
 
-# Include the platform-specific implementation
+# Ensure only one platform is selected
+set(PLATFORM_COUNT 0)
+if(PTK_PLATFORM_MACOS)
+    math(EXPR PLATFORM_COUNT "${PLATFORM_COUNT} + 1")
+endif()
+if(PTK_PLATFORM_LINUX)
+    math(EXPR PLATFORM_COUNT "${PLATFORM_COUNT} + 1")
+endif()
+
+if(PLATFORM_COUNT EQUAL 0)
+    message(FATAL_ERROR "No platform selected. Enable one of: PTK_PLATFORM_MACOS, PTK_PLATFORM_LINUX")
+elseif(PLATFORM_COUNT GREATER 1)
+    message(FATAL_ERROR "Multiple platforms selected. Only one platform can be built at a time.")
+endif()
+
+# Set platform directory and name
+if(PTK_PLATFORM_MACOS)
+    set(PLATFORM_DIR "src/macos")
+    set(PLATFORM_NAME "macOS")
+elseif(PTK_PLATFORM_LINUX)
+    set(PLATFORM_DIR "src/linux")
+    set(PLATFORM_NAME "Linux")
+endif()
+
+# Set platform header paths for examples and tests
+set(PTK_COMMON_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
+set(PTK_PLATFORM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${PLATFORM_DIR}")
+
+# Include the platform-specific implementation (which generates the header and library)
 add_subdirectory(${PLATFORM_DIR})
 
 # Build examples if requested (only when root project)
 if(PTK_IS_ROOT_PROJECT AND PTK_BUILD_EXAMPLES)
-    add_subdirectory(examples)
+    add_subdirectory(src/examples)
 endif()
 
 # Build tests if requested (only when root project)
 if(PTK_IS_ROOT_PROJECT AND PTK_BUILD_TESTS)
     enable_testing()
-    add_subdirectory(tests)
+    add_subdirectory(src/tests)
 endif()
 
 # Print configuration summary (only when root project)

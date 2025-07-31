@@ -10,17 +10,17 @@ enum client_states { STATE_INIT = 0, STATE_CONNECTING, STATE_SENDING_REQUEST, ST
 enum client_events { EVENT_CONNECT = 1, EVENT_SEND, EVENT_RECEIVE, EVENT_DISCONNECT };
 
 // Static memory allocation
-static ptk_transition_t transitions[10];
-static ptk_transition_table_t transition_table;
-static ptk_transition_table_t *tables[1];
-static ptk_event_source_t *sources[3];
-static ptk_event_source_t connect_source, send_source, receive_source;
-static ptk_state_machine_t state_machine;
-static ptk_loop_t event_loop;
+static ptk_tt_entry_t transitions[10];
+static ptk_tt_t transition_table;
+static ptk_tt_t *tables[1];
+static ptk_ev_source_t *sources[3];
+static ptk_ev_source_t connect_source, send_source, receive_source;
+static ptk_sm_t state_machine;
+static ptk_ev_t event_loop;
 static ptk_socket_t client_socket;
 
 // Action functions
-void on_connect(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
+void on_connect(ptk_sm_t *sm, ptk_ev_source_t *es, ptk_time_ms now_ms) {
     printf("Connecting to server...\n");
     struct sockaddr_in server_addr = {0};
     server_addr.sin_family = AF_INET;
@@ -37,7 +37,7 @@ void on_connect(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now
     sm->current_state = STATE_SENDING_REQUEST;
 }
 
-void on_send_request(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
+void on_send_request(ptk_sm_t *sm, ptk_ev_source_t *es, ptk_time_ms now_ms) {
     printf("Sending Modbus request...\n");
     uint8_t request[12] = {0x01, 0x00, 0x00, 0x00, 0x0A};  // Example request
     ssize_t sent = send(client_socket.socket_fd, request, sizeof(request), 0);
@@ -51,7 +51,7 @@ void on_send_request(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_m
     sm->current_state = STATE_RECEIVING_RESPONSE;
 }
 
-void on_receive_response(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
+void on_receive_response(ptk_sm_t *sm, ptk_ev_source_t *es, ptk_time_ms now_ms) {
     printf("Receiving response...\n");
     uint8_t response[256];
     ssize_t received = recv(client_socket.socket_fd, response, sizeof(response), 0);
@@ -66,7 +66,7 @@ void on_receive_response(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_ti
 }
 
 int main() {
-    printf("Starting Modbus Test Client\n");
+    printf("Starting Modbus TCP Client\n");
 
     // Initialize transition table
     ptk_tt_init(&transition_table, transitions, sizeof(transitions) / sizeof(transitions[0]));

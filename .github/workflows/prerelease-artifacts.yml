@@ -1,0 +1,93 @@
+name: Prerelease Artifacts
+
+on:
+  pull_request:
+    branches: [ 'prerelease' ]
+  push:
+    branches: [ 'prerelease' ]
+
+jobs:
+  setup:
+    name: Setup Build Info
+    runs-on: ubuntu-latest
+    outputs:
+      version_suffix: ${{ steps.info.outputs.version_suffix }}
+      pr_number: ${{ steps.info.outputs.pr_number }}
+      
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get Version and PR Info
+      id: info
+      run: |
+        VERSION=$(grep "project.*VERSION" CMakeLists.txt | sed -n 's/.*VERSION \([0-9.]*\).*/\1/p')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          SUFFIX="pr${PR_NUMBER}"
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+        else
+          # For push events, use short commit hash
+          COMMIT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
+          SUFFIX="$COMMIT_HASH"
+          echo "pr_number=" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
+        echo "version_suffix=${VERSION}-${SUFFIX}" >> $GITHUB_OUTPUT
+
+  # Call the unified build workflow
+  build-artifacts:
+    name: Build Multi-Platform Artifacts
+    needs: setup
+    uses: ./.github/workflows/build-artifacts-unified.yml
+    with:
+      version_suffix: ${{ needs.setup.outputs.version_suffix }}
+      retention_days: 7
+      is_prerelease: true
+        
+  comment-on-pr:
+    name: Comment on PR with Artifact Links
+    if: github.event_name == 'pull_request'
+    needs: [setup, build-artifacts]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const prNumber = ${{ github.event.pull_request.number }};
+          const version = '${{ needs.setup.outputs.version_suffix }}';
+          const runId = context.runId;
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            body: `## 🏗️ Prerelease Artifacts Built Successfully
+            
+**Version**: \`${version}\`
+**Build Run**: [#${runId}](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+
+### 📦 Available Artifacts:
+- \`protocol-toolkit-linux-debug-${version}.zip\`
+- \`protocol-toolkit-linux-release-${version}.zip\`
+- \`protocol-toolkit-macos-debug-${version}.zip\`
+- \`protocol-toolkit-macos-release-${version}.zip\`
+
+### 📥 Download Instructions:
+1. Go to the [Actions Run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+2. Scroll down to the "Artifacts" section
+3. Download the desired platform/build combination
+
+### ⏱️ Artifact Retention:
+These prerelease artifacts will be available for **7 days**.
+
+### 🧪 Testing:
+All platform tests passed before artifact creation.
+
+---
+*This comment was automatically generated for PR #${prNumber}*`
+          });

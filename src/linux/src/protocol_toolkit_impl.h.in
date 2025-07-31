@@ -1,0 +1,37 @@
+// Platform-specific includes for Linux
+#include <sys/epoll.h>
+
+// Platform-specific constants for Linux
+#define PTK_MAX_EPOLL_EVENTS 64
+#define PTK_MAX_TIMERS_PER_LOOP 32
+
+// Event source implementation for Linux (epoll)
+typedef struct {
+    enum { PTK_ES_TIMER, PTK_ES_SOCKET, PTK_ES_USER } type;
+    int fd;                              // file descriptor (socket fd, timerfd, eventfd)
+    bool active;                         // Whether this event source is currently registered
+    ptk_sm_t *owner_sm;                 // State machine that owns this event source
+} ptk_ev_source_impl_t;
+
+// Socket implementation for Linux
+typedef struct {
+    bool nonblocking;                    // Socket is in non-blocking mode
+    bool registered_read;                // Read events registered with epoll
+    bool registered_write;               // Write events registered with epoll
+    ptk_ev_source_t *read_source;       // Associated read event source
+    ptk_ev_source_t *write_source;      // Associated write event source
+} ptk_socket_impl_t;
+
+// Event loop implementation for Linux (epoll)
+typedef struct {
+    int epoll_fd;                       // epoll file descriptor
+    struct epoll_event events[PTK_MAX_EPOLL_EVENTS];  // Event buffer for epoll_wait()
+    bool running;                       // Loop is running
+    uint32_t next_timer_id;             // Next available timer ID
+
+    // Timer management (static allocation, no malloc)
+    struct {
+        ptk_ev_source_t *source;        // Associated event source (user-allocated)
+        bool in_use;                    // Timer slot is active
+    } timers[PTK_MAX_TIMERS_PER_LOOP];
+} ptk_ev_loop_impl_t;

@@ -1,0 +1,236 @@
+/* @file protocol_toolkit.h.in
+ * @brief Protocol Toolkit API header file.
+ */
+
+#ifndef PTK_EVENT_LOOP_H
+#define PTK_EVENT_LOOP_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <sys/time.h>
+
+/* @section Error Handling */
+/* @brief Error codes for the Protocol Toolkit API. */
+typedef enum {
+    PTK_SUCCESS, /**< Operation successful. */
+    PTK_ERR_INVALID_ARG, /**< Invalid argument provided. */
+    PTK_ERR_OUT_OF_BOUNDS, /**< Out of bounds error. */
+    PTK_ERR_TRANSITION_EXISTS, /**< Transition already exists. */
+    PTK_ERR_SOCKET_FAILURE, /**< Socket operation failed. */
+    PTK_ERR_UNKNOWN /**< Unknown error. */
+} ptk_error_t;
+
+/* @brief Time in milliseconds. */
+typedef uint32_t ptk_time_ms;
+typedef uint64_t ptk_duration_ms;
+
+/* @section Forward Declarations */
+/* @brief Forward declarations for core types. */
+typedef struct ptk_sm ptk_sm_t;
+typedef struct ptk_tt ptk_tt_t;
+typedef struct ptk_tt_entry ptk_tt_entry_t;
+typedef struct ptk_ev_source ptk_ev_source_t;
+typedef struct ptk_ev_loop ptk_ev_loop_t;
+typedef struct ptk_socket ptk_socket_t;
+
+/* @section Platform-Specific Implementation */
+/* @brief Platform-specific implementation details. */
+@PLATFORM_IMPL_CONTENT@
+
+/* @brief Action function signature for state transitions. */
+typedef void (*ptk_action_func)(
+    ptk_sm_t *sm,        /**< State machine. */
+    int current_state,   /**< Current state. */
+    ptk_tt_t *tt,        /**< Current transition table. */
+    ptk_ev_source_t *es, /**< Event source. */
+    int event_id,        /**< Event ID. */
+    ptk_tt_t *next_tt,   /**< Next transition table. */
+    int next_state       /**< Next state. */
+);
+
+
+/* @section Buffers */
+
+typedef struct ptk_buf {
+    uint8_t *data;         /**< Pointer to the buffer data. */
+    size_t size;        /**< Size of the buffer in bytes. */
+    size_t capacity;    /**< Total capacity of the buffer in bytes. */
+} ptk_buf_t;
+
+ptk_error_t ptk_buf_init(ptk_buf_t *buf, uint8_t *data, size_t size, size_t capacity);
+
+
+
+/* @section Transition Table API */
+
+/* @brief Initialize a transition table.
+ * @param tt Pointer to the transition table to initialize.
+ * @param transitions Array of transition entries.
+ * @param max_transitions Maximum number of transitions allowed.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_tt_init(ptk_tt_t *tt, ptk_tt_entry_t *transitions, uint32_t max_transitions);
+
+/* @brief Add a transition to a transition table.
+ * @param tt Pointer to the transition table.
+ * @param initial_state Initial state for the transition.
+ * @param event_id Event ID triggering the transition.
+ * @param next_state Next state after the transition.
+ * @param next_sm Pointer to the next state machine (optional).
+ * @param action Action function to execute during the transition.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_tt_add_transition(ptk_tt_t *tt, int initial_state, int event_id, int next_state,
+                                  ptk_sm_t *next_sm, ptk_action_func action);
+
+/* @section State Machine API */
+
+/* @brief Initialize a state machine.
+ * @param sm Pointer to the state machine to initialize.
+ * @param tables Array of transition tables.
+ * @param max_tables Maximum number of transition tables.
+ * @param sources Array of event sources.
+ * @param max_sources Maximum number of event sources.
+ * @param loop Pointer to the associated event loop.
+ * @param user_data User-defined context pointer.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_sm_init(ptk_sm_t *sm, ptk_tt_t **tables, uint32_t max_tables,
+                        ptk_ev_source_t **sources, uint32_t max_sources, ptk_ev_loop_t *loop, void *user_data);
+
+/* @brief Attach a transition table to a state machine.
+ * @param sm Pointer to the state machine.
+ * @param tt Pointer to the transition table to attach.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_sm_attach_table(ptk_sm_t *sm, ptk_tt_t *tt);
+
+/* @brief Attach an event source to a state machine.
+ * @param sm Pointer to the state machine.
+ * @param es Pointer to the event source to attach.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_sm_attach_event_source(ptk_sm_t *sm, ptk_ev_source_t *es);
+
+/* @brief Handle an event in a state machine.
+ * @param sm Pointer to the state machine.
+ * @param event_id Event ID to handle.
+ * @param es Pointer to the event source.
+ * @param now_ms Current time in milliseconds.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_sm_handle_event(ptk_sm_t *sm, int event_id, ptk_ev_source_t *es, ptk_time_ms now_ms);
+
+/* @brief Add a state machine to an event loop.
+ * @param loop Pointer to the event loop.
+ * @param sm Pointer to the state machine to add.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_sm_add_to_loop(ptk_ev_loop_t *loop, ptk_sm_t *sm);
+
+/* @section Event Source API */
+
+/* @brief Initialize a timer event source.
+ * @param es Pointer to the event source to initialize.
+ * @param event_id Event ID generated by the timer.
+ * @param interval_ms Timer interval in milliseconds.
+ * @param periodic True if the timer is periodic, false for one-shot.
+ * @param user_data User-defined context pointer.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_es_init_timer(ptk_ev_source_t *es, int event_id, ptk_time_ms interval_ms, bool periodic, void *user_data);
+
+/* @brief Initialize a user-defined event source.
+ * @param es Pointer to the event source to initialize.
+ * @param event_id Event ID generated by the source.
+ * @param user_data User-defined context pointer.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_es_init_user_event(ptk_ev_source_t *es, int event_id, void *user_data);
+
+/* @section TCP/UDP Socket API */
+
+/* @brief Open a TCP client socket.
+ * @param socket Pointer to the socket to open.
+ * @param remote_ip Remote IP address to connect to.
+ * @param remote_port Remote port to connect to.
+ * @param user_data User-defined context pointer.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_open_tcp_client(ptk_socket_t *socket, const char *remote_ip, uint16_t remote_port, void *user_data);
+
+/* @brief Open a TCP server socket.
+ * @param socket Pointer to the socket to open.
+ * @param local_ip Local IP address to bind to.
+ * @param local_port Local port to bind to.
+ * @param user_data User-defined context pointer.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_open_tcp_server(ptk_socket_t *socket, const char *local_ip, uint16_t local_port, void *user_data);
+
+/* @brief Open a UDP socket.
+ * @param socket Pointer to the socket to open.
+ * @param local_ip Local IP address to bind to.
+ * @param local_port Local port to bind to.
+ * @param user_data User-defined context pointer.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_open_udp(ptk_socket_t *socket, const char *local_ip, uint16_t local_port, void *user_data);
+
+/* @brief Accept a connection on a TCP server socket.
+ * @param server_socket Pointer to the server socket.
+ * @param client_socket Pointer to the client socket to accept.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_accept(ptk_socket_t *server_socket, ptk_socket_t *client_socket);
+
+/* @brief Send data over a socket.
+ * @param socket Pointer to the socket to send data through.
+ * @param data Pointer to the data to send.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_send(ptk_socket_t *socket, ptk_buf_t *data);
+
+/* @brief Receive data from a socket.
+ * @param socket Pointer to the socket to receive data from.
+ * @param buffer Pointer to the buffer to store received data.  The size is adjusted to the actual received size.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_receive(ptk_socket_t *socket, ptk_buf_t *buffer);
+
+/* @brief Receive data from a specific sender on a socket.
+ * @param socket Pointer to the socket to receive data from.
+ * @param buffer Pointer to the buffer to store received data. The size is adjusted to the actual received size.
+ * @param sender_ip Pointer to store the sender's IP address.
+ * @param sender_port Pointer to store the sender's port.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_receive_from(ptk_socket_t *socket, ptk_buf_t *buffer, char *sender_ip, uint16_t *sender_port);
+
+/* @brief Send data to a specific target over a socket.
+ * @param socket Pointer to the socket to send data through.
+ * @param target_ip Target IP address to send data to.
+ * @param target_port Target port to send data to.
+ * @param data Pointer to the data to send.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_send_to(ptk_socket_t *socket, const char *target_ip, uint16_t target_port, ptk_buf_t *data);
+
+/* @brief Attach a socket to a multicast group.
+ * @param socket Pointer to the socket to attach.
+ * @param multicast_group Multicast group address.
+ * @param local_ip Local IP address to bind to.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_attach_multicast(ptk_socket_t *socket, const char *multicast_group, const char *local_ip);
+
+/* @brief Detach a socket from a multicast group.
+ * @param socket Pointer to the socket to detach.
+ * @param multicast_group Multicast group address.
+ * @param local_ip Local IP address to bind to.
+ * @return PTK_SUCCESS on success, or an error code on failure.
+ */
+ptk_error_t ptk_socket_detach_multicast(ptk_socket_t *socket, const char *multicast_group, const char *local_ip);
+
+#endif  /* PTK_EVENT_LOOP_H */

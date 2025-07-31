@@ -1,4 +1,4 @@
-#include "../macos/include/protocol_toolkit.h"
+#include "protocol_toolkit.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,18 +11,18 @@ enum client_states { STATE_INIT = 0, STATE_CONNECTING, STATE_CONNECTED, STATE_DI
 enum client_events { EVENT_CONNECT = 1, EVENT_SOCKET_READY, EVENT_DATA_RECEIVED, EVENT_TIMEOUT, EVENT_DISCONNECT };
 
 // Static memory allocation - no dynamic allocation!
-static ptk_transition_t transitions[10];
-static ptk_transition_table_t transition_table;
-static ptk_transition_table_t *tables[1];
-static ptk_event_source_t *sources[5];
-static ptk_event_source_t timer_source;
-static ptk_state_machine_t state_machine;
-static ptk_loop_t event_loop;
+static ptk_tt_entry_t transitions[10];
+static ptk_tt_t transition_table;
+static ptk_tt_t *tables[1];
+static ptk_ev_source_t *sources[5];
+static ptk_ev_source_t timer_source;
+static ptk_sm_t state_machine;
+static ptk_ev_loop_t event_loop;
 static ptk_socket_t client_socket;
 
-// Action functions
-void on_connect_start(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
-    printf("Starting connection at %u ms\n", now_ms);
+// Updated action functions to match the `ptk_action_func` signature
+void on_connect_start(ptk_sm_t *sm, int current_state, ptk_tt_t *tt, ptk_ev_source_t *es, int event_id, ptk_tt_t *next_tt, int next_state) {
+    printf("Starting connection\n");
 
     // Open TCP client socket
     ptk_error_t result = ptk_socket_open_tcp_client(&client_socket, "127.0.0.1", 8080, NULL);
@@ -34,16 +34,16 @@ void on_connect_start(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_
     printf("Socket opened, transitioning to CONNECTING state\n");
 }
 
-void on_connection_established(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
-    printf("Connection established at %u ms\n", now_ms);
+void on_connection_established(ptk_sm_t *sm, int current_state, ptk_tt_t *tt, ptk_ev_source_t *es, int event_id, ptk_tt_t *next_tt, int next_state) {
+    printf("Connection established\n");
 
     // Send initial data
     const char *message = "Hello, Server!";
     ptk_socket_send(&client_socket, message, strlen(message));
 }
 
-void on_data_received(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
-    printf("Data received at %u ms\n", now_ms);
+void on_data_received(ptk_sm_t *sm, int current_state, ptk_tt_t *tt, ptk_ev_source_t *es, int event_id, ptk_tt_t *next_tt, int next_state) {
+    printf("Data received\n");
 
     char buffer[1024];
     size_t received_len;
@@ -55,20 +55,19 @@ void on_data_received(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_
     }
 }
 
-void on_timeout(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
-    printf("Timeout occurred at %u ms\n", now_ms);
+void on_timeout(ptk_sm_t *sm, int current_state, ptk_tt_t *tt, ptk_ev_source_t *es, int event_id, ptk_tt_t *next_tt, int next_state) {
+    printf("Timeout occurred\n");
     ptk_loop_stop(&event_loop);
 }
 
-void on_disconnect(ptk_state_machine_t *sm, ptk_event_source_t *es, ptk_time_ms now_ms) {
-    printf("Disconnecting at %u ms\n", now_ms);
+void on_disconnect(ptk_sm_t *sm, int current_state, ptk_tt_t *tt, ptk_ev_source_t *es, int event_id, ptk_tt_t *next_tt, int next_state) {
+    printf("Disconnecting\n");
     close(client_socket.socket_fd);
     ptk_loop_stop(&event_loop);
 }
 
 int main() {
-    printf("Protocol Toolkit macOS Example\n");
-    printf("==============================\n");
+    printf("Protocol Toolkit Example\n");
 
     // Initialize transition table
     ptk_error_t result = ptk_tt_init(&transition_table, transitions, sizeof(transitions) / sizeof(transitions[0]));
@@ -79,8 +78,7 @@ int main() {
 
     // Add transitions
     ptk_tt_add_transition(&transition_table, STATE_INIT, EVENT_CONNECT, STATE_CONNECTING, NULL, on_connect_start);
-    ptk_tt_add_transition(&transition_table, STATE_CONNECTING, EVENT_SOCKET_READY, STATE_CONNECTED, NULL,
-                          on_connection_established);
+    ptk_tt_add_transition(&transition_table, STATE_CONNECTING, EVENT_SOCKET_READY, STATE_CONNECTED, NULL, on_connection_established);
     ptk_tt_add_transition(&transition_table, STATE_CONNECTED, EVENT_DATA_RECEIVED, STATE_CONNECTED, NULL, on_data_received);
     ptk_tt_add_transition(&transition_table, STATE_CONNECTED, EVENT_TIMEOUT, STATE_DISCONNECTED, NULL, on_timeout);
     ptk_tt_add_transition(&transition_table, STATE_CONNECTED, EVENT_DISCONNECT, STATE_DISCONNECTED, NULL, on_disconnect);
@@ -132,7 +130,7 @@ int main() {
     printf("Event loop finished.\n");
 
     // Cleanup
-    if(event_loop.macos.kqueue_fd != -1) { close(event_loop.macos.kqueue_fd); }
+    if(event_loop.plat.kqueue_fd != -1) { close(event_loop.macos.kqueue_fd); }
 
     return 0;
 }

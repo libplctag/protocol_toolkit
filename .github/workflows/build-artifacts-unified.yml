@@ -1,0 +1,208 @@
+name: Build Artifacts
+
+on:
+  workflow_call:
+    inputs:
+      version_suffix:
+        description: 'Version suffix (empty for release, e.g., "pr123" for prerelease)'
+        required: false
+        type: string
+        default: ''
+      retention_days:
+        description: 'Artifact retention days (7 for prerelease, 400 for release)'
+        required: false
+        type: number
+        default: 400
+      is_prerelease:
+        description: 'Whether this is a prerelease build'
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      artifacts_created:
+        description: "Whether all artifacts were created successfully"
+        value: ${{ jobs.create-packages.outputs.success }}
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }} ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: ${{ inputs.is_prerelease }}  # Fail fast for prerelease, not for release
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Debug, Release]
+        
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure and Build
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DPTK_BUILD_TESTS=ON
+        cmake --build build --config ${{ matrix.build_type }}
+        
+    - name: Run Tests
+      working-directory: build
+      run: |
+        echo "Running tests - failure will block artifact creation..."
+        ctest --output-on-failure -C ${{ matrix.build_type }}
+        echo "✅ All tests passed!"
+      
+    - name: Package Artifacts
+      run: |
+        # Get version from CMakeLists.txt
+        VERSION=$(grep "project.*VERSION" CMakeLists.txt | sed -n 's/.*VERSION \([0-9.]*\).*/\1/p')
+        
+        # Create platform-specific package directory
+        PLATFORM=$(echo "${{ matrix.os }}" | sed 's/-latest//')
+        BUILD_TYPE_LOWER=$(echo "${{ matrix.build_type }}" | tr '[:upper:]' '[:lower:]')
+        
+        if [ -n "${{ inputs.version_suffix }}" ]; then
+          PACKAGE_DIR="protocol-toolkit-${PLATFORM}-${BUILD_TYPE_LOWER}-${VERSION}-${{ inputs.version_suffix }}"
+          VERSION_DISPLAY="${VERSION}-${{ inputs.version_suffix }}"
+        else
+          PACKAGE_DIR="protocol-toolkit-${PLATFORM}-${BUILD_TYPE_LOWER}"
+          VERSION_DISPLAY="${VERSION}"
+        fi
+        
+        mkdir -p "${PACKAGE_DIR}"
+        
+        # Copy library and header
+        cp build/lib/libprotocol_toolkit.a "${PACKAGE_DIR}/"
+        cp build/include/protocol_toolkit.h "${PACKAGE_DIR}/"
+        
+        # Create appropriate README
+        if [ "${{ inputs.is_prerelease }}" = "true" ]; then
+          cat > "${PACKAGE_DIR}/README.md" << EOF
+        # Protocol Toolkit ${VERSION_DISPLAY} - ${PLATFORM^} ${{ matrix.build_type }} Build
+        
+        **⚠️ PRERELEASE ARTIFACT - NOT FOR PRODUCTION USE**
+        
+        This is a prerelease build for testing and development purposes.
+        
+        ## Build Information
+        - **Version**: ${VERSION_DISPLAY}
+        - **Platform**: ${PLATFORM^}
+        - **Build Type**: ${{ matrix.build_type }}
+        - **Built From**: \${GITHUB_REF#refs/heads/} branch
+        - **Commit**: ${{ github.sha }}
+        
+        ## Important Notes
+        - ⚠️ This is a **prerelease build** - use for testing only
+        - 🧪 All tests passed at build time
+        - ⏱️ Artifact expires in ${{ inputs.retention_days }} days
+        - 📋 For production use, wait for official release
+        EOF
+        else
+          cat > "${PACKAGE_DIR}/README.md" << EOF
+        # Protocol Toolkit ${VERSION_DISPLAY} - ${PLATFORM^} ${{ matrix.build_type }} Build
+        
+        Cross-platform event-driven protocol toolkit with state machine support.
+        
+        ## Platform
+        - **OS**: ${PLATFORM^}
+        - **Build**: ${{ matrix.build_type }}
+        - **API**: Event loops, state machines, TCP/UDP sockets
+        
+        ## Build Information
+        - **Version**: ${VERSION_DISPLAY}
+        - **Release**: Official release build
+        - **Platform**: ${PLATFORM^}
+        - **Build Type**: ${{ matrix.build_type }}
+        EOF
+        fi
+        
+        # Add common sections to README
+        cat >> "${PACKAGE_DIR}/README.md" << EOF
+        
+        ## Files
+        - \`libprotocol_toolkit.a\` - Static library
+        - \`protocol_toolkit.h\` - Unified header file
+        
+        ## Usage
+        
+        ### CMake Integration
+        \`\`\`cmake
+        # Copy files to your project directory, then:
+        target_link_libraries(your_target 
+            \${CMAKE_CURRENT_SOURCE_DIR}/libprotocol_toolkit.a)
+        target_include_directories(your_target PRIVATE 
+            \${CMAKE_CURRENT_SOURCE_DIR})
+        \`\`\`
+        
+        ### Direct Compilation
+        \`\`\`bash
+        gcc your_code.c libprotocol_toolkit.a -o your_program
+        \`\`\`
+        
+        ## Platform Support
+        - **Linux**: epoll-based event loop
+        - **macOS**: kqueue-based event loop
+        
+        ## API Overview
+        - \`ptk_ev_t\` - Event loop
+        - \`ptk_sm_t\` - State machine  
+        - \`ptk_socket_t\` - TCP/UDP sockets
+        - \`ptk_ev_source_t\` - Event sources (timers, user events)
+        
+        For full documentation, visit: https://github.com/\${GITHUB_REPOSITORY}
+        EOF
+        
+        echo "PACKAGE_DIR=${PACKAGE_DIR}" >> $GITHUB_ENV
+        
+    - name: Upload Platform Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.PACKAGE_DIR }}
+        path: ${{ env.PACKAGE_DIR }}/
+        retention-days: ${{ inputs.retention_days }}
+        
+  create-packages:
+    name: Create ZIP Files  
+    runs-on: ubuntu-latest
+    needs: build
+    outputs:
+      success: ${{ steps.create-zips.outputs.success }}
+      
+    steps:
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        
+    - name: Create ZIP Files
+      id: create-zips
+      run: |
+        cd artifacts
+        
+        # Create ZIP files for each platform/build combination
+        for dir in protocol-toolkit-*; do
+          if [ -d "$dir" ]; then
+            echo "Creating ${dir}.zip..."
+            zip -r "${dir}.zip" "$dir/"
+          fi
+        done
+        
+        # List created files
+        echo "Created ZIP files:"
+        ls -la *.zip
+        
+        # Verify we have all expected files
+        EXPECTED_FILES=4  # 2 platforms × 2 build types
+        ACTUAL_FILES=$(ls -1 *.zip | wc -l)
+        
+        if [ "$ACTUAL_FILES" -eq "$EXPECTED_FILES" ]; then
+          echo "✅ All $EXPECTED_FILES ZIP files created successfully"
+          echo "success=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Expected $EXPECTED_FILES ZIP files, got $ACTUAL_FILES"
+          echo "success=false" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+    - name: Upload ZIP Files
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.is_prerelease && 'prerelease-zip-files' || 'release-zip-files' }}
+        path: artifacts/*.zip
+        retention-days: ${{ inputs.retention_days }}

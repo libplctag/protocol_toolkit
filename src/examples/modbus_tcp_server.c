@@ -103,8 +103,8 @@ typedef struct {
     // Transition tables for this client
     ptk_transition_table_t connection_table;
     ptk_transition_table_t protocol_table;
-    ptk_transition_t connection_transitions[10];
-    ptk_transition_t protocol_transitions[15];
+    ptk_transition_t *connection_transitions;
+    ptk_transition_t *protocol_transitions;
     ptk_transition_table_t *tables[2];
     ptk_event_source_t *sources[4];
 
@@ -120,7 +120,7 @@ typedef struct {
 
     // Server transition tables
     ptk_transition_table_t server_table;
-    ptk_transition_t server_transitions[8];
+    ptk_transition_t *server_transitions;
     ptk_transition_table_t *server_tables[1];
     ptk_event_source_t *server_sources[2];
 
@@ -482,16 +482,14 @@ static void server_heartbeat_action(ptk_state_machine_t *sm, ptk_event_source_t 
            server->registers.coils[0] ? "ON" : "OFF", server->registers.holding_registers[0]);
 }
 
-// Initialize client state machine and transition tables
+// Refactor server and client state machine initialization
 static ptk_error_t init_client(client_context_t *client, ptk_loop_t *loop) {
-    client->in_use = false;
-    client->client_id = -1;
+    // Dynamically allocate transition tables
+    client->connection_transitions = malloc(sizeof(ptk_transition_t) * 10);
+    client->protocol_transitions = malloc(sizeof(ptk_transition_t) * 15);
 
     // Initialize connection transition table
-    ptk_error_t result = ptk_tt_init(&client->connection_table, client->connection_transitions, 10);
-    if(result != PTK_SUCCESS) { return result; }
-
-    // Add connection state transitions
+    ptk_tt_init(&client->connection_table, client->connection_transitions, 10);
     ptk_tt_add_transition(&client->connection_table, CLIENT_STATE_STARTUP, EVENT_CLIENT_STARTUP, CLIENT_STATE_READING_HEADER,
                           NULL, client_startup_action);
     ptk_tt_add_transition(&client->connection_table, CLIENT_STATE_CONNECTED, EVENT_CLIENT_READ, CLIENT_STATE_READING_HEADER, NULL,
@@ -504,10 +502,7 @@ static ptk_error_t init_client(client_context_t *client, ptk_loop_t *loop) {
                           client_read_action);
 
     // Initialize protocol transition table
-    result = ptk_tt_init(&client->protocol_table, client->protocol_transitions, 15);
-    if(result != PTK_SUCCESS) { return result; }
-
-    // Add protocol state transitions
+    ptk_tt_init(&client->protocol_table, client->protocol_transitions, 15);
     ptk_tt_add_transition(&client->protocol_table, CLIENT_STATE_SENDING_RESPONSE, EVENT_CLIENT_WRITE, CLIENT_STATE_READING_HEADER,
                           NULL, client_write_action);
     ptk_tt_add_transition(&client->protocol_table, CLIENT_STATE_READING_HEADER, EVENT_CLIENT_TIMEOUT, CLIENT_STATE_DISCONNECTING,
@@ -519,65 +514,21 @@ static ptk_error_t init_client(client_context_t *client, ptk_loop_t *loop) {
     ptk_tt_add_transition(&client->protocol_table, CLIENT_STATE_DISCONNECTING, EVENT_CLIENT_DISCONNECT,
                           CLIENT_STATE_DISCONNECTING, NULL, client_disconnect_action);
 
-    // Set up table array
+    // Attach tables and sources
     client->tables[0] = &client->connection_table;
     client->tables[1] = &client->protocol_table;
-
-    // Initialize event sources
-    ptk_es_init_user_event(&client->startup_source, EVENT_CLIENT_STARTUP, client);
-    ptk_es_init_user_event(&client->read_source, EVENT_CLIENT_READ, client);
-    ptk_es_init_user_event(&client->write_source, EVENT_CLIENT_WRITE, client);
-    ptk_es_init_timer(&client->timeout_source, EVENT_CLIENT_TIMEOUT, 30000, false, client);  // 30 second timeout
-
-    // Set up source array
-    client->sources[0] = &client->startup_source;
-    client->sources[1] = &client->read_source;
-    client->sources[2] = &client->write_source;
-    client->sources[3] = &client->timeout_source;
-
-    // Initialize state machine
-    result = ptk_sm_init(&client->state_machine, client->tables, 2, client->sources, 4, loop, client);
-    if(result != PTK_SUCCESS) { return result; }
-
-    // Attach tables and sources (but not the timeout timer yet)
     ptk_sm_attach_table(&client->state_machine, &client->connection_table);
     ptk_sm_attach_table(&client->state_machine, &client->protocol_table);
-    ptk_sm_attach_event_source(&client->state_machine, &client->startup_source);
-    ptk_sm_attach_event_source(&client->state_machine, &client->read_source);
-    ptk_sm_attach_event_source(&client->state_machine, &client->write_source);
-    // Note: timeout_source will be attached during startup action
 
     return PTK_SUCCESS;
 }
 
-// Initialize server
 static ptk_error_t init_server(server_context_t *server, ptk_loop_t *loop) {
-    server->loop = loop;
-    server->next_client_id = 1;
-
-    // Initialize register storage with some test values
-    memset(&server->registers, 0, sizeof(server->registers));
-    server->registers.coils[0] = true;
-    server->registers.coils[5] = true;
-    server->registers.holding_registers[0] = 12345;
-    server->registers.holding_registers[1] = 54321;
-    server->registers.input_registers[0] = 100;
-    server->registers.input_registers[1] = 200;
-
-    // Initialize all client slots
-    for(int i = 0; i < MAX_CLIENTS; i++) {
-        ptk_error_t result = init_client(&server->clients[i], loop);
-        if(result != PTK_SUCCESS) {
-            printf("Failed to initialize client %d: %d\n", i, result);
-            return result;
-        }
-    }
+    // Dynamically allocate server transition table
+    server->server_transitions = malloc(sizeof(ptk_transition_t) * 8);
 
     // Initialize server transition table
-    ptk_error_t result = ptk_tt_init(&server->server_table, server->server_transitions, 8);
-    if(result != PTK_SUCCESS) { return result; }
-
-    // Add server state transitions
+    ptk_tt_init(&server->server_table, server->server_transitions, 8);
     ptk_tt_add_transition(&server->server_table, SERVER_STATE_LISTENING, EVENT_SERVER_ACCEPT, SERVER_STATE_ACCEPTING, NULL,
                           server_accept_action);
     ptk_tt_add_transition(&server->server_table, SERVER_STATE_ACCEPTING, EVENT_SERVER_ACCEPT, SERVER_STATE_LISTENING, NULL,
@@ -585,28 +536,9 @@ static ptk_error_t init_server(server_context_t *server, ptk_loop_t *loop) {
     ptk_tt_add_transition(&server->server_table, SERVER_STATE_LISTENING, EVENT_HEARTBEAT, SERVER_STATE_LISTENING, NULL,
                           server_heartbeat_action);
 
-    // Set up server table array
-    server->server_tables[0] = &server->server_table;
-
-    // Initialize server event sources
-    ptk_es_init_user_event(&server->accept_source, EVENT_SERVER_ACCEPT, server);
-    ptk_es_init_timer(&server->heartbeat_source, EVENT_HEARTBEAT, 5000, true, server);  // 5 second heartbeat
-
-    // Set up server source array
-    server->server_sources[0] = &server->accept_source;
-    server->server_sources[1] = &server->heartbeat_source;
-
-    // Initialize server state machine
-    result = ptk_sm_init(&server->server_state_machine, server->server_tables, 1, server->server_sources, 2, loop, server);
-    if(result != PTK_SUCCESS) { return result; }
-
     // Attach table and sources
+    server->server_tables[0] = &server->server_table;
     ptk_sm_attach_table(&server->server_state_machine, &server->server_table);
-    ptk_sm_attach_event_source(&server->server_state_machine, &server->accept_source);
-    ptk_sm_attach_event_source(&server->server_state_machine, &server->heartbeat_source);
-
-    // Set initial state
-    server->server_state_machine.current_state = SERVER_STATE_LISTENING;
 
     return PTK_SUCCESS;
 }
@@ -624,11 +556,10 @@ int main() {
         return 1;
     }
 
-    // Initialize server
-    result = init_server(&g_server, &loop);
-    if(result != PTK_SUCCESS) {
-        printf("Failed to initialize server: %d\n", result);
-        return 1;
+    // Initialize server and clients
+    init_server(&g_server, &loop);
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        init_client(&g_server.clients[i], &loop);
     }
 
     // Open server socket
@@ -658,6 +589,13 @@ int main() {
 
     // Run the event loop
     ptk_loop_run(&loop);
+
+    // Cleanup dynamically allocated resources
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        free(g_server.clients[i].connection_transitions);
+        free(g_server.clients[i].protocol_transitions);
+    }
+    free(g_server.server_transitions);
 
     // Cleanup
     close(g_server.server_socket.socket_fd);
